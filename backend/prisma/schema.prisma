@@ -1,0 +1,266 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  role      Role     @default(STUDENT) // STUDENT, SUPERVISOR, ADMIN
+  name      String
+  email               String   @unique
+  password            String   // Hashed
+  status              UserStatus @default(ACTIVE)
+  isActive            Boolean  @default(true)
+  mustChangePassword  Boolean  @default(true)
+  lastLogin           DateTime?
+  failedLoginAttempts Int      @default(0)
+  accountLockedUntil  DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  deletedAt           DateTime?
+
+  // Relations
+  studentProfile    StudentProfile?
+  supervisorProfile SupervisorProfile?
+  logs              FieldLog[]
+  refreshTokens     RefreshToken[]
+  auditLogs         AuditLog[] @relation("AuditLogUser")
+  auditActions      AuditLog[] @relation("AuditLogActor")
+  fieldSessions     FieldSession[]
+  uploadedEvidence  Evidence[]
+  reviews           Review[]
+  notificationsReceived Notification[] @relation("NotificationRecipient")
+  notificationsSent     Notification[] @relation("NotificationSender")
+}
+
+model StudentProfile {
+  id             String  @id @default(uuid())
+  userId         String  @unique
+  registrationNo String  @unique
+  phone          String?
+  avatar         String?
+  topic          String?
+  status         Status  @default(IDLE) // IDLE, IN_FIELD, CHECKED_OUT
+  gpsStatus      String?
+  programme      String?
+  department     String?
+  faculty        String?
+  supervisorId   String?
+  
+  user User @relation(fields: [userId], references: [id])
+  supervisor SupervisorProfile? @relation("AssignedSupervisor", fields: [supervisorId], references: [id])
+}
+
+model SupervisorProfile {
+  id             String  @id @default(uuid())
+  userId         String  @unique
+  staffNumber    String  @unique
+  department     String?
+  faculty        String?
+  specialization String?
+  office         String?
+  phone          String?
+  studentCapacity Int    @default(20)
+  
+  user User @relation(fields: [userId], references: [id])
+  assignedStudents StudentProfile[] @relation("AssignedSupervisor")
+}
+
+enum FieldSessionStatus {
+  ACTIVE
+  COMPLETED
+}
+
+model FieldSession {
+  id                 String             @id @default(uuid())
+  studentId          String
+  checkInTime        DateTime           @default(now())
+  checkOutTime       DateTime?
+  durationSeconds    Int?
+  distanceTravelled  Float?
+  startLatitude      Float
+  startLongitude     Float
+  endLatitude        Float?
+  endLongitude       Float?
+  startAccuracy      Float
+  endAccuracy        Float?
+  averageAccuracy    Float?
+  status             FieldSessionStatus @default(ACTIVE)
+  batteryLevelStart  Int?
+  batteryLevelEnd    Int?
+  networkType        String?
+  deviceModel        String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user               User               @relation(fields: [studentId], references: [id])
+  locationPings      LocationPing[]
+}
+
+model LocationPing {
+  id        String   @id @default(uuid())
+  sessionId String
+  latitude  Float
+  longitude Float
+  accuracy  Float
+  altitude  Float?
+  speed     Float?
+  heading   Float?
+  timestamp DateTime @default(now())
+
+  session   FieldSession @relation(fields: [sessionId], references: [id])
+}
+
+model FieldLog {
+  id             String         @id @default(uuid())
+  studentId      String
+  title          String
+  description    String?
+  latitude       Float?
+  longitude      Float?
+  gpsAccuracy    Float?
+  timestamp      DateTime       @default(now())
+  status         ActivityStatus @default(DRAFT)
+  methodology    String?
+  objectives     String?
+  findings       String?
+  remarks        String?
+
+  user           User           @relation(fields: [studentId], references: [id])
+  evidence       Evidence[]
+  reviews        Review[]
+}
+
+enum UploadStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model Evidence {
+  id            String       @id @default(uuid())
+  activityId    String
+  uploadedById  String
+  originalName  String
+  storedName    String
+  fileExtension String
+  mimeType      String
+  fileSize      Int
+  width         Int?
+  height        Int?
+  duration      Int?
+  checksum      String?
+  thumbnailPath String?
+  storagePath   String
+  uploadStatus  UploadStatus @default(PENDING)
+  gpsLatitude   Float?
+  gpsLongitude  Float?
+  gpsAccuracy   Float?
+  capturedAt    DateTime?
+  uploadedAt    DateTime     @default(now())
+
+  log           FieldLog     @relation(fields: [activityId], references: [id])
+  uploader      User         @relation(fields: [uploadedById], references: [id])
+}
+
+model Review {
+  id           String         @id @default(uuid())
+  activityId   String
+  reviewerId   String
+  rating       Float
+  comments     String?
+  status       ActivityStatus
+  createdAt    DateTime       @default(now())
+
+  log          FieldLog       @relation(fields: [activityId], references: [id])
+  reviewer     User           @relation(fields: [reviewerId], references: [id])
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  recipientId String
+  senderId    String?
+  title       String
+  message     String
+  type        NotificationType
+  entityType  String?          // "FIELD_SESSION", "FIELD_LOG", etc.
+  entityId    String?
+  priority    Int              @default(0) // 0: Normal, 1: High
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  recipient   User             @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  sender      User?            @relation("NotificationSender", fields: [senderId], references: [id])
+}
+
+enum ActivityStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION_REQUESTED
+  RESUBMITTED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum NotificationType {
+  CHECKED_IN
+  CHECKED_OUT
+  REVIEW_RECEIVED
+  REVISION_REQUESTED
+  ACTIVITY_APPROVED
+  SYSTEM_ALERT
+  NEW_SUBMISSION
+  SUPERVISOR_MESSAGE
+}
+
+enum Role {
+  STUDENT
+  SUPERVISOR
+  ADMIN
+}
+
+enum Status {
+  IDLE
+  IN_FIELD
+  CHECKED_OUT
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  DISABLED
+  SUSPENDED
+  LOCKED
+  ARCHIVED
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?  // Who performed the action
+  userId    String?  // Affected user
+  action    String
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  device    String?
+  timestamp DateTime @default(now())
+
+  actor User? @relation("AuditLogActor", fields: [actorId], references: [id])
+  user  User? @relation("AuditLogUser", fields: [userId], references: [id])
+}
