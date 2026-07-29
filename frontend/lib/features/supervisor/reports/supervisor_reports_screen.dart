@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/shared/models/student_data.dart';
+import 'package:fieldtrack/core/network/api_client.dart';
 import '../widgets/supervisor_top_header.dart';
 
 // ==========================================
@@ -207,202 +208,87 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
 
   Future<void> _loadDashboard() async {
     setState(() => _isLoading = true);
-    final data = widget.fetchDashboardData != null
-        ? await widget.fetchDashboardData!(_timeFilter, _categoryFilter)
-        : await _mockFetch(_timeFilter, _categoryFilter);
-    if (!mounted) return;
-    setState(() {
-      _stats = data.stats;
-      _trendData = data.trend;
-      _students = data.students;
-      _gaugePercentage = data.gaugePercentage;
-      _isLoading = false;
-    });
-  }
-
-  Future<DashboardData> _mockFetch(String timeFilter, String category) async {
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    final scaleMap = {
-      'This Week': 0.4,
-      'This Month': 1.0,
-      'This Quarter': 3.0,
-      'This Year': 12.0,
-    };
-    final scale = scaleMap[timeFilter] ?? 1.0;
-
-    List<TrendDataPoint> trend;
-    if (timeFilter == 'This Year') {
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      trend = List.generate(
-        12,
-        (i) => TrendDataPoint(
-          label: months[i],
-          value: (8.0 + (i * 3 % 18)) * (scale / 2),
-          dateLabel: '${months[i]} 2026',
+    try {
+      final response = await ApiClient().dio.get('/reports/supervisor');
+      final rawData = response.data;
+      
+      final statsData = (rawData['stats'] as Map<String, dynamic>?) ?? {};
+      final parsedStats = [
+        StatCardModel(
+          title: 'Total Activities',
+          value: '${statsData['totalActivities'] ?? 0}',
+          percentage: '',
+          isUp: true,
+          icon: PhosphorIcons.fileText(PhosphorIconsStyle.fill),
+          iconColor: _C.green,
+          circleGradientColors: const [Colors.white, Colors.white],
+          isCardGradient: true,
         ),
-      );
-    } else if (timeFilter == 'This Quarter') {
-      trend = [
-        TrendDataPoint(
-          label: 'Week 1',
-          value: 12 * scale,
-          dateLabel: 'Apr - W1, 2026',
+        StatCardModel(
+          title: 'Report Submitted',
+          value: '${statsData['reportsSubmitted'] ?? 0}',
+          percentage: '',
+          isUp: true,
+          icon: PhosphorIconsFill.fileText,
+          iconColor: Colors.white,
+          circleGradientColors: const [_C.green, _C.green],
         ),
-        TrendDataPoint(
-          label: 'Week 4',
-          value: 20 * scale,
-          dateLabel: 'Apr - W4, 2026',
+        StatCardModel(
+          title: 'Pending Review',
+          value: '${statsData['pendingReviews'] ?? 0}',
+          percentage: '',
+          isUp: true,
+          icon: PhosphorIconsFill.clock,
+          iconColor: Colors.white,
+          circleGradientColors: const [_C.green, _C.green],
         ),
-        TrendDataPoint(
-          label: 'Week 8',
-          value: 15 * scale,
-          dateLabel: 'May - W4, 2026',
-        ),
-        TrendDataPoint(
-          label: 'Week 12',
-          value: 25 * scale,
-          dateLabel: 'Jun - W4, 2026',
+        StatCardModel(
+          title: 'Approved Logs',
+          value: '${statsData['approvedLogs'] ?? 0}',
+          percentage: '',
+          isUp: true,
+          icon: PhosphorIconsFill.checkCircle,
+          iconColor: Colors.white,
+          circleGradientColors: const [Color(0xFF374151), Color(0xFF374151)],
         ),
       ];
-    } else if (timeFilter == 'This Week') {
-      final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      trend = List.generate(
-        7,
-        (i) => TrendDataPoint(
-          label: days[i],
-          value: (5.0 + (i * 4 % 15)) * scale,
-          dateLabel: '${days[i]}, May 2026',
-        ),
-      );
-    } else {
-      trend = [
-        TrendDataPoint(
-          label: 'May 1',
-          value: 12 * scale,
-          dateLabel: 'May 1, 2026',
-        ),
-        TrendDataPoint(
-          label: 'May 6',
-          value: 10 * scale,
-          dateLabel: 'May 6, 2026',
-        ),
-        TrendDataPoint(
-          label: 'May 11',
-          value: 18 * scale,
-          dateLabel: 'May 11, 2026',
-        ),
-        TrendDataPoint(
-          label: 'May 16',
-          value: 14 * scale,
-          dateLabel: 'May 16, 2026',
-        ),
-        TrendDataPoint(
-          label: 'May 26',
-          value: 8 * scale,
-          dateLabel: 'May 26, 2026',
-        ),
-        TrendDataPoint(
-          label: 'May 31',
-          value: 12 * scale,
-          dateLabel: 'May 31, 2026',
-        ),
-      ];
+      
+      final rawGauge = (rawData['gaugeMap'] as Map<String, dynamic>?) ?? {};
+      final parsedGauge = rawGauge.map((k, v) => MapEntry(k, (v as num).toDouble()));
+      
+      final rawTrend = (rawData['trendData'] as List<dynamic>?) ?? [];
+      final parsedTrend = rawTrend.map((t) => TrendDataPoint(
+        label: t['label'] ?? '',
+        value: (t['value'] as num).toDouble(),
+        dateLabel: t['dateLabel'] ?? '',
+      )).toList();
+      
+      final rawActivities = (rawData['recentActivities'] as List<dynamic>?) ?? [];
+      final parsedActivities = rawActivities.map((a) => StudentActivity(
+        id: a['id'] ?? '',
+        name: a['studentName'] ?? 'Unknown',
+        avatarUrl: '', // Default to empty string for missing avatars
+        reg: '',
+        programme: '',
+        topic: a['activityTitle'] ?? '',
+        activitiesCount: 1,
+        checkInStatus: a['status'] ?? '',
+        lastActivity: a['time'] ?? '',
+      )).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _stats = parsedStats;
+        _trendData = parsedTrend;
+        _students = parsedActivities;
+        _gaugePercentage = parsedGauge.isNotEmpty ? parsedGauge.values.first : 0.0;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showPillSnackbar('Failed to load reports', color: _C.red);
     }
-
-    final gaugeMap = {
-      'Field Survey': 0.72,
-      'Lab Work': 0.98,
-      'Interviews': 0.55,
-      'Site Visits': 0.86,
-    };
-
-    final stats = [
-      StatCardModel(
-        title: 'Total Activities',
-        value: '${(248 * (scale > 1 ? scale / 3 : scale)).round()}',
-        percentage: '18.6%',
-        isUp: true,
-        icon: PhosphorIcons.fileText(PhosphorIconsStyle.fill),
-        iconColor: _C.green,
-        circleGradientColors: const [Colors.white, Colors.white],
-        isCardGradient: true,
-      ),
-      const StatCardModel(
-        title: 'Report Submitted',
-        value: '94',
-        percentage: '15.3%',
-        isUp: true,
-        icon: PhosphorIconsFill.fileText,
-        iconColor: Colors.white,
-        circleGradientColors: [_C.green, _C.green],
-      ),
-      const StatCardModel(
-        title: 'Pending Review',
-        value: '11',
-        percentage: '8.3%',
-        isUp: true,
-        icon: PhosphorIconsFill.clock,
-        iconColor: Colors.white,
-        circleGradientColors: [_C.green, _C.green],
-      ),
-      const StatCardModel(
-        title: 'Completion Rate',
-        value: '82%',
-        percentage: '12%',
-        isUp: false,
-        icon: PhosphorIconsFill.chartLineUp,
-        iconColor: Colors.white,
-        circleGradientColors: [Color(0xFF374151), Color(0xFF374151)],
-      ),
-    ];
-
-    const students = [
-      StudentActivity(
-        id: '1',
-        name: 'Jane Akinyi',
-        avatarUrl:
-            'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=150&q=80',
-        reg: 'MB21/PU/42442/22',
-        programme: 'Msc Geography',
-        topic: 'Mangrove Ecosystem...',
-        activitiesCount: 20,
-        checkInStatus: 'Online',
-        lastActivity: '10:42 AM',
-      ),
-      StudentActivity(
-        id: '2',
-        name: 'Brian Okoth',
-        avatarUrl:
-            'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=150&q=80',
-        reg: 'MB21/PU/42442/22',
-        programme: 'PHD Env.Science',
-        topic: 'Water quality Assess..',
-        activitiesCount: 12,
-        checkInStatus: 'Online',
-        lastActivity: '09:15 AM',
-      ),
-    ];
-
-    return DashboardData(
-      stats: stats,
-      trend: trend,
-      gaugePercentage: gaugeMap[category] ?? 0.72,
-      students: students,
-    );
   }
 
   List<String> get _programmeOptions => [

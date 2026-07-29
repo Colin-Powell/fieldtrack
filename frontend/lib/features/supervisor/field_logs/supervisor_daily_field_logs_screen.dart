@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/core/network/api_result.dart';
+import 'package:fieldtrack/core/network/api_result_builder.dart';
+import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
+import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
+import 'package:fieldtrack/core/constants/app_constants.dart';
 import '../widgets/supervisor_top_header.dart';
 // ==========================================
 // DESIGN TOKENS
@@ -16,20 +24,20 @@ class _C {
   static const cardRadius = 32.0;
 }
 
-class SupervisorDailyFieldLogsScreen extends StatelessWidget {
+class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
   final String studentId;
   final String studentName;
   final bool embedded;
   const SupervisorDailyFieldLogsScreen({
     super.key,
     required this.studentId,
-    this.studentName = 'Jane Akinyi',
+    this.studentName = '',
     this.embedded = false,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final body = _buildBody(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final body = _buildBody(context, ref);
     if (embedded) {
       return body;
     }
@@ -39,109 +47,134 @@ class SupervisorDailyFieldLogsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBody(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(32.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildHeader(context),
-          const SizedBox(height: 40),
+  Widget _buildBody(BuildContext context, WidgetRef ref) {
+    final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider(studentId));
 
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return ApiResultBuilder<List<dynamic>>(
+      asyncValue: activitiesAsync,
+      onRetry: () => ref.refresh(studentActivitiesByStudentIdProvider(studentId)),
+      customLoading: const Padding(
+        padding: EdgeInsets.all(24.0),
+        child: ListSkeletonLoader(itemCount: 4, itemHeight: 120),
+      ),
+      onData: (activities) {
+        // Resolve student name: prefer passed prop, fallback to first activity's user name
+        final resolvedName = studentName.isNotEmpty
+            ? studentName
+            : (activities.isNotEmpty
+                ? (activities.first['user']?['name'] as String? ?? 'Student')
+                : 'Student');
+
+        if (activities.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: Text('No field logs found.', style: TextStyle(fontFamily: 'Poppins', fontSize: 16)),
+            ),
+          );
+        }
+
+        // Generate timeline items
+        final List<Widget> timelineItems = [];
+        final List<Widget> activityItems = [];
+        
+        timelineItems.add(
+          _buildTimelineItem(
+            context,
+            time: '08:00 AM', // Mock checkin time
+            title: 'Checked In',
+            subtitle: 'Field Location',
+            iconWidget: _buildSolidIcon(PhosphorIconsBold.check, _C.green),
+            isLast: false,
+          )
+        );
+
+        int evidenceCount = 0;
+        for (int i = 0; i < activities.length; i++) {
+          final activity = activities[i];
+          final title = activity['title'] ?? 'Untitled Activity';
+          final status = activity['status'] ?? 'DRAFT';
+          
+          String timeStr = '';
+          if (activity['timestamp'] != null) {
+            final dt = DateTime.parse(activity['timestamp']).toLocal();
+            timeStr = DateFormat('hh:mm a').format(dt);
+          }
+          
+          String? imageUrl;
+          final evidenceList = activity['evidence'] as List<dynamic>? ?? [];
+          evidenceCount += evidenceList.length;
+          
+          for (final ev in evidenceList) {
+            final mimeType = ev['mimeType'] as String? ?? '';
+            if (mimeType.startsWith('image/')) {
+              final path = ev['storagePath'];
+              if (path != null) {
+                imageUrl = '${AppConstants.apiUrl}/$path';
+                break;
+              }
+            }
+          }
+
+          timelineItems.add(
+            _buildTimelineItem(
+              context,
+              time: timeStr,
+              title: 'Activity Submitted',
+              subtitle: title,
+              evidenceCount: evidenceList.length,
+              imgUrl: imageUrl ?? 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
+              isLast: false,
+              activityId: activity['id'] ?? '',
+            )
+          );
+
+          activityItems.add(
+            _buildActivityItem(
+              context,
+              title: title,
+              time: timeStr,
+              statusLabel: status == 'APPROVED' ? 'Reviewed' : (status == 'DRAFT' ? 'In Progress' : 'Submitted'),
+              statusColor: status == 'APPROVED' ? _C.green : _C.textDark,
+              statusBg: status == 'APPROVED' ? _C.greenLight : _C.bg,
+              imgUrl: imageUrl ?? 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
+              imagesCount: '${evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('image/')).length}',
+              filesCount: '${evidenceList.where((e) => !(e['mimeType'] as String? ?? '').startsWith('image/')).length}',
+              activityId: activity['id'] ?? '',
+            )
+          );
+        }
+
+        timelineItems.add(
+          _buildTimelineItem(
+            context,
+            time: '05:00 PM', // Mock checkout time
+            title: 'Checked Out',
+            subtitle: 'Field Location',
+            iconWidget: _buildSolidIcon(PhosphorIconsBold.check, const Color(0xFF3B82F6)),
+            isLast: true,
+          )
+        );
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Left Column: Field Session Timeline
-              Expanded(
-                flex: 4,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Field Session Timeline',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: _C.textDark,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
+              _buildHeader(context, resolvedName),
+              const SizedBox(height: 40),
 
-                    // Timeline Items
-                    _buildTimelineItem(
-                      context,
-                      time: '07:52 AM',
-                      title: 'Checked In',
-                      subtitle: 'Mnarani Creek, Kilifi County\nAccuracy: 4.2 m',
-                      iconWidget: _buildSolidIcon(
-                        PhosphorIconsBold.check,
-                        _C.green,
-                      ),
-                      isLast: false,
-                    ),
-                    _buildTimelineItem(
-                      context,
-                      time: '08:15 AM',
-                      title: 'Activity Submitted',
-                      subtitle: 'Mangrove Vegetation\nSurvey',
-                      evidenceCount: 3,
-                      imgUrl:
-                          'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
-                      isLast: false,
-                      activityId: 'act-001',
-                    ),
-                    _buildTimelineItem(
-                      context,
-                      time: '10:35 AM',
-                      title: 'Activity Submitted',
-                      subtitle: 'Water Quality Sampling',
-                      evidenceCount: 4,
-                      imgUrl:
-                          'https://images.unsplash.com/photo-1616423640778-28d1b53229bd?auto=format&fit=crop&w=150&q=80',
-                      isLast: false,
-                      activityId: 'act-002',
-                    ),
-                    _buildTimelineItem(
-                      context,
-                      time: '10:35 AM',
-                      title: 'Activity Submitted',
-                      subtitle: 'Sediment Analysis',
-                      evidenceCount: 2,
-                      imgUrl:
-                          'https://images.unsplash.com/photo-1544257124-741165bc6f23?auto=format&fit=crop&w=150&q=80',
-                      isLast: false,
-                      activityId: 'act-003',
-                    ),
-                    _buildTimelineItem(
-                      context,
-                      time: '10:35 AM',
-                      title: 'Checked Out',
-                      subtitle:
-                          'Mnarani Creek, Kilifi County\nTotal Time: 7h 20m',
-                      iconWidget: _buildSolidIcon(
-                        PhosphorIconsBold.check,
-                        const Color(0xFF3B82F6),
-                      ), // Blue check
-                      isLast: true,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 48),
-
-              // Right Column: Summary & Activities
-              Expanded(
-                flex: 7,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Daily Summary Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left Column: Field Session Timeline
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Daily Summary',
+                          'Field Session Timeline',
                           style: TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 18,
@@ -149,166 +182,128 @@ class SupervisorDailyFieldLogsScreen extends StatelessWidget {
                             color: _C.textDark,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _C.greenLight,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'Completed',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _C.green,
-                            ),
-                          ),
-                        ),
+                        const SizedBox(height: 32),
+                        ...timelineItems,
                       ],
                     ),
-                    const SizedBox(height: 24),
+                  ),
+                  const SizedBox(width: 48),
 
-                    // Green Summary Pills
-                    Row(
+                  // Right Column: Summary & Activities
+                  Expanded(
+                    flex: 7,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: _buildSummaryPill('Total Activities', '3'),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildSummaryPill('Evidence Files', '9'),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildSummaryPill('Time in Field', '7h 20m'),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildSummaryPill(
-                            'Distanced Travelled',
-                            '12.6 km',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 40),
-
-                    // Activities Card
-                    Container(
-                      decoration: BoxDecoration(
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Dark Header
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 32,
-                              vertical: 24,
-                            ),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF1F2937), // Dark grey/black
-                              borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(_C.cardRadius),
-                              ),
-                            ),
-                            child: const Text(
-                              'Activities for 21 July 2026',
+                        // Daily Summary Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Daily Summary',
                               style: TextStyle(
                                 fontFamily: 'Poppins',
-                                fontSize: 16,
+                                fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: _C.textDark,
                               ),
                             ),
-                          ),
-                          // White Body
-                          Container(
-                            padding: const EdgeInsets.all(32),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.vertical(
-                                bottom: Radius.circular(_C.cardRadius),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _C.greenLight,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                'Completed',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _C.green,
+                                ),
                               ),
                             ),
-                            child: Column(
-                              children: [
-                                _buildActivityItem(
-                                  context,
-                                  title: 'Mangrove Vegetation Survey',
-                                  time: '08:15 AM - 09:05 AM',
-                                  statusLabel: 'Reviewed',
-                                  statusColor: _C.green,
-                                  statusBg: _C.greenLight,
-                                  imgUrl:
-                                      'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
-                                  imagesCount: '3',
-                                  filesCount: '1',
-                                  activityId: 'act-001',
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 24),
-                                  child: Divider(color: _C.border, height: 1),
-                                ),
-                                _buildActivityItem(
-                                  context,
-                                  title: 'Water Quality Sampling',
-                                  time: '09:15 AM - 10:15 AM',
-                                  statusLabel: 'Pending Review',
-                                  statusColor: const Color(0xFFF97316),
-                                  statusBg: const Color(0xFFFFEDD5),
-                                  imgUrl:
-                                      'https://images.unsplash.com/photo-1616423640778-28d1b53229bd?auto=format&fit=crop&w=150&q=80',
-                                  imagesCount: '4',
-                                  filesCount: '1',
-                                  activityId: 'act-002',
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 24),
-                                  child: Divider(color: _C.border, height: 1),
-                                ),
-                                _buildActivityItem(
-                                  context,
-                                  title: 'Sediment Analysis',
-                                  time: '10:35 AM - 11:20 AM',
-                                  statusLabel: 'Pending Review',
-                                  statusColor: const Color(0xFFF97316),
-                                  statusBg: const Color(0xFFFFEDD5),
-                                  imgUrl:
-                                      'https://images.unsplash.com/photo-1544257124-741165bc6f23?auto=format&fit=crop&w=150&q=80',
-                                  imagesCount: '2',
-                                  filesCount: '1',
-                                  activityId: 'act-003',
-                                ),
-                              ],
-                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Green Summary Pills
+                        Row(
+                          children: [
+                            Expanded(child: _buildSummaryPill('Total Activities', '${activities.length}')),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildSummaryPill('Evidence Files', '$evidenceCount')),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildSummaryPill('Time in Field', '9h 00m')),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildSummaryPill('Distance Travelled', '12.6 km')),
+                          ],
+                        ),
+                        const SizedBox(height: 40),
+
+                        // Activities Card
+                        Container(
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.03),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Dark Header
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF1F2937),
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(_C.cardRadius)),
+                                ),
+                                child: const Text(
+                                  'Activities for Today',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              // White Body
+                              Container(
+                                padding: const EdgeInsets.all(32),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(_C.cardRadius)),
+                                ),
+                                child: Column(
+                                  children: activityItems,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   // ── 1. HEADER ─────────────────────────────────────────────────────────
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, String resolvedName) {
     final exportBtn = ElevatedButton(
       onPressed: () {},
       style: ElevatedButton.styleFrom(
@@ -358,7 +353,7 @@ class SupervisorDailyFieldLogsScreen extends StatelessWidget {
           GestureDetector(
             onTap: () => context.go('/supervisor/student/$studentId'),
             child: Text(
-              studentName,
+              resolvedName,
               style: const TextStyle(
                 fontFamily: 'Poppins',
                 fontSize: 14,
@@ -777,3 +772,4 @@ class _DottedLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

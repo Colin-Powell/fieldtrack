@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import '../providers/auth_provider.dart';
 import '../utils/toast_service.dart';
+import 'package:fieldtrack/shared/screens/router_error_screen.dart';
 import 'package:fieldtrack/features/auth/splash_screen.dart';
 import 'package:fieldtrack/features/auth/welcome_screen.dart';
 import 'package:fieldtrack/features/auth/login_screen.dart';
@@ -110,6 +111,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     refreshListenable: notifier,
     redirect: notifier.redirect,
+    errorBuilder: (context, state) => RouterErrorScreen(error: state.error),
     routes: [
       // ── Auth & misc ────────────────────────────────────────────────────
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
@@ -151,8 +153,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       GoRoute(
-        path: '/activity-detail',
-        builder: (_, __) => const ActivityDetailScreen(),
+        path: '/activity-detail/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return ActivityDetailScreen(activityId: id);
+        },
       ),
       GoRoute(path: '/checkin', builder: (_, __) => const CheckInScreen()),
 

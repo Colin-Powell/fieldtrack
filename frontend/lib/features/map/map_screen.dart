@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/core/providers/location_provider.dart';
+import 'package:fieldtrack/features/map/providers/student_map_provider.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -21,6 +22,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final locState = ref.watch(locationProvider);
+    final mapState = ref.watch(studentMapProvider);
+    
     final LatLng userLocation = (!locState.isLocating && locState.error == null)
         ? LatLng(locState.latitude, locState.longitude)
         : _fallbackLocation;
@@ -42,37 +45,58 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.fieldtrack.app',
               ),
-              // User location marker
-              if (!locState.isLocating && locState.error == null)
-                MarkerLayer(
-                  markers: [
-                    // Mocked markers around Kilifi coordinates
+              // Route Layer
+              if (mapState.visitedRoute.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: mapState.visitedRoute,
+                      strokeWidth: 4.0,
+                      color: const Color(0xFF1BA654),
+                    ),
+                  ],
+                ),
+              // Dynamic Markers Layer
+              MarkerLayer(
+                markers: [
+                  // Visited locations (small dots)
+                  ...mapState.visitedRoute.map((point) => Marker(
+                    point: point,
+                    width: 12,
+                    height: 12,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1BA654).withOpacity(0.5),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  )),
+                  // Activity locations
+                  ...mapState.activityLocations.map((point) => Marker(
+                    point: point,
+                    width: 32,
+                    height: 32,
+                    child: const Icon(Icons.location_on, color: Color(0xFFF97316), size: 32),
+                  )),
+                  // Supervisor Location
+                  if (mapState.supervisorLocation != null)
                     Marker(
-                      point: const LatLng(-3.6335, 39.8529),
+                      point: mapState.supervisorLocation!,
                       width: 32,
                       height: 32,
-                      child: const Icon(Icons.location_on, color: Color(0xFF1BA654), size: 32), // Visited
+                      child: const Icon(Icons.location_on, color: Color(0xFF3B82F6), size: 32),
                     ),
-                    Marker(
-                      point: const LatLng(-3.6280, 39.8450),
-                      width: 32,
-                      height: 32,
-                      child: const Icon(Icons.location_on, color: Color(0xFFF97316), size: 32), // Activity
-                    ),
-                    Marker(
-                      point: const LatLng(-3.6350, 39.8470),
-                      width: 32,
-                      height: 32,
-                      child: const Icon(Icons.location_on, color: Color(0xFF3B82F6), size: 32), // Supervisor
-                    ),
+                  // Current User location marker
+                  if (!locState.isLocating && locState.error == null)
                     Marker(
                       point: userLocation,
                       width: 40,
                       height: 40,
                       child: _buildUserLocationDot(),
                     ),
-                  ],
-                ),
+                ],
+              ),
             ],
           ),
 

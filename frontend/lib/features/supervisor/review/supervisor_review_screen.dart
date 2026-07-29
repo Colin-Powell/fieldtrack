@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import 'package:fieldtrack/features/supervisor/repositories/student_repository.dart';
+import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/core/providers/auth_provider.dart';
+import 'package:fieldtrack/core/network/api_result.dart';
 
 // --- Design Tokens ---
 class _Colors {
@@ -14,27 +21,28 @@ class _Colors {
   static const cornerRadius = 48.0; // Updated all round corners to 48px
 }
 
-class SupervisorReviewScreen extends StatefulWidget {
+class SupervisorReviewScreen extends ConsumerStatefulWidget {
   final String studentId;
   final String activityId;
+  final String studentName;
   const SupervisorReviewScreen({
     super.key,
     required this.studentId,
     required this.activityId,
+    required this.studentName,
   });
 
   @override
-  State<SupervisorReviewScreen> createState() => _SupervisorReviewScreenState();
+  ConsumerState<SupervisorReviewScreen> createState() => _SupervisorReviewScreenState();
 }
 
-class _SupervisorReviewScreenState extends State<SupervisorReviewScreen> {
+class _SupervisorReviewScreenState extends ConsumerState<SupervisorReviewScreen> {
   // --- State Variables ---
-  double _rating = 4.5;
+  double _rating = 0.0;
   String _selectedStatus = 'Approved';
+  bool _isSubmitting = false;
   
-  final TextEditingController _commentController = TextEditingController(
-    text: 'Good observation and well decumented. Include more notes on\nspecies density measurements in your next submission.\n\nKeep up the good work.',
-  );
+  final TextEditingController _commentController = TextEditingController();
 
   @override
   void dispose() {
@@ -43,7 +51,7 @@ class _SupervisorReviewScreenState extends State<SupervisorReviewScreen> {
   }
 
   // Submit Feedback Logic
-  void _submitFeedback() {
+  Future<void> _submitFeedback() async {
     if (_commentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -54,65 +62,143 @@ class _SupervisorReviewScreenState extends State<SupervisorReviewScreen> {
       return;
     }
 
-    Color modalColor = _Colors.primaryGreen;
-    IconData modalIcon = PhosphorIconsFill.checkCircle;
-    
-    if (_selectedStatus == 'Request Revision') {
-      modalColor = _Colors.orange;
-      modalIcon = PhosphorIconsFill.warningCircle;
-    } else if (_selectedStatus == 'Reject') {
-      modalColor = _Colors.red;
-      modalIcon = PhosphorIconsFill.xCircle;
-    }
+    setState(() => _isSubmitting = true);
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_Colors.cornerRadius),
-        ),
-        title: Row(
-          children: [
-            Icon(modalIcon, color: modalColor, size: 32),
-            const SizedBox(width: 12),
-            const Text(
-              'Feedback Submitted',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w700,
-                color: _Colors.textDark,
+    try {
+      final repo = StudentRepository();
+      final supervisorId = ref.read(authProvider).user?.id ?? '';
+      
+      if (supervisorId.isEmpty) {
+        throw Exception('Supervisor not authenticated');
+      }
+      
+      String mappedStatus = 'APPROVED';
+      if (_selectedStatus == 'Request Revision') mappedStatus = 'REVISION_REQUESTED';
+      if (_selectedStatus == 'Reject') mappedStatus = 'REJECTED';
+
+      await repo.submitReview(
+        widget.studentId,
+        widget.activityId,
+        reviewerId: supervisorId,
+        rating: _rating,
+        status: mappedStatus,
+        comments: _commentController.text,
+      );
+
+      if (!mounted) return;
+
+      Color modalColor = _Colors.primaryGreen;
+      IconData modalIcon = PhosphorIconsFill.checkCircle;
+      
+      if (_selectedStatus == 'Request Revision') {
+        modalColor = _Colors.orange;
+        modalIcon = PhosphorIconsFill.warningCircle;
+      } else if (_selectedStatus == 'Reject') {
+        modalColor = _Colors.red;
+        modalIcon = PhosphorIconsFill.xCircle;
+      }
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_Colors.cornerRadius),
+          ),
+          title: Row(
+            children: [
+              Icon(modalIcon, color: modalColor, size: 32),
+              const SizedBox(width: 12),
+              const Text(
+                'Feedback Submitted',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w700,
+                  color: _Colors.textDark,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'The field log has been marked as "$_selectedStatus" with a rating of $_rating stars.',
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 15,
+              color: _Colors.textBody,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                // Invalidate providers so the activity status refreshes on return
+                ref.invalidate(activityDetailsProvider(widget.activityId));
+                ref.invalidate(studentActivitiesByStudentIdProvider(widget.studentId));
+                // Navigate back to student profile (don't use Navigator.pop — we're embedded in a tab)
+                context.go('/supervisor/student/${widget.studentId}');
+              },
+              child: Text(
+                'Close',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                  color: modalColor,
+                ),
               ),
             ),
           ],
         ),
-        content: Text(
-          'The field log has been marked as "$_selectedStatus" with a rating of $_rating stars.',
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 15,
-            color: _Colors.textBody,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to submit review: $e'),
+            backgroundColor: _Colors.red,
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Close',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w600,
-                color: modalColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final activityAsync = ref.watch(activityDetailsProvider(widget.activityId));
+    final activityResult = activityAsync.asData?.value;
+    final activity = activityResult is Success ? (activityResult as Success).data : null;
+    
+    // Attempt to grab dates and dynamic student name
+    String subTime = '-';
+    String lastEdited = '-';
+    String finalStudentName = widget.studentName;
+    if (activity != null) {
+      if (activity['timestamp'] != null) {
+        subTime = DateFormat('hh:mm a').format(DateTime.parse(activity['timestamp']).toLocal());
+      }
+      if (activity['user'] != null && activity['user']['name'] != null) {
+        finalStudentName = activity['user']['name'];
+      }
+    }
+    
+    String revisedOnText = '';
+    if (activity != null && activity['reviews'] != null) {
+      final reviews = activity['reviews'] as List<dynamic>;
+      if (reviews.isNotEmpty) {
+        final lastReview = reviews.last;
+        final revDateStr = lastReview['createdAt'] != null 
+          ? DateFormat('dd MMM yyyy').format(DateTime.parse(lastReview['createdAt']).toLocal()) 
+          : '';
+        final reviewerName = lastReview['reviewer']?['name'] ?? 'Unknown';
+        if (revDateStr.isNotEmpty) {
+          revisedOnText = '$revDateStr | $reviewerName';
+        }
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Row(
@@ -304,9 +390,9 @@ class _SupervisorReviewScreenState extends State<SupervisorReviewScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildMetaColumn('Submitted by:', 'Jane Akinyi'),
-                      _buildMetaColumn('Submission Time', '09:15 AM'),
-                      _buildMetaColumn('Last Edited', '09:32 AM'),
+                      _buildMetaColumn('Submitted by:', finalStudentName),
+                      _buildMetaColumn('Submission Time', subTime),
+                      _buildMetaColumn('Last Edited', lastEdited),
                     ],
                   ),
                 ),
@@ -371,19 +457,19 @@ class _SupervisorReviewScreenState extends State<SupervisorReviewScreen> {
                           child: Padding(
                             padding: const EdgeInsets.only(right: 8.0),
                             child: RichText(
-                              text: const TextSpan(
-                                style: TextStyle(
+                              text: TextSpan(
+                                style: const TextStyle(
                                   fontFamily: 'Poppins',
                                   fontSize: 13,
                                   color: _Colors.textBody,
                                 ),
-                                children: [
-                                  TextSpan(text: 'Revised on: '),
+                                children: revisedOnText.isNotEmpty ? [
+                                  const TextSpan(text: 'Revised on: '),
                                   TextSpan(
-                                    text: '21 Jul 2026 | Prof Okeyo Benards',
-                                    style: TextStyle(fontWeight: FontWeight.w700, color: _Colors.textDark),
+                                    text: revisedOnText,
+                                    style: const TextStyle(fontWeight: FontWeight.w700, color: _Colors.textDark),
                                   ),
-                                ],
+                                ] : [],
                               ),
                             ),
                           ),
@@ -419,7 +505,7 @@ class _SupervisorReviewScreenState extends State<SupervisorReviewScreen> {
                     ),
                     const SizedBox(width: 24),
                     ElevatedButton(
-                      onPressed: _submitFeedback,
+                      onPressed: _isSubmitting ? null : _submitFeedback,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _Colors.primaryGreen,
                         padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 22),
@@ -428,15 +514,21 @@ class _SupervisorReviewScreenState extends State<SupervisorReviewScreen> {
                           borderRadius: BorderRadius.circular(_Colors.cornerRadius),
                         ),
                       ),
-                      child: const Text(
-                        'Submit Feedback',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: _Colors.white,
-                        ),
-                      ),
+                      child: _isSubmitting 
+                          ? const SizedBox(
+                              width: 20, 
+                              height: 20, 
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text(
+                              'Submit Feedback',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: _Colors.white,
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -591,3 +683,4 @@ class _HalfRectClipper extends CustomClipper<Rect> {
   @override
   bool shouldReclip(covariant CustomClipper<Rect> oldClipper) => false;
 }
+

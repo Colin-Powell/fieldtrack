@@ -66,6 +66,7 @@ export class ActivityService {
             include: {
                 evidence: true,
                 reviews: true,
+                user: { select: { id: true, name: true, email: true } },
             },
             orderBy: { timestamp: 'desc' },
         });
@@ -85,6 +86,7 @@ export class ActivityService {
                         }
                     }
                 },
+                user: { select: { id: true, name: true, email: true } },
             }
         });
     }

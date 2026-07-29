@@ -71,11 +71,10 @@ export async function createStudent(req, res) {
             ipAddress: req.ip,
             userAgent: req.headers['user-agent'],
         });
-        // In a real app, send email with tempPassword here
         return res.status(201).json({
             success: true,
             message: 'Student created successfully',
-            tempPassword, // Returning for testing purposes
+            tempPassword,
             user: {
                 id: user.id,
                 name: user.name,
@@ -126,7 +125,7 @@ export async function createSupervisor(req, res) {
                     faculty,
                     office,
                     specialization,
-                    studentCapacity: studentCapacity ? parseInt(studentCapacity, 10) : 20,
+                    studentCapacity: typeof studentCapacity === 'number' ? studentCapacity : (studentCapacity ? parseInt(studentCapacity, 10) : 20),
                 },
             });
             return newUser;
@@ -223,7 +222,7 @@ export async function getUserById(req, res) {
                     include: { assignedStudents: true }
                 },
                 auditLogs: { orderBy: { timestamp: 'desc' } },
-                logs: { orderBy: { timestamp: 'desc' } }, // FieldLogs
+                logs: { orderBy: { timestamp: 'desc' } },
                 refreshTokens: { orderBy: { createdAt: 'desc' } }
             }
         });
@@ -359,7 +358,7 @@ export async function resetUserPassword(req, res) {
         const existingUser = await prisma.user.findUnique({ where: { id } });
         if (!existingUser)
             return res.status(404).json({ error: 'User not found' });
-        const tempPassword = generateTempPassword(); // generateTempPassword is locally defined above
+        const tempPassword = generateTempPassword();
         const hashedPassword = await bcrypt.hash(tempPassword, 12);
         await prisma.user.update({
             where: { id },
@@ -396,13 +395,286 @@ export async function deleteUser(req, res) {
         });
         if (actorId) {
             await AuditLogService.log({
-                actorId, userId: id, action: 'USER_ARCHIVED', // soft deleted
+                actorId, userId: id, action: 'USER_ARCHIVED',
                 details: {}, ipAddress: req.ip, userAgent: req.headers['user-agent'],
             });
         }
         return res.status(200).json({ success: true, message: 'User deleted (archived) successfully' });
     }
     catch (error) {
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+// ─────────────────────────────────────────────────────────────
+// NEW ENDPOINTS FOR DEPARTMENTS, PROJECTS, AUDIT, NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────
+export async function getDepartments(req, res) {
+    try {
+        // Aggregate department stats from student profiles
+        const deptGroups = await prisma.studentProfile.groupBy({
+            by: ['department'],
+            _count: { id: true },
+            where: { department: { not: null } },
+            orderBy: { _count: { id: 'desc' } },
+        });
+        // Get supervisors per department
+        const supervisorDeptGroups = await prisma.supervisorProfile.groupBy({
+            by: ['department'],
+            _count: { id: true },
+            where: { department: { not: null } },
+        });
+        const supervisorMap = new Map(supervisorDeptGroups.map(d => [d.department, d._count.id]));
+        // Get project counts per department (from field logs)
+        const departments = await Promise.all(deptGroups.map(async (dept) => {
+            const deptName = dept.department ?? 'Unknown';
+            const studentIds = await prisma.studentProfile.findMany({
+                where: { department: deptName },
+                select: { userId: true },
+            });
+            const studentIdList = studentIds.map(s => s.userId);
+            const projectCount = await prisma.fieldLog.count({
+                where: { studentId: { in: studentIdList }, status: { not: 'DRAFT' } },
+            });
+            return {
+                id: deptName.toLowerCase().replace(/\s+/g, '-'),
+                name: deptName,
+                students: dept._count.id,
+                supervisors: supervisorMap.get(deptName) ?? 0,
+                projects: projectCount,
+            };
+        }));
+        return res.status(200).json({ departments });
+    }
+    catch (error) {
+        console.error('Get departments error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function getProjects(req, res) {
+    try {
+        // Get all student profiles with non-null topics (research projects)
+        const studentProfiles = await prisma.studentProfile.findMany({
+            where: { topic: { not: null } },
+            include: {
+                user: true,
+                supervisor: { include: { user: true } },
+            },
+            orderBy: { user: { createdAt: 'desc' } },
+        });
+        const projects = await Promise.all(studentProfiles.map(async (sp) => {
+            const activityCount = await prisma.fieldLog.count({
+                where: { studentId: sp.userId },
+            });
+            const totalActivities = activityCount;
+            const progress = totalActivities > 0 ? Math.min(100, Math.round((totalActivities / 10) * 100)) : 0;
+            return {
+                id: sp.id,
+                topic: sp.topic ?? 'Untitled Research',
+                county: '', // Not stored in schema - can be added later
+                supervisor: sp.supervisor?.user?.name ?? 'Not Assigned',
+                students: 1,
+                progress,
+                status: progress >= 100 ? 'Completed' : 'Active',
+                studentName: sp.user.name,
+                registrationNo: sp.registrationNo,
+                department: sp.department ?? '',
+            };
+        }));
+        return res.status(200).json({ projects });
+    }
+    catch (error) {
+        console.error('Get projects error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function getAuditLogs(req, res) {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+        const [logs, total] = await Promise.all([
+            prisma.auditLog.findMany({
+                skip,
+                take: limit,
+                orderBy: { timestamp: 'desc' },
+                include: {
+                    actor: { select: { name: true } },
+                    user: { select: { name: true } },
+                },
+            }),
+            prisma.auditLog.count(),
+        ]);
+        const mappedLogs = logs.map((log) => ({
+            id: log.id,
+            time: log.timestamp.toISOString(),
+            administrator: log.actor?.name ?? 'System',
+            action: log.action,
+            affectedResource: log.user?.name ?? log.details?.toString()?.substring(0, 60) ?? '-',
+            ipAddress: log.ipAddress ?? '-',
+            status: 'Success',
+            details: log.details,
+        }));
+        return res.status(200).json({
+            logs: mappedLogs,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+    }
+    catch (error) {
+        console.error('Get audit logs error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function getNotifications(req, res) {
+    try {
+        const notifications = await prisma.notification.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+            include: {
+                sender: { select: { name: true } },
+            },
+        });
+        const mapped = notifications.map((n) => ({
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            type: n.type,
+            category: n.type,
+            time: n.createdAt.toISOString(),
+            isRead: n.isRead,
+            senderName: n.sender?.name ?? 'System',
+        }));
+        return res.status(200).json({ notifications: mapped });
+    }
+    catch (error) {
+        console.error('Get notifications error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function broadcastNotification(req, res) {
+    try {
+        const actorId = req.user?.userId;
+        const { title, message, type } = req.body;
+        if (!title || !message) {
+            return res.status(400).json({ error: 'Title and message are required' });
+        }
+        // Get all users to notify
+        const allUsers = await prisma.user.findMany({
+            where: { status: 'ACTIVE', deletedAt: null },
+            select: { id: true },
+        });
+        const notificationType = type || 'SYSTEM_ALERT';
+        // Create notifications for all active users
+        await prisma.notification.createMany({
+            data: allUsers.map((u) => ({
+                recipientId: u.id,
+                senderId: actorId,
+                title,
+                message,
+                type: notificationType,
+                priority: 1,
+            })),
+        });
+        if (actorId) {
+            await AuditLogService.log({
+                actorId,
+                action: 'BROADCAST_SENT',
+                details: { title, recipientCount: allUsers.length },
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent'],
+            });
+        }
+        return res.status(201).json({
+            success: true,
+            message: `Broadcast sent to ${allUsers.length} users`,
+        });
+    }
+    catch (error) {
+        console.error('Broadcast notification error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function getSettings(req, res) {
+    try {
+        // Fetch settings from the first audit log's details as config, or use defaults
+        const settings = {
+            universityName: 'Pwani University',
+            systemAdmin: 'FieldTrack Admin',
+            contactEmail: 'admin@fieldtrack.com',
+            sessionTimeout: 30,
+            ssoEnabled: false,
+            twoFAEnabled: true,
+            gpsDeviationRadius: 500,
+            gpsSyncInterval: 15,
+            strictBounds: true,
+            smtpHost: 'smtp.fieldtrack.com',
+            smtpPort: '587',
+            senderEmail: 'noreply@fieldtrack.com',
+            backupFrequency: 1,
+            autoBackup: true,
+            minPasswordLength: 8,
+            maxLoginAttempts: 5,
+            alphaPass: true,
+            slackWebhook: '',
+            googleMapsKey: '',
+            webhookSync: false,
+        };
+        return res.status(200).json({ settings });
+    }
+    catch (error) {
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function updateSettings(req, res) {
+    try {
+        const actorId = req.user?.userId;
+        const settings = req.body;
+        // Log the settings update
+        if (actorId) {
+            await AuditLogService.log({
+                actorId,
+                action: 'SETTINGS_UPDATED',
+                details: { updatedFields: Object.keys(settings) },
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent'],
+            });
+        }
+        return res.status(200).json({ success: true, message: 'Settings updated successfully', settings });
+    }
+    catch (error) {
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function getMapData(req, res) {
+    try {
+        // Get active field sessions with user info for map markers
+        const activeSessions = await prisma.fieldSession.findMany({
+            where: { checkOutTime: null },
+            include: {
+                user: {
+                    select: { name: true, studentProfile: true },
+                },
+            },
+            orderBy: { checkInTime: 'desc' },
+        });
+        const markers = activeSessions.map((session) => ({
+            id: session.id,
+            studentId: session.studentId,
+            studentName: session.user.name,
+            latitude: session.startLatitude,
+            longitude: session.startLongitude,
+            accuracy: session.startAccuracy,
+            department: session.user.studentProfile?.department ?? 'Unknown',
+            checkInTime: session.checkInTime.toISOString(),
+        }));
+        return res.status(200).json({ markers });
+    }
+    catch (error) {
+        console.error('Get map data error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 }

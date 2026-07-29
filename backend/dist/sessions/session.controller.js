@@ -88,4 +88,18 @@ export class SessionController {
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }
+    async getStudentPings(req, res) {
+        try {
+            const { studentId } = req.params;
+            if (!studentId) {
+                return res.status(400).json({ error: 'Missing studentId' });
+            }
+            const pings = await sessionService.getStudentPings(studentId);
+            res.status(200).json(pings);
+        }
+        catch (error) {
+            console.error('[getStudentPings]', error);
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
 }

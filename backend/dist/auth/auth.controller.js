@@ -7,6 +7,7 @@ export async function login(req, res) {
         const { email, registrationNo, password } = req.body;
         const ipAddress = req.ip;
         const userAgent = req.headers['user-agent'];
+        console.log(`[Auth] Login attempt from IP: ${ipAddress} - Email: ${email || 'N/A'}, RegNo: ${registrationNo || 'N/A'}`);
         if (!password) {
             return res.status(400).json({ error: 'Password is required' });
         }
@@ -27,6 +28,7 @@ export async function login(req, res) {
             }
         }
         if (!user) {
+            console.warn(`[Auth] Login failed: User not found for email/registrationNo`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         // Check if account is locked
@@ -52,6 +54,7 @@ export async function login(req, res) {
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            console.warn(`[Auth] Login failed: Incorrect password for user ${user.id} (${user.email})`);
             // Increment failed attempts
             const attempts = user.failedLoginAttempts + 1;
             const updates = { failedLoginAttempts: attempts };
@@ -105,6 +108,7 @@ export async function login(req, res) {
             ipAddress,
             userAgent,
         });
+        console.log(`[Auth] Login successful for user ${user.id} (${user.email})`);
         return res.json({
             success: true,
             token,
@@ -234,6 +238,17 @@ export async function me(req, res) {
                         }
                     }
                 },
+                supervisorProfile: {
+                    select: {
+                        staffNumber: true,
+                        department: true,
+                        faculty: true,
+                        specialization: true,
+                        office: true,
+                        phone: true,
+                        studentCapacity: true,
+                    }
+                },
             },
         });
         if (!user) {
@@ -243,6 +258,96 @@ export async function me(req, res) {
     }
     catch (error) {
         console.error('Me error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function forgotPassword(req, res) {
+    try {
+        const { email } = req.body;
+        if (!email)
+            return res.status(400).json({ error: 'Email is required' });
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user || user.role !== 'SUPERVISOR') {
+            // Return success even if user not found to prevent email enumeration
+            return res.json({ success: true, message: 'If the email exists, an OTP has been sent.' });
+        }
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                resetPasswordOtp: otp,
+                resetPasswordExpires: expiresAt,
+            },
+        });
+        const { emailService } = await import('./email.service.js');
+        await emailService.sendPasswordResetOtp(email, otp);
+        return res.json({ success: true, message: 'OTP sent successfully' });
+    }
+    catch (error) {
+        console.error('Forgot password error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function verifyOtp(req, res) {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp)
+            return res.status(400).json({ error: 'Email and OTP are required' });
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user || user.resetPasswordOtp !== otp || !user.resetPasswordExpires) {
+            return res.status(400).json({ error: 'Invalid OTP' });
+        }
+        if (user.resetPasswordExpires < new Date()) {
+            return res.status(400).json({ error: 'OTP has expired' });
+        }
+        // OTP is valid. Issue a temporary token for password reset
+        const token = generateToken({
+            userId: user.id,
+            role: user.role,
+            email: user.email,
+        });
+        return res.json({ success: true, token, message: 'OTP verified successfully' });
+    }
+    catch (error) {
+        console.error('Verify OTP error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function resetPassword(req, res) {
+    try {
+        if (!req.user)
+            return res.status(401).json({ error: 'Unauthorized' });
+        const { newPassword } = req.body;
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
+        await prisma.user.update({
+            where: { id: req.user.userId },
+            data: {
+                password: hashedPassword,
+                resetPasswordOtp: null,
+                resetPasswordExpires: null,
+                mustChangePassword: false,
+            },
+        });
+        // Revoke all existing refresh tokens
+        await prisma.refreshToken.updateMany({
+            where: { userId: req.user.userId, revokedAt: null },
+            data: { revokedAt: new Date() },
+        });
+        await AuditLogService.log({
+            userId: req.user.userId,
+            action: 'PASSWORD_RESET',
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
+        });
+        return res.json({ success: true, message: 'Password reset successfully' });
+    }
+    catch (error) {
+        console.error('Reset password error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 }

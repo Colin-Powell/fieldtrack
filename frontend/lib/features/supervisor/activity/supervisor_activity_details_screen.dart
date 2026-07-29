@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/core/network/api_result.dart';
+import 'package:fieldtrack/core/network/api_result_builder.dart';
+import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
 import '../evidence/supervisor_evidence_screen.dart';
 import '../review/supervisor_review_screen.dart';
 import '../location/supervisor_location_screen.dart';
@@ -20,7 +26,7 @@ class _C {
   static const cardRadius = 32.0;
 }
 
-class SupervisorActivityDetailsScreen extends StatefulWidget {
+class SupervisorActivityDetailsScreen extends ConsumerStatefulWidget {
   final String studentId;
   final String activityId;
   final String studentName;
@@ -30,18 +36,18 @@ class SupervisorActivityDetailsScreen extends StatefulWidget {
     super.key,
     required this.studentId,
     required this.activityId,
-    this.studentName = 'Jane Akinyi',
-    this.activityTitle = 'Mangrove Vegetation Survey',
+    this.studentName = '',
+    this.activityTitle = 'Activity Details',
     this.embedded = false,
   });
 
   @override
-  State<SupervisorActivityDetailsScreen> createState() =>
+  ConsumerState<SupervisorActivityDetailsScreen> createState() =>
       _SupervisorActivityDetailsScreenState();
 }
 
 class _SupervisorActivityDetailsScreenState
-    extends State<SupervisorActivityDetailsScreen>
+    extends ConsumerState<SupervisorActivityDetailsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _activeTabIndex = 0;
@@ -99,10 +105,11 @@ class _SupervisorActivityDetailsScreenState
                   studentId: widget.studentId,
                   activityId: widget.activityId,
                 ),
-                SupervisorLocationScreen(studentId: widget.studentId),
+                SupervisorLocationScreen(studentId: widget.studentId, activityId: widget.activityId),
                 SupervisorReviewScreen(
                   studentId: widget.studentId,
                   activityId: widget.activityId,
+                  studentName: widget.studentName,
                 ),
               ],
             ),
@@ -114,6 +121,16 @@ class _SupervisorActivityDetailsScreenState
 
   // ── 1. HEADER (Title, Breadcrumbs & Reviewed Badge) ───────────────────
   Widget _buildHeader(BuildContext context) {
+    final activityAsync = ref.watch(activityDetailsProvider(widget.activityId));
+    final activityResult = activityAsync.asData?.value;
+    final activity = activityResult is Success ? (activityResult as Success).data : null;
+    final resolvedStudentName = widget.studentName.isNotEmpty
+        ? widget.studentName
+        : (activity?['user']?['name'] as String? ?? 'Student');
+    final resolvedTitle = widget.activityTitle.isNotEmpty && widget.activityTitle != 'Activity Details'
+        ? widget.activityTitle
+        : (activity?['title'] as String? ?? 'Activity Details');
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,7 +156,7 @@ class _SupervisorActivityDetailsScreenState
                 ),
                 _buildBreadcrumbCaret(),
                 _buildBreadcrumb(
-                  widget.studentName,
+                  resolvedStudentName,
                   onTap: () =>
                       context.go('/supervisor/student/${widget.studentId}'),
                 ),
@@ -152,7 +169,7 @@ class _SupervisorActivityDetailsScreenState
                 ),
                 _buildBreadcrumbCaret(),
                 Text(
-                  widget.activityTitle,
+                  resolvedTitle,
                   style: const TextStyle(
                     fontFamily: 'Poppins',
                     fontSize: 13,
@@ -214,18 +231,32 @@ class _SupervisorActivityDetailsScreenState
 
   // ── 2. CUSTOM PILL TABS ───────────────────────────────────────────────
   Widget _buildCustomTabs() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _buildTabPill('Overview', 0, hasWarning: false),
-        _buildTabPill('Evidence(7)', 1, hasWarning: true),
-        _buildTabPill('Location', 2, hasWarning: true),
-        _buildTabPill('Review (2)', 3, hasWarning: true),
-      ],
+    final activityAsync = ref.watch(activityDetailsProvider(widget.activityId));
+    
+    return ApiResultBuilder<Map<String, dynamic>>(
+      asyncValue: activityAsync,
+      onRetry: () => ref.refresh(activityDetailsProvider(widget.activityId)),
+      customLoading: const SkeletonLoader(width: double.infinity, height: 40),
+      onData: (activity) {
+        final review = activity['review'] as Map<String, dynamic>?;
+        final hasReview = review != null;
+        final status = activity['status'] ?? 'DRAFT';
+        final isReviewed = status == 'APPROVED' || status == 'REJECTED' || status == 'REVISION' || hasReview;
+        
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildTabPill('Overview', 0, isCompleted: true),
+            _buildTabPill('Evidence', 1, isCompleted: isReviewed),
+            _buildTabPill('Location', 2, isCompleted: isReviewed),
+            _buildTabPill('Review', 3, isCompleted: isReviewed),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildTabPill(String title, int index, {required bool hasWarning}) {
+  Widget _buildTabPill(String title, int index, {required bool isCompleted}) {
     final bool isActive = _activeTabIndex == index;
     return GestureDetector(
       onTap: () {
@@ -250,12 +281,12 @@ class _SupervisorActivityDetailsScreenState
                 color: isActive ? Colors.white : _C.textBody,
               ),
             ),
-            if (hasWarning) ...[
+            if (isCompleted) ...[
               const SizedBox(width: 8),
               Icon(
-                PhosphorIconsRegular.xCircle,
+                PhosphorIconsFill.checkCircle,
                 size: 18,
-                color: isActive ? Colors.white : _C.red,
+                color: isActive ? Colors.white : _C.green,
               ),
             ],
           ],
@@ -266,89 +297,83 @@ class _SupervisorActivityDetailsScreenState
 
   // ── 3. OVERVIEW TAB CONTENT ───────────────────────────────────────────
   Widget _buildOverviewTab() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Left Column: Activity Information
-        Expanded(
-          flex: 11,
-          child: Container(
-            padding: const EdgeInsets.all(40),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(_C.cardRadius),
+    final activityAsync = ref.watch(activityDetailsProvider(widget.activityId));
+
+    return ApiResultBuilder<Map<String, dynamic>>(
+      asyncValue: activityAsync,
+      onRetry: () => ref.refresh(activityDetailsProvider(widget.activityId)),
+      customLoading: const ListSkeletonLoader(itemCount: 2),
+      onData: (activity) {
+        final title = activity['title'] ?? 'Untitled Activity';
+        final description = activity['description'] ?? 'No description provided';
+        final methodology = activity['methodology'] ?? 'No methodology provided';
+        final status = activity['status'] ?? 'DRAFT';
+        
+        String timeStr = 'Not submitted';
+        if (activity['timestamp'] != null) {
+          final dt = DateTime.parse(activity['timestamp']).toLocal();
+          timeStr = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+        }
+
+        final locationStr = "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
+        final accuracyStr = "${activity['gpsAccuracy']?.toStringAsFixed(1) ?? '-'} m";
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left Column: Details
+            Expanded(
+              flex: 5,
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(_C.cardRadius),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Activity Details',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: _C.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      _buildInfoRow('Activity Type', title),
+                      _buildInfoRow('Time', timeStr),
+                      _buildInfoRow('Location', 'Field Location', subValue: locationStr),
+                      _buildInfoRow('Accuracy', accuracyStr),
+                      _buildInfoRow('Methodology', methodology),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Activity Information',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: _C.textDark,
+            const SizedBox(width: 32),
+            // Right Column: Descriptions, Findings & Review
+            Expanded(
+              flex: 9,
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildRightCard(
+                      title: 'Description',
+                      content: description,
                     ),
-                  ),
-                  const SizedBox(height: 40),
-
-                  _buildInfoRow('Tittle', widget.activityTitle),
-                  _buildInfoRow('Category', 'Vegetation Survey'),
-                  _buildInfoRow(
-                    'Date & Time',
-                    '21 July 2026, 09:15AM - 09:05AM',
-                  ),
-                  _buildInfoRow(
-                    'Location',
-                    'Mnarani Creek, Kilifi County',
-                    subValue: '-3.9572, 39.667',
-                  ),
-                  _buildInfoRow('Accuracy', '4.2 m'),
-                  _buildInfoRow('Method Used', 'Transact and Quadrant Method'),
-                  _buildInfoRow(
-                    'Objective',
-                    'Assess the species competition, density\nand health of mangrove vegetation',
-                  ),
-                  _buildInfoRow(
-                    'Remarks',
-                    'Vegetation density high near\ntransacts',
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    _buildSupervisorReviewCard(status),
+                  ],
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 32),
-
-        // Right Column: Descriptions, Findings & Review (Connected by dotted line)
-        Expanded(
-          flex: 9,
-          child: Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              // The Cards
-              Column(
-                children: [
-                  _buildRightCard(
-                    title: 'Description',
-                    content:
-                        'Assessed the species composition, density and health of mangrove, Vegetation along the Mnarani Creek transects',
-                  ),
-                  const SizedBox(height: 24),
-                  _buildRightCard(
-                    title: 'Findings',
-                    content:
-                        'A Dominant species observed: Rhizophora muncronata, Avicennia Marina and Ceriops tagal.Moderate density with some areas showing signs of stress',
-                  ),
-                  const SizedBox(height: 24),
-                  _buildSupervisorReviewCard(),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -442,13 +467,16 @@ class _SupervisorActivityDetailsScreenState
   }
 
   // Right column Supervisor Review Card (with green button)
-  Widget _buildSupervisorReviewCard() {
+  Widget _buildSupervisorReviewCard(String status) {
+    bool isReviewed = status == 'APPROVED' || status == 'REJECTED';
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(_C.cardRadius),
+        border: Border.all(color: _C.greenLight, width: 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -463,9 +491,9 @@ class _SupervisorActivityDetailsScreenState
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Prof, Okeyo Benards\nWell documented activity, GPS accuracy acceptable, please include more photographs of sampling points',
-            style: TextStyle(
+          Text(
+            isReviewed ? 'This activity has been reviewed.' : 'This activity requires your review.',
+            style: const TextStyle(
               fontFamily: 'Poppins',
               fontSize: 13,
               color: _C.textBody,
@@ -528,3 +556,4 @@ class _VerticalDottedLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

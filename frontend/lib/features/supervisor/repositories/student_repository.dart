@@ -169,18 +169,20 @@ extension GPSLocationJson on GPSLocation {
     'address': address,
   };
 
-  static GPSLocation fromJson(Map<String, dynamic> json) => GPSLocation(
-    latitude: (json['latitude'] as num?)?.toDouble() ?? 0,
-    longitude: (json['longitude'] as num?)?.toDouble() ?? 0,
-    accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0,
-    altitude: (json['altitude'] as num?)?.toDouble() ?? 0,
-    heading: (json['heading'] as num?)?.toDouble() ?? 0,
-    speed: (json['speed'] as num?)?.toDouble() ?? 0,
-    capturedAt: DateTime.parse(
-      json['capturedAt'] as String? ?? DateTime.now().toIso8601String(),
-    ),
-    address: json['address'] as String? ?? '',
-  );
+  static GPSLocation fromJson(Map<String, dynamic> json) {
+    // Backend LocationPing uses 'timestamp', legacy used 'capturedAt'
+    final rawDate = json['timestamp'] as String? ?? json['capturedAt'] as String?;
+    return GPSLocation(
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0,
+      accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0,
+      altitude: (json['altitude'] as num?)?.toDouble() ?? 0,
+      heading: (json['heading'] as num?)?.toDouble() ?? 0,
+      speed: (json['speed'] as num?)?.toDouble() ?? 0,
+      capturedAt: rawDate != null ? DateTime.parse(rawDate) : DateTime.now(),
+      address: json['address'] as String? ?? '',
+    );
+  }
 }
 
 extension EvidenceFileJson on EvidenceFile {
@@ -580,6 +582,7 @@ class StudentRepository {
   Future<SupervisorReview> submitReview(
     String studentId,
     String activityId, {
+    required String reviewerId,
     required double rating,
     required String status,
     required String comments,
@@ -587,7 +590,7 @@ class StudentRepository {
     final response = await _api.dio.post(
       ApiEndpoints.reviewActivity,
       data: {
-        'studentId': studentId,
+        'reviewerId': reviewerId,
         'activityId': activityId,
         'rating': rating,
         'status': status,

@@ -9,6 +9,7 @@ import 'dart:math' show pi;
 import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 
+import 'package:fieldtrack/shared/models/student_data.dart';
 import 'dashboard_state.dart';
 import '../widgets/supervisor_top_header.dart';
 // ── Design tokens ────────────────────────────────────────────────────────
@@ -71,6 +72,13 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                       title: title,
                       subtitle: "Here's what's happening today",
                       onSearchChanged: state.setSearchQuery,
+                      trailingWidget: sideBySide
+                          ? IconButton(
+                              icon: const Icon(PhosphorIconsRegular.arrowsClockwise),
+                              onPressed: () => context.read<DashboardState>().loadDashboard(isPolling: false),
+                              tooltip: 'Refresh Dashboard',
+                            )
+                          : null,
                     );
                   },
                 ),
@@ -105,16 +113,21 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
               );
             }
 
-            return SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  mainColumnBody,
-                  const SizedBox(height: 24),
-                  _BottomSectionStacked(isLoading: _isLoading),
-                  const SizedBox(height: 24),
-                  _RightSidebar(scrollableInternally: false, isLoading: _isLoading),
-                ],
+            return RefreshIndicator(
+              onRefresh: () => context.read<DashboardState>().loadDashboard(isPolling: false),
+              color: _C.green,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    mainColumnBody,
+                    const SizedBox(height: 24),
+                    _BottomSectionStacked(isLoading: _isLoading),
+                    const SizedBox(height: 24),
+                    _RightSidebar(scrollableInternally: false, isLoading: _isLoading),
+                  ],
+                ),
               ),
             );
           },
@@ -179,12 +192,15 @@ class _StatCardsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<DashboardState>();
+    final studentsCheckedInToday = context.select<DashboardState, int>((s) => s.studentsCheckedInToday);
+    final trend = context.select<DashboardState, Map<String, dynamic>?>((s) => s.trend);
+    final studentsInField = context.select<DashboardState, int>((s) => s.studentsInField);
+    final activitiesSubmitted = context.select<DashboardState, int>((s) => s.activitiesSubmitted);
     final cards = [
       _StatCard(
         title: 'Students Checked\nIn Today',
-        value: '${state.studentsCheckedInToday}',
-        subtitle: '${state.trend?['checkIns'] ?? ''} from yesterday',
+        value: '$studentsCheckedInToday',
+        subtitle: '${trend?['checkIns'] ?? ''} from yesterday',
         isPositive: true,
         bgColor: _C.greenLight,
         iconColor: _C.green,
@@ -193,7 +209,7 @@ class _StatCardsRow extends StatelessWidget {
       ),
       _StatCard(
         title: 'Students in\nField',
-        value: '${state.studentsInField}',
+        value: '$studentsInField',
         subtitle: 'Live Now',
         isPositive: true,
         showArrow: false,
@@ -204,8 +220,8 @@ class _StatCardsRow extends StatelessWidget {
       ),
       _StatCard(
         title: 'Activities\nSubmitted',
-        value: '${state.activitiesSubmitted}',
-        subtitle: '${state.trend?['activities'] ?? ''} from yesterday',
+        value: '$activitiesSubmitted',
+        subtitle: '${trend?['activities'] ?? ''} from yesterday',
         isPositive: true,
         bgColor: const Color(0xFFD1F0E0), 
         iconColor: Colors.black, 
@@ -523,7 +539,7 @@ class _PendingReviews extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pending = context.watch<DashboardState>().pendingReviews;
+    final pending = context.select<DashboardState, int>((s) => s.pendingReviews);
     final isEmpty = pending == 0;
     
     // Dynamic styles based on empty states
@@ -610,7 +626,7 @@ class _MapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<DashboardState>();
+    final students = context.select<DashboardState, List<StudentData>>((s) => s.students);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -719,7 +735,7 @@ class _MapCard extends StatelessWidget {
                           userAgentPackageName: 'com.example.app',
                         ),
                         MarkerLayer(
-                          markers: state.students.where((s) => s.currentSession != null).map((student) {
+                          markers: students.where((s) => s.currentSession != null && s.checkInStatus == 'Checked In').map((student) {
                             return Marker(
                               point: LatLng(student.currentSession!.latitude, student.currentSession!.longitude),
                               width: 56,
@@ -737,7 +753,7 @@ class _MapCard extends StatelessWidget {
                                   ),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(50),
-                                    child: student.avatarUrl.isNotEmpty
+                                    child: (student.avatarUrl != null && student.avatarUrl.isNotEmpty)
                                         ? Image.network(student.avatarUrl, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.person, color: Colors.white, size: 18))
                                         : const Icon(Icons.person, color: Colors.white, size: 18),
                                   ),
@@ -769,7 +785,9 @@ class _OverviewCardState extends State<_OverviewCard> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<DashboardState>();
+    final checkIns = context.select<DashboardState, int>((s) => s.checkedIn);
+    final inField = context.select<DashboardState, int>((s) => s.inField);
+    final checkedOut = context.select<DashboardState, int>((s) => s.checkedOut);
     // Make width larger as requested
     const double chartSize = 300.0;
     
@@ -827,21 +845,21 @@ class _OverviewCardState extends State<_OverviewCard> {
                               centerSpaceRadius: chartSize / 2.8,
                               sections: [
                                 _buildPieSection(
-                                  value: state.checkedOut.toDouble(),
+                                  value: checkedOut.toDouble(),
                                   color: _C.greenDark,
-                                  title: 'Checked Out\n${state.checkedOut}',
+                                  title: 'Checked Out\n$checkedOut',
                                   isTouched: _touchedIndex == 0,
                                 ),
                                 _buildPieSection(
-                                  value: state.checkedIn.toDouble(),
+                                  value: checkIns.toDouble(),
                                   color: _C.blueLight,
-                                  title: 'Checked In\n${state.checkedIn}',
+                                  title: 'Checked In\n$checkIns',
                                   isTouched: _touchedIndex == 1,
                                 ),
                                 _buildPieSection(
-                                  value: state.inField.toDouble(),
+                                  value: inField.toDouble(),
                                   color: _C.teal,
-                                  title: 'In Field\n${state.inField}',
+                                  title: 'In Field\n$inField',
                                   isTouched: _touchedIndex == 2,
                                 ),
                               ],
@@ -853,11 +871,11 @@ class _OverviewCardState extends State<_OverviewCard> {
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _InlineLegendRow('${state.checkedOut.toInt()}', 'Checked out', _C.greenDark),
+                              _InlineLegendRow('$checkedOut', 'Checked out', _C.greenDark),
                               const SizedBox(height: 8),
-                              _InlineLegendRow('${state.checkedIn.toInt()}', 'Checked in', _C.blueLight),
+                              _InlineLegendRow('$checkIns', 'Checked in', _C.blueLight),
                               const SizedBox(height: 8),
-                              _InlineLegendRow('${state.inField.toInt()}', 'In field', _C.teal),
+                              _InlineLegendRow('$inField', 'In field', _C.teal),
                             ],
                           ),
                       ],
@@ -1041,10 +1059,10 @@ class _RightSidebarState extends State<_RightSidebar> {
 
 
   Widget build(BuildContext context) {
-    return Consumer<DashboardState>(
-      builder: (context, state, _) {
+    final filteredActivities = context.select<DashboardState, List<RecentActivity>>((s) => s.filteredActivities);
+    final feedItems = context.select<DashboardState, List<FeedItem>>((s) => s.feedItems);
         
-        // Setup Activities List (Empty State, Skeleton, or Live Data)
+    // Setup Activities List (Empty State, Skeleton, or Live Data)
         Widget recentActivitiesList;
         if (widget.isLoading) {
           recentActivitiesList = ListView.builder(
@@ -1056,7 +1074,7 @@ class _RightSidebarState extends State<_RightSidebar> {
               child: _Skeleton(width: double.infinity, height: 64, borderRadius: 32),
             ),
           );
-        } else if (state.filteredActivities.isEmpty) {
+        } else if (filteredActivities.isEmpty) {
           recentActivitiesList = Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
@@ -1092,9 +1110,9 @@ class _RightSidebarState extends State<_RightSidebar> {
           recentActivitiesList = ListView.builder(
             shrinkWrap: !widget.scrollableInternally,
             physics: widget.scrollableInternally ? null : const NeverScrollableScrollPhysics(),
-            itemCount: state.filteredActivities.length,
+            itemCount: filteredActivities.length,
             itemBuilder: (context, index) {
-              final activity = state.filteredActivities[index];
+              final activity = filteredActivities[index];
               return _RecentActivityItem(
                 title: activity.title,
                 subtitle: activity.location,
@@ -1109,7 +1127,7 @@ class _RightSidebarState extends State<_RightSidebar> {
         }
 
         // Setup Feed Items
-        final combinedFeeds = state.feedItems.map((item) => _LocalFeedItem(item.time, item.content)).toList();
+        final combinedFeeds = feedItems.map((item) => _LocalFeedItem(item.time, item.content)).toList();
 
         Widget feedList;
         if (widget.isLoading) {
@@ -1190,7 +1208,7 @@ class _RightSidebarState extends State<_RightSidebar> {
             const SizedBox(height: 24),
             widget.scrollableInternally ? Expanded(flex: 4, child: recentActivitiesList) : recentActivitiesList,
             const SizedBox(height: 16),
-            if (state.filteredActivities.isNotEmpty && !widget.isLoading) viewAllButton,
+            if (filteredActivities.isNotEmpty && !widget.isLoading) viewAllButton,
             const SizedBox(height: 40),
             const Text(
               "Today's Activity Feed",
@@ -1214,8 +1232,6 @@ class _RightSidebarState extends State<_RightSidebar> {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
           child: innerContent,
         );
-      },
-    );
   }
 }
 

@@ -1,11 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/toast_service.dart';
 
-class AdminDepartmentsScreen extends StatelessWidget {
+// ── Department Model ──
+class DepartmentData {
+  final String id;
+  final String name;
+  final int students;
+  final int supervisors;
+  final int projects;
+
+  const DepartmentData({
+    required this.id,
+    required this.name,
+    required this.students,
+    required this.supervisors,
+    required this.projects,
+  });
+
+  factory DepartmentData.fromJson(Map<String, dynamic> json) {
+    return DepartmentData(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      students: json['students'] ?? 0,
+      supervisors: json['supervisors'] ?? 0,
+      projects: json['projects'] ?? 0,
+    );
+  }
+}
+
+// ── Department Provider ──
+final departmentsProvider = FutureProvider<List<DepartmentData>>((ref) async {
+  final api = ApiClient();
+  final response = await api.dio.get('/admin/departments');
+  final List<dynamic> data = response.data['departments'];
+  return data
+      .map((e) => DepartmentData.fromJson(e as Map<String, dynamic>))
+      .toList();
+});
+
+// ── Department Screen ──
+class AdminDepartmentsScreen extends ConsumerWidget {
   const AdminDepartmentsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.all(32.0),
       child: Column(
@@ -30,8 +72,13 @@ class AdminDepartmentsScreen extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1BA654),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
               ),
@@ -39,27 +86,103 @@ class AdminDepartmentsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           Expanded(
-            child: GridView.count(
-              crossAxisCount: 3,
-              crossAxisSpacing: 24,
-              mainAxisSpacing: 24,
-              childAspectRatio: 1.2,
-              children: [
-                _buildDeptCard('Environmental Sciences', 42, 6, 18),
-                _buildDeptCard('Computer Science', 150, 12, 45),
-                _buildDeptCard('Information Technology', 120, 10, 32),
-                _buildDeptCard('Civil Engineering', 80, 8, 25),
-                _buildDeptCard('Architecture', 65, 5, 20),
-                _buildDeptCard('Business Administration', 210, 15, 10),
-              ],
-            ),
+            child: ref
+                .watch(departmentsProvider)
+                .when(
+                  data: (departments) {
+                    if (departments.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              PhosphorIcons.buildings(),
+                              size: 64,
+                              color: const Color(0xFFD1D5DB),
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No departments found',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: Color(0xFF6B7280),
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 24,
+                            mainAxisSpacing: 24,
+                            childAspectRatio: 1.2,
+                          ),
+                      itemCount: departments.length,
+                      itemBuilder: (context, index) {
+                        final dept = departments[index];
+                        return _buildDeptCard(dept);
+                      },
+                    );
+                  },
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF1BA654)),
+                  ),
+                  error: (err, stack) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          PhosphorIcons.warning(),
+                          size: 48,
+                          color: const Color(0xFFEF4444),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error loading departments',
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            color: Color(0xFFEF4444),
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$err',
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            color: Color(0xFF6B7280),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDeptCard(String name, int students, int supervisors, int projects) {
+  Widget _buildDeptCard(DepartmentData dept) {
+    // Generate a color based on the department name
+    final colors = [
+      const Color(0xFF169B45),
+      const Color(0xFF3B82F6),
+      const Color(0xFFA855F7),
+      const Color(0xFF14B8A6),
+      const Color(0xFFF59E0B),
+      const Color(0xFFEF4444),
+      const Color(0xFF8B5CF6),
+      const Color(0xFFEC4899),
+    ];
+    final colorIdx = dept.name.hashCode.abs() % colors.length;
+    final accentColor = colors[colorIdx];
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -82,20 +205,27 @@ class AdminDepartmentsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF169B45),
+                  color: accentColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(40),
                 ),
-                child: Icon(PhosphorIcons.buildings(), color: const Color(0xFF4B5563), size: 24),
+                child: Icon(
+                  PhosphorIcons.buildings(),
+                  color: accentColor,
+                  size: 24,
+                ),
               ),
               IconButton(
-                icon: Icon(PhosphorIcons.dotsThree(), color: const Color(0xFF6B7280)),
+                icon: Icon(
+                  PhosphorIcons.dotsThree(),
+                  color: const Color(0xFF6B7280),
+                ),
                 onPressed: () {},
-              )
+              ),
             ],
           ),
           const SizedBox(height: 24),
           Text(
-            name,
+            dept.name,
             style: const TextStyle(
               fontFamily: 'Poppins',
               fontSize: 18,
@@ -111,11 +241,11 @@ class AdminDepartmentsScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildStat('Students', students.toString()),
-              _buildStat('Supervisors', supervisors.toString()),
-              _buildStat('Projects', projects.toString()),
+              _buildStat('Students', dept.students.toString()),
+              _buildStat('Supervisors', dept.supervisors.toString()),
+              _buildStat('Projects', dept.projects.toString()),
             ],
-          )
+          ),
         ],
       ),
     );

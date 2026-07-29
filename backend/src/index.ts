@@ -10,6 +10,8 @@ import activityRoutes from './activities/activity.routes.js';
 import mediaRoutes from './media/media.routes.js';
 import notificationRoutes from './notifications/notification.routes.js';
 import reviewRoutes from './reviews/review.routes.js';
+import reportRoutes from './reports/reports.routes.js';
+import settingsRoutes from './settings/settings.routes.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -25,6 +27,8 @@ app.use('/api/v1/activities', activityRoutes);
 app.use('/api/v1/media', mediaRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/reviews', reviewRoutes);
+app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/settings', settingsRoutes);
 
 // Also serve the storage folder statically so the frontend can display images
 app.use('/storage', express.static('storage'));
@@ -36,20 +40,70 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
 });
 
+import { authenticate, authorizeRole } from './auth/auth.middleware.js';
+
 // ── Supervisor Routes ──
-app.get('/api/v1/supervisor/dashboard/stats', async (req: Request, res: Response) => {
+app.get('/api/v1/supervisor/dashboard/stats', authenticate, authorizeRole(['SUPERVISOR', 'ADMIN']), async (req: Request, res: Response) => {
   try {
-    // Example: Mock response for now until we insert real data
-    res.json({ checkedOut: 24, checkedIn: 12, inField: 9 });
+    const supervisorId = req.user?.userId;
+    const supervisorProfile = await prisma.supervisorProfile.findUnique({
+      where: { userId: supervisorId }
+    });
+
+    if (!supervisorProfile && req.user?.role !== 'ADMIN') {
+      return res.json({ checkedOut: 0, checkedIn: 0, inField: 0 });
+    }
+
+    const whereClause: any = { role: 'STUDENT' };
+    if (req.user?.role !== 'ADMIN' && supervisorProfile) {
+      whereClause.studentProfile = { supervisorId: supervisorProfile.id };
+    }
+
+    const students = await prisma.user.findMany({
+      where: whereClause,
+      include: {
+        fieldSessions: {
+          where: { checkOutTime: null }
+        }
+      }
+    });
+
+    let checkedIn = 0;
+    let checkedOut = 0;
+    let inField = 0;
+
+    for (const s of students) {
+      if (s.fieldSessions && s.fieldSessions.length > 0) {
+        checkedIn++;
+        inField++;
+      } else {
+        checkedOut++;
+      }
+    }
+
+    res.json({ checkedOut, checkedIn, inField });
   } catch (error) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-app.get('/api/v1/supervisor/students', async (req: Request, res: Response) => {
+app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR', 'ADMIN']), async (req: Request, res: Response) => {
   try {
+    const supervisorId = req.user?.userId;
+    const supervisorProfile = await prisma.supervisorProfile.findUnique({
+      where: { userId: supervisorId }
+    });
+
+    const whereClause: any = { role: 'STUDENT' };
+    if (req.user?.role !== 'ADMIN' && supervisorProfile) {
+      whereClause.studentProfile = { supervisorId: supervisorProfile.id };
+    } else if (req.user?.role !== 'ADMIN' && !supervisorProfile) {
+      // If supervisor has no profile yet, they have no students.
+      return res.json([]);
+    }
+
     const students = await prisma.user.findMany({
-      where: { role: 'STUDENT' },
+      where: whereClause,
       include: {
         studentProfile: {
           include: {

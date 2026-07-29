@@ -3,7 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fieldtrack/core/router/app_router.dart';
 import 'package:fieldtrack/core/theme/app_theme.dart';
 
-void main() {
+import 'package:fieldtrack/core/network/api_client.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ApiClient().init();
+  
   runApp(const ProviderScope(child: FieldTrackApp()));
 }
 

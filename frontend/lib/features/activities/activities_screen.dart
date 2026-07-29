@@ -1,35 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/core/constants/app_constants.dart';
+import 'package:intl/intl.dart';
+import 'package:fieldtrack/core/network/api_result_builder.dart';
+import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
+import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
 
-class ActivitiesScreen extends StatefulWidget {
+class ActivitiesScreen extends ConsumerStatefulWidget {
   const ActivitiesScreen({super.key});
 
   @override
-  State<ActivitiesScreen> createState() => _ActivitiesScreenState();
+  ConsumerState<ActivitiesScreen> createState() => _ActivitiesScreenState();
 }
 
-class _ActivitiesScreenState extends State<ActivitiesScreen> {
+class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   // State variables for our tabs and loading skeleton
   int _selectedFilterIndex = 0;
-  bool _isLoading = true;
   final List<String> _filters = ['All', 'Today', 'In Progress', 'Submitted'];
 
   @override
   void initState() {
     super.initState();
-    _fetchData(); // Initial load
   }
 
   // Simulating a network delay to show the skeleton loader
-  void _fetchData() {
-    setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +135,6 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             onTap: () {
               if (!isActive) {
                 setState(() => _selectedFilterIndex = index);
-                _fetchData(); // Trigger loading state for new tab
               }
             },
             child: _buildFilterChip(_filters[index], isActive: isActive),
@@ -169,93 +165,115 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
 
   // Determines which content to show based on state
   Widget _buildContent() {
-    if (_isLoading) {
-      return Column(
-        children: const [_SkeletonCard(), _SkeletonCard(), _SkeletonCard()],
-      );
-    }
+    final activitiesAsync = ref.watch(studentActivitiesProvider);
 
-    // Mocking an empty state for the 'Today' tab (Index 1) for demonstration
-    if (_selectedFilterIndex == 1) {
-      return _buildEmptyState();
-    }
+    return ApiResultBuilder<List<dynamic>>(
+      asyncValue: activitiesAsync,
+      onRetry: () => ref.refresh(studentActivitiesProvider),
+      customLoading: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: ListSkeletonLoader(itemCount: 4, itemHeight: 120),
+      ),
+      onData: (activities) {
+        if (activities.isEmpty) {
+          return _buildEmptyState();
+        }
 
-    return Column(
-      children: [
-        if (_selectedFilterIndex == 0 || _selectedFilterIndex == 3)
-          _buildActivityCard(
-            title: 'Mangrove Vegetation Survey',
-            location: 'Mtwapa Creek',
-            time: '08:45 AM • 1h 20m',
-            statusText: 'Submitted',
-            statusColor: const Color(0xFF1BA654),
-            statusBgColor: const Color(0xFFC3DFCC),
-            gpsVerifiedColor: const Color(0xFF1BA654),
-            imageUrl:
-                'https://images.unsplash.com/photo-1627914041132-720da5d7df53?q=80&w=256&auto=format&fit=crop',
-          ),
-        if (_selectedFilterIndex == 0 || _selectedFilterIndex == 2)
-          _buildActivityCard(
-            title: 'Water Quality Sampling',
-            location: 'Mtwapa Creek',
-            time: '25 Jul 2026 • 08:45 AM',
-            statusText: 'In Progress',
-            statusColor: const Color(0xFF3B82F6),
-            statusBgColor: const Color(0xFFDBEAFE),
-            gpsVerifiedColor: const Color(0xFF3B82F6),
-            imageUrl:
-                'https://images.unsplash.com/photo-1616423640778-28d1b53229bd?q=80&w=256&auto=format&fit=crop',
-          ),
-      ],
+        // Apply filter based on _selectedFilterIndex
+        // 0: 'All', 1: 'Today', 2: 'In Progress', 3: 'Submitted'
+        final filteredActivities = activities.where((activity) {
+          if (_selectedFilterIndex == 0) return true;
+          
+          final status = activity['status'] ?? '';
+          if (_selectedFilterIndex == 2) return status == 'UNDER_REVIEW' || status == 'DRAFT';
+          if (_selectedFilterIndex == 3) return status == 'APPROVED' || status == 'SUBMITTED';
+          
+          if (_selectedFilterIndex == 1) {
+            // Today
+            if (activity['timestamp'] == null) return false;
+            final dt = DateTime.parse(activity['timestamp']).toLocal();
+            final now = DateTime.now();
+            return dt.year == now.year && dt.month == now.month && dt.day == now.day;
+          }
+          return true;
+        }).toList();
+
+        if (filteredActivities.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        return Column(
+          children: filteredActivities.map((activity) {
+            final title = activity['title'] ?? 'Untitled Activity';
+            final status = activity['status'] ?? 'DRAFT';
+            
+            Color statusColor = const Color(0xFF1BA654);
+            Color statusBgColor = const Color(0xFFC3DFCC);
+            String statusText = status;
+            
+            if (status == 'DRAFT') {
+              statusColor = const Color(0xFF3B82F6);
+              statusBgColor = const Color(0xFFDBEAFE);
+              statusText = 'In Progress';
+            } else if (status == 'UNDER_REVIEW') {
+              statusColor = const Color(0xFFEAB308);
+              statusBgColor = const Color(0xFFFEF08A);
+              statusText = 'Under Review';
+            } else if (status == 'REJECTED') {
+              statusColor = const Color(0xFFEF4444);
+              statusBgColor = const Color(0xFFFEE2E2);
+              statusText = 'Rejected';
+            } else if (status == 'APPROVED' || status == 'SUBMITTED') {
+              statusText = 'Submitted';
+            }
+
+            String timeStr = '';
+            if (activity['timestamp'] != null) {
+              final dt = DateTime.parse(activity['timestamp']).toLocal();
+              timeStr = DateFormat('dd MMM yyyy – hh:mm a').format(dt);
+            }
+            
+            String? imageUrl;
+            final evidenceList = activity['evidence'] as List<dynamic>? ?? [];
+            for (final ev in evidenceList) {
+              final mimeType = ev['mimeType'] as String? ?? '';
+              if (mimeType.startsWith('image/')) {
+                final path = ev['storagePath'];
+                if (path != null) {
+                  imageUrl = '${AppConstants.apiUrl}/$path';
+                  break;
+                }
+              }
+            }
+
+            return _buildActivityCard(
+              id: activity['id'] ?? '',
+              title: title,
+              location: "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}",
+              time: timeStr,
+              statusText: statusText,
+              statusColor: statusColor,
+              statusBgColor: statusBgColor,
+              gpsVerifiedColor: const Color(0xFF1BA654),
+              imageUrl: imageUrl,
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
   // Clean Empty State
   Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 64, left: 24, right: 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF3F9F5), // Light green background
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              PhosphorIconsRegular.folderDashed,
-              size: 48,
-              color: Color(0xFF1BA654),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No activities found',
-            style: TextStyle(
-              fontFamily: 'Roboto',
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'There are no activities matching this filter at the moment.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Roboto',
-              fontSize: 14,
-              color: Color(0xFF9CA3AF),
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
+    return EmptyStateWidget(
+      title: 'No Activities',
+      message: 'You have not added any activities yet. Click the + button to create a new draft activity for your field session.',
+      icon: PhosphorIconsRegular.clipboardText,
     );
   }
 
   Widget _buildActivityCard({
+    required String id,
     required String title,
     required String location,
     required String time,
@@ -263,10 +281,10 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     required Color statusColor,
     required Color statusBgColor,
     required Color gpsVerifiedColor,
-    required String imageUrl,
+    required String? imageUrl,
   }) {
     return GestureDetector(
-      onTap: () => context.push('/activity-detail'),
+      onTap: () => context.push('/activity-detail/$id'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16, left: 24, right: 24),
         padding: const EdgeInsets.all(12),
@@ -279,7 +297,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(32),
-            child: Image.network(
+            child: imageUrl != null ? Image.network(
               imageUrl,
               width: 64,
               height: 64,
@@ -296,6 +314,15 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                   ),
                 );
               },
+            ) : Container(
+              width: 64,
+              height: 64,
+              color: const Color(0xFFF3F4F6),
+              child: const Icon(
+                PhosphorIconsRegular.image,
+                color: Color(0xFF9CA3AF),
+                size: 32,
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -522,3 +549,4 @@ class _SkeletonCard extends StatelessWidget {
     );
   }
 }
+

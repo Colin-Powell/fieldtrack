@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../main_admin.dart';
 import '../../../core/providers/auth_provider.dart';
 
 class AdminLoginScreen extends ConsumerStatefulWidget {
@@ -42,50 +43,30 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
           context.go('/admin/dashboard');
         } else {
           ref.read(authProvider.notifier).logout();
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Access Denied'),
-              content: const Text('Administrator privileges required.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
+          rootScaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(
+              content: Text('Access denied. Administrator privileges required.'),
+              backgroundColor: Colors.red,
             ),
           );
         }
       } else {
         final error = ref.read(authProvider).error ?? 'Login failed';
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Login Failed'),
+        rootScaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
             content: Text(error),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
+            backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e, stackTrace) {
       print('Login Exception: $e\n$stackTrace');
       if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Unexpected Error'),
-          content: Text(e.toString()),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
+      rootScaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('An unexpected error occurred: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 10),
         ),
       );
     }
@@ -377,7 +358,31 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 16),
+                  
+                  // --- Forgot Password ---
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => context.push('/admin/forgot-password'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: greenColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 32),
 
                   // --- Login Button ---
                   ref.watch(authProvider).isLoading

@@ -4,15 +4,46 @@ export class SessionService {
      * Check in a student, creating a new active FieldSession.
      */
     async checkIn(data) {
-        // Check if an active session already exists
-        const existingActive = await prisma.fieldSession.findFirst({
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        // Check if a session already exists for today
+        const existingSessionToday = await prisma.fieldSession.findFirst({
             where: {
                 studentId: data.studentId,
-                status: 'ACTIVE'
+                checkInTime: {
+                    gte: startOfDay,
+                    lte: endOfDay
+                }
             }
         });
-        if (existingActive) {
-            throw new Error('An active session already exists. Please checkout first.');
+        if (existingSessionToday) {
+            if (existingSessionToday.status === 'ACTIVE') {
+                throw new Error('An active session already exists. Please checkout first.');
+            }
+            // Re-activate the existing session for today
+            const session = await prisma.fieldSession.update({
+                where: { id: existingSessionToday.id },
+                data: {
+                    status: 'ACTIVE',
+                    // Update latest metrics 
+                    startLatitude: data.latitude,
+                    startLongitude: data.longitude,
+                    startAccuracy: data.accuracy,
+                    batteryLevelStart: data.batteryLevelStart ?? existingSessionToday.batteryLevelStart,
+                    networkType: data.networkType ?? existingSessionToday.networkType,
+                    deviceModel: data.deviceModel ?? existingSessionToday.deviceModel,
+                    // Clear checkOutTime so it's active again
+                    checkOutTime: null,
+                }
+            });
+            // Update student status to IN_FIELD
+            await prisma.studentProfile.update({
+                where: { userId: data.studentId },
+                data: { status: 'IN_FIELD' }
+            });
+            return session;
         }
         const session = await prisma.fieldSession.create({
             data: {
@@ -109,5 +140,21 @@ export class SessionService {
                 heading: data.heading,
             }
         });
+    }
+    /**
+     * Get all location pings for a student across all their sessions.
+     */
+    async getStudentPings(studentId) {
+        const sessions = await prisma.fieldSession.findMany({
+            where: { studentId },
+            include: {
+                locationPings: {
+                    orderBy: { timestamp: 'asc' }
+                }
+            },
+            orderBy: { checkInTime: 'desc' }
+        });
+        // Flatten all pings, most recent session first
+        return sessions.flatMap(s => s.locationPings);
     }
 }

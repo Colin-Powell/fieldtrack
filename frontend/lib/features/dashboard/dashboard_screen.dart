@@ -9,6 +9,10 @@ import 'package:fieldtrack/core/providers/checkin_provider.dart';
 import 'package:fieldtrack/core/providers/navigation_provider.dart';
 import 'package:fieldtrack/core/utils/toast_service.dart';
 import 'package:fieldtrack/features/dashboard/providers/student_dashboard_provider.dart';
+import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/core/network/api_result_builder.dart';
+import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
+import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -45,7 +49,7 @@ class DashboardScreen extends ConsumerWidget {
             _buildQuickActions(context, ref),
             const SizedBox(height: 24),
             _buildSectionTitle('Recent Activities'),
-            _buildRecentActivities(context),
+            _buildRecentActivities(context, ref),
             const SizedBox(height: 100), // padding for bottom nav
           ],
         ),
@@ -319,9 +323,9 @@ class DashboardScreen extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Expanded(child: _buildSummaryCell('Activities', '\${stats.approvals}', PhosphorIconsFill.article)),
+                  Expanded(child: _buildSummaryCell('Activities', '${stats.approvals}', PhosphorIconsFill.article)),
                   Container(width: 1, height: 60, color: const Color(0xFFE5E7EB)),
-                  Expanded(child: _buildSummaryCell('Hours Logged', '\${stats.hoursLogged}', PhosphorIconsFill.folder)),
+                  Expanded(child: _buildSummaryCell('Hours Logged', '${stats.hoursLogged}', PhosphorIconsFill.folder)),
                 ],
               ),
               Container(height: 1, color: const Color(0xFFE5E7EB)),
@@ -470,35 +474,76 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentActivities(BuildContext context) {
+  Widget _buildRecentActivities(BuildContext context, WidgetRef ref) {
+    final activitiesAsync = ref.watch(studentActivitiesProvider);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
-      child: Column(
-        children: [
-          _buildActivityCard(
-            context: context,
-            title: 'Mangrove Vegetation Survey',
-            location: 'Mtwapa Creek',
-            time: '08:45 AM • 1h 20m',
-            status: 'Completed',
-          ),
-          const SizedBox(height: 12),
-          _buildActivityCard(
-            context: context,
-            title: 'Water Quality Sampling',
-            location: 'Mtwapa Creek',
-            time: '25 Jul 2026 • 09:45 AM',
-            status: 'Draft',
-            statusColor: const Color(0xFF3B82F6),
-            statusBgColor: const Color(0xFFDBEAFE),
-          ),
-        ],
+      child: ApiResultBuilder<List<dynamic>>(
+        asyncValue: activitiesAsync,
+        onRetry: () => ref.refresh(studentActivitiesProvider),
+        customLoading: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: ListSkeletonLoader(itemCount: 3, itemHeight: 90),
+        ),
+        onData: (activities) {
+          if (activities.isEmpty) {
+            return const EmptyStateWidget(
+              title: 'No recent activities',
+              message: 'Check in or create a draft to get started.',
+              icon: PhosphorIconsRegular.clipboardText,
+            );
+          }
+
+          return Column(
+            children: activities.map<Widget>((activity) {
+              final title = activity['title'] ?? 'Untitled Activity';
+              final status = activity['status'] ?? 'DRAFT';
+              
+              // Map status to colors
+              Color statusColor = const Color(0xFF1BA654);
+              Color statusBgColor = const Color(0xFFC3DFCC);
+              if (status == 'DRAFT') {
+                statusColor = const Color(0xFF3B82F6);
+                statusBgColor = const Color(0xFFDBEAFE);
+              } else if (status == 'UNDER_REVIEW') {
+                statusColor = const Color(0xFFEAB308);
+                statusBgColor = const Color(0xFFFEF08A);
+              } else if (status == 'REJECTED') {
+                statusColor = const Color(0xFFEF4444);
+                statusBgColor = const Color(0xFFFEE2E2);
+              }
+
+              // Extract time
+              String timeStr = '';
+              if (activity['timestamp'] != null) {
+                final dt = DateTime.parse(activity['timestamp']).toLocal();
+                timeStr = DateFormat('dd MMM yyyy • hh:mm a').format(dt);
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: _buildActivityCard(
+                  context: context,
+                  id: activity['id'],
+                  title: title,
+                  location: "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}",
+                  time: timeStr,
+                  status: status,
+                  statusColor: statusColor,
+                  statusBgColor: statusBgColor,
+                ),
+              );
+            }).toList(),
+          );
+        },
       ),
     );
   }
 
   Widget _buildActivityCard({
     required BuildContext context,
+    required String id,
     required String title,
     required String location,
     required String time,
@@ -507,7 +552,7 @@ class DashboardScreen extends ConsumerWidget {
     Color statusBgColor = const Color(0xFFC3DFCC),
   }) {
     return GestureDetector(
-      onTap: () => context.push('/activity-detail'),
+      onTap: () => context.push('/activity-detail/$id'),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -620,3 +665,4 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 }
+

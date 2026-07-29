@@ -15,9 +15,13 @@ model User {
   status              UserStatus @default(ACTIVE)
   isActive            Boolean  @default(true)
   mustChangePassword  Boolean  @default(true)
+  resetPasswordOtp    String?
+  resetPasswordExpires DateTime?
   lastLogin           DateTime?
   failedLoginAttempts Int      @default(0)
   accountLockedUntil  DateTime?
+  twoFactorEnabled    Boolean  @default(false)
+  loginAlertsEnabled  Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   deletedAt           DateTime?
@@ -25,6 +29,7 @@ model User {
   // Relations
   studentProfile    StudentProfile?
   supervisorProfile SupervisorProfile?
+  preferences       UserPreferences?
   logs              FieldLog[]
   refreshTokens     RefreshToken[]
   auditLogs         AuditLog[] @relation("AuditLogUser")
@@ -64,6 +69,7 @@ model SupervisorProfile {
   office         String?
   phone          String?
   studentCapacity Int    @default(20)
+  avatar         String?
   
   user User @relation(fields: [userId], references: [id])
   assignedStudents StudentProfile[] @relation("AssignedSupervisor")
@@ -242,6 +248,8 @@ enum UserStatus {
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
+  deviceInfo String?
+  ipAddress  String?
   userId    String
   expiresAt DateTime
   revokedAt DateTime?
@@ -264,3 +272,36 @@ model AuditLog {
   actor User? @relation("AuditLogActor", fields: [actorId], references: [id])
   user  User? @relation("AuditLogUser", fields: [userId], references: [id])
 }
+
+model UserPreferences {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  // Notifications
+  notifNewActivity Boolean @default(true)
+  notifCheckInOut  Boolean @default(true)
+  notifReview      Boolean @default(true)
+  notifComments    Boolean @default(true)
+  notifAnnouncements Boolean @default(true)
+  chanEmail        Boolean @default(true)
+  chanInApp        Boolean @default(true)
+  quietStart       String  @default("22:00")
+  quietEnd         String  @default("06:00")
+
+  // App Preferences
+  prefDashboard    String  @default("Overview")
+  prefLanding      String  @default("Home")
+  prefZoom         String  @default("City")
+  prefMapType      String  @default("Satellite")
+  prefDateFormat   String  @default("DD/MM/YYYY")
+  prefTimeFormat   String  @default("12 Hour")
+  prefLanguage     String  @default("English")
+  prefRefresh      String  @default("Every 30 seconds")
+  prefRows         String  @default("20")
+  prefTheme        String  @default("Light")
+  exportPdf        Boolean @default(true)
+  exportExcel      Boolean @default(false)
+  exportCsv        Boolean @default(true)
+}
+

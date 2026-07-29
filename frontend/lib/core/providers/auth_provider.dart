@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -17,6 +18,13 @@ class AuthUser {
   final String? phone;
   final String? topic;
   final String? supervisorName;
+  
+  // Supervisor specific
+  final String? staffNumber;
+  final String? supervisorDepartment;
+  final String? specialization;
+  final String? office;
+  final int? studentCapacity;
 
   AuthUser({
     required this.id,
@@ -31,11 +39,18 @@ class AuthUser {
     this.phone,
     this.topic,
     this.supervisorName,
+    this.staffNumber,
+    this.supervisorDepartment,
+    this.specialization,
+    this.office,
+    this.studentCapacity,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     final studentProf = json['studentProfile'] as Map<String, dynamic>?;
     final supervisorUser = studentProf?['supervisor']?['user'] as Map<String, dynamic>?;
+    final supervisorProf = json['supervisorProfile'] as Map<String, dynamic>?;
+    
     return AuthUser(
       id: json['id'],
       name: json['name'],
@@ -46,9 +61,14 @@ class AuthUser {
       department: studentProf?['department'],
       faculty: studentProf?['faculty'],
       registrationNo: studentProf?['registrationNo'],
-      phone: studentProf?['phone'],
+      phone: studentProf?['phone'] ?? supervisorProf?['phone'],
       topic: studentProf?['topic'],
       supervisorName: supervisorUser?['name'],
+      staffNumber: supervisorProf?['staffNumber'],
+      supervisorDepartment: supervisorProf?['department'],
+      specialization: supervisorProf?['specialization'],
+      office: supervisorProf?['office'],
+      studentCapacity: supervisorProf?['studentCapacity'],
     );
   }
 }
@@ -85,18 +105,38 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final ApiClient _apiClient = ApiClient();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  Timer? _profilePollingTimer;
 
   AuthNotifier() : super(AuthState()) {
     checkAuthStatus();
   }
 
+  @override
+  void dispose() {
+    _profilePollingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startProfilePolling() {
+    // Polling disabled as per user request to avoid flickering and jumping.
+  }
+
+  void _stopProfilePolling() {
+    // Polling disabled as per user request to avoid flickering and jumping.
+  }
+
   // Restore session using the stored token and GET /api/v1/auth/me
-  Future<void> checkAuthStatus() async {
-    state = state.copyWith(isLoading: true);
+  Future<void> checkAuthStatus({bool isPolling = false}) async {
+    if (!isPolling) {
+      state = state.copyWith(isLoading: true);
+    }
     final token = await _secureStorage.read(key: 'jwt_token');
 
     if (token == null || token.isEmpty) {
-      state = state.copyWith(isLoading: false, isAuthenticated: false);
+      if (!isPolling) {
+        state = state.copyWith(isLoading: false, isAuthenticated: false);
+      }
+      _stopProfilePolling();
       return;
     }
 
@@ -108,6 +148,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isAuthenticated: true,
         user: user,
       );
+      if (!isPolling) {
+        _startProfilePolling();
+      }
     } on DioException catch (e) {
       await _secureStorage.delete(key: 'jwt_token');
       state = state.copyWith(
@@ -115,6 +158,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isAuthenticated: false,
         error: e.response?.data?['error'] ?? 'Session expired',
       );
+      _stopProfilePolling();
     }
   }
 
@@ -146,6 +190,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isAuthenticated: true,
           user: user,
         );
+        _startProfilePolling();
         return true;
       } else {
         state = state.copyWith(
@@ -156,7 +201,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     } on DioException catch (e) {
       final errorData = e.response?.data;
-      String errorMsg = 'Login failed: ${e.message}';
+      String errorMsg = e.message != null ? 'Login failed: ${e.message}' : 'Login failed: Network or Server Error';
       if (errorData is Map<String, dynamic> && errorData['error'] != null) {
         errorMsg = errorData['error'];
       }
@@ -176,6 +221,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   // Logout handler
   Future<void> logout() async {
+    _stopProfilePolling();
     await _secureStorage.delete(key: 'jwt_token');
     await _secureStorage.delete(key: 'refresh_token');
     state = state.copyWith(
@@ -183,6 +229,62 @@ class AuthNotifier extends StateNotifier<AuthState> {
       user: null,
       error: null,
     );
+  }
+
+  // Forgot Password API Calls
+  Future<bool> forgotPassword(String email) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final response = await _apiClient.dio.post('/auth/forgot-password', data: {'email': email});
+      state = state.copyWith(isLoading: false);
+      return response.data['success'] == true;
+    } on DioException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.response?.data?['error'] ?? 'Request failed');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: 'Request failed');
+      return false;
+    }
+  }
+
+  Future<bool> verifyOtp(String email, String otp) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final response = await _apiClient.dio.post('/auth/verify-otp', data: {'email': email, 'otp': otp});
+      if (response.data['success'] == true) {
+        final token = response.data['token'];
+        await _secureStorage.write(key: 'jwt_token', value: token); // Store temp token for reset
+        state = state.copyWith(isLoading: false);
+        return true;
+      }
+      return false;
+    } on DioException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.response?.data?['error'] ?? 'Invalid OTP');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: 'Verification failed');
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword(String newPassword) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final response = await _apiClient.dio.post('/auth/reset-password', data: {'newPassword': newPassword});
+      if (response.data['success'] == true) {
+        state = state.copyWith(isLoading: false);
+        // Clear temp token so they have to log in normally
+        await _secureStorage.delete(key: 'jwt_token');
+        return true;
+      }
+      return false;
+    } on DioException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.response?.data?['error'] ?? 'Reset failed');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: 'Reset failed');
+      return false;
+    }
   }
 }
 

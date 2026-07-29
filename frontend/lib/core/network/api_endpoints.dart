@@ -43,7 +43,7 @@ class ApiEndpoints {
   static const String pendingReviews = '/supervisor/dashboard/pending-reviews';
 
   // ── Supervisor Actions ───────────────────────────────────────────────
-  static const String reviewActivity = '/supervisor/reviews';
+  static const String reviewActivity = '/reviews';
   static String reviewById(String id) => '/supervisor/reviews/$id';
   static const String generateReport = '/supervisor/reports/generate';
   static const String exportLogs = '/supervisor/logs/export';
@@ -51,7 +51,7 @@ class ApiEndpoints {
   // ── Map / Location ───────────────────────────────────────────────────
   static const String liveLocations = '/supervisor/map/live';
   static String studentGpsHistory(String studentId) =>
-      '/supervisor/students/$studentId/gps-history';
+      '/sessions/student/$studentId/pings';
 
   // ── Notifications ────────────────────────────────────────────────────
   static const String notifications = '/notifications';

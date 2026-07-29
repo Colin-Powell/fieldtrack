@@ -1,30 +1,30 @@
-# Supervisor Portal Standalone Implementation
+# Admin Department Management - Remove Hardcoded Data & Real API Integration
 
 ## Steps
 
-### 1. ✅ Create `supervisor_router.dart` ✅ DONE
-- Created at `frontend/lib/features/supervisor/router/supervisor_router.dart`
-- Contains only supervisor routes (login, dashboard, students, profile, logs, activity, evidence, location, reports, map, settings)
-- No forgot-password, OTP, or force-password-change routes
+### Backend
 
-### 2. ✅ Update `SupervisorLoginScreen` ✅ DONE
-- Removed "Forgot Password?" link
-- Removed navigation to `/forgot-password`
+- [ ] 1. Add `SystemSetting` model to Prisma schema for settings storage
+- [ ] 2. Add backend endpoints in `admins.controller.ts`:
+  - [ ] `/admin/departments` - GET departments with student/supervisor counts
+  - [ ] `/admin/projects` - GET aggregated project data from field logs
+  - [ ] `/admin/audit-logs` - GET paginated audit logs
+  - [ ] `/admin/notifications` - GET all notifications
+  - [ ] `/admin/settings` - GET/PUT system settings
+- [ ] 3. Register new routes in `admins.routes.ts`
 
-### 3. ✅ Update `SupervisorScaffold` ✅ DONE (no changes needed)
-- All nav items already point to supervisor routes only
-- Logout already goes to `/supervisor/login`
+### Frontend
 
-### 4. ⬜ Create `main_supervisor.dart`
-- Create standalone `SupervisorApp` widget
-- Uses new `supervisorRouter` from `supervisor_router.dart`
-- Shares theme from existing codebase
+- [ ] 4. Update `admin_departments_screen.dart` - Replace hardcoded cards with API data
+- [ ] 5. Update `admin_projects_screen.dart` - Replace hardcoded table rows with API data
+- [ ] 6. Update `admin_reports_screen.dart` - Connect report generation to backend
+- [ ] 7. Update `admin_map_screen.dart` - Fetch markers from backend API
+- [ ] 8. Update `admin_notifications_screen.dart` - Connect to notification API
+- [ ] 9. Update `admin_audit_screen.dart` - Connect to audit log API
+- [ ] 10. Update `admin_settings_screen.dart` - Connect to settings API
 
-### 5. ✅ Do NOT modify `app_router.dart` ✅ DONE
-- Student portal router untouched
+### Verify & Test
 
-### 6. ⬜ Verify no cross-links exist
-- Ensure all screens navigate only within `/supervisor/*` routes
-
-
+- [ ] 11. Ensure backend compiles and endpoints return valid data
+- [ ] 12. Ensure frontend compiles without errors
 

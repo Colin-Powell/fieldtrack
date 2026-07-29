@@ -9,6 +9,7 @@ import activityRoutes from './activities/activity.routes.js';
 import mediaRoutes from './media/media.routes.js';
 import notificationRoutes from './notifications/notification.routes.js';
 import reviewRoutes from './reviews/review.routes.js';
+import reportRoutes from './reports/reports.routes.js';
 const app = express();
 const port = process.env.PORT || 3000;
 app.use(cors());
@@ -21,26 +22,70 @@ app.use('/api/v1/activities', activityRoutes);
 app.use('/api/v1/media', mediaRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/reviews', reviewRoutes);
+app.use('/api/v1/reports', reportRoutes);
 // Also serve the storage folder statically so the frontend can display images
 app.use('/storage', express.static('storage'));
 // ── Health Check ──
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
 });
+import { authenticate, authorizeRole } from './auth/auth.middleware.js';
 // ── Supervisor Routes ──
-app.get('/api/v1/supervisor/dashboard/stats', async (req, res) => {
+app.get('/api/v1/supervisor/dashboard/stats', authenticate, authorizeRole(['SUPERVISOR', 'ADMIN']), async (req, res) => {
     try {
-        // Example: Mock response for now until we insert real data
-        res.json({ checkedOut: 24, checkedIn: 12, inField: 9 });
+        const supervisorId = req.user?.userId;
+        const supervisorProfile = await prisma.supervisorProfile.findUnique({
+            where: { userId: supervisorId }
+        });
+        if (!supervisorProfile && req.user?.role !== 'ADMIN') {
+            return res.json({ checkedOut: 0, checkedIn: 0, inField: 0 });
+        }
+        const whereClause = { role: 'STUDENT' };
+        if (req.user?.role !== 'ADMIN' && supervisorProfile) {
+            whereClause.studentProfile = { supervisorId: supervisorProfile.id };
+        }
+        const students = await prisma.user.findMany({
+            where: whereClause,
+            include: {
+                fieldSessions: {
+                    where: { checkOutTime: null }
+                }
+            }
+        });
+        let checkedIn = 0;
+        let checkedOut = 0;
+        let inField = 0;
+        for (const s of students) {
+            if (s.fieldSessions && s.fieldSessions.length > 0) {
+                checkedIn++;
+                inField++;
+            }
+            else {
+                checkedOut++;
+            }
+        }
+        res.json({ checkedOut, checkedIn, inField });
     }
     catch (error) {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
-app.get('/api/v1/supervisor/students', async (req, res) => {
+app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR', 'ADMIN']), async (req, res) => {
     try {
+        const supervisorId = req.user?.userId;
+        const supervisorProfile = await prisma.supervisorProfile.findUnique({
+            where: { userId: supervisorId }
+        });
+        const whereClause = { role: 'STUDENT' };
+        if (req.user?.role !== 'ADMIN' && supervisorProfile) {
+            whereClause.studentProfile = { supervisorId: supervisorProfile.id };
+        }
+        else if (req.user?.role !== 'ADMIN' && !supervisorProfile) {
+            // If supervisor has no profile yet, they have no students.
+            return res.json([]);
+        }
         const students = await prisma.user.findMany({
-            where: { role: 'STUDENT' },
+            where: whereClause,
             include: {
                 studentProfile: {
                     include: {
@@ -203,6 +248,40 @@ app.get('/api/v1/supervisor/students/:id', async (req, res) => {
                 })),
                 review: null,
             })),
+            statistics: {
+                totalFieldDays: sessions.length,
+                totalActivities: logs.length,
+                totalReports: 0,
+                totalEvidence: logs.reduce((acc, l) => acc + (l.evidence?.length ?? 0), 0),
+                totalImages: logs.reduce((acc, l) => acc + (l.evidence?.length ?? 0), 0),
+                totalVideos: 0,
+                totalDocuments: 0,
+                totalDistanceTravelled: sessions.reduce((acc, s) => acc + (s.distanceTravelled ?? 0), 0),
+                totalTimeInField: sessions.reduce((acc, s) => acc + (s.durationSeconds ?? 0), 0),
+                firstCheckIn: sessions.length > 0 ? sessions[sessions.length - 1].checkInTime.toISOString() : new Date().toISOString(),
+                lastCheckOut: sessions.length > 0 && sessions[0].checkOutTime ? sessions[0].checkOutTime.toISOString() : new Date().toISOString(),
+                averageGPSAccuracy: sessions.length > 0 ? sessions.reduce((acc, s) => acc + (s.averageAccuracy ?? 0), 0) / sessions.length : 0,
+            },
+            timeline: [
+                ...sessions.map((s) => ({
+                    time: s.checkInTime.toISOString(),
+                    type: 'checkIn',
+                    title: 'Checked In',
+                    description: `Checked in (Accuracy: ${s.startAccuracy}m)`
+                })),
+                ...sessions.filter((s) => s.checkOutTime).map((s) => ({
+                    time: s.checkOutTime.toISOString(),
+                    type: 'checkOut',
+                    title: 'Checked Out',
+                    description: `Checked out`
+                })),
+                ...logs.map((l) => ({
+                    time: l.timestamp.toISOString(),
+                    type: 'activitySubmit',
+                    title: l.title,
+                    description: `Activity submitted with ${l.evidence?.length ?? 0} evidence files`
+                }))
+            ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()),
         });
     }
     catch (error) {

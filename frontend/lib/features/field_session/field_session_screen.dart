@@ -12,7 +12,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/core/network/api_result.dart';
 import 'package:fieldtrack/core/providers/location_provider.dart';
+import 'package:fieldtrack/core/providers/auth_provider.dart';
+import 'package:fieldtrack/core/providers/activity_provider.dart';
 
 class FieldSessionScreen extends ConsumerStatefulWidget {
   final bool isDraft; // Pass true if loading a saved draft
@@ -331,202 +335,146 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     final hasPermission = await _audioRecorder.hasPermission();
     if (!hasPermission) {
       scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Microphone permission is required to record voice notes.',
-          ),
-        ),
+        const SnackBar(content: Text('Microphone permission is required to record voice notes.')),
       );
       return;
     }
 
     String? recordPath;
-    bool isRecording = false;
+    bool isRecording = await _audioRecorder.isRecording();
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             final sheetContext = context;
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+            return Container(
+              padding: const EdgeInsets.only(left: 24, right: 24, top: 12, bottom: 40),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -5))],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Record Voice Note',
-                    style: TextStyle(
-                      fontFamily: 'Roboto',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Handle
+                    Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Speak clearly into your microphone and stop when you are done.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Roboto',
-                      fontSize: 14,
-                      color: Color(0xFF737373),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 18,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          PhosphorIconsFill.microphone,
-                          size: 40,
-                          color: isRecording
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF1BA654),
+                    const SizedBox(height: 24),
+                    const Text('Voice Note', style: TextStyle(fontFamily: 'Roboto', fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF111827))),
+                    const SizedBox(height: 8),
+                    const Text('Capture environmental sounds or field observations', textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Roboto', fontSize: 14, color: Color(0xFF6B7280))),
+                    const SizedBox(height: 32),
+                    
+                    // Recording Indicator / Button
+                    GestureDetector(
+                      onTap: () async {
+                        if (!isRecording) {
+                          final directory = await getTemporaryDirectory();
+                          final outputPath = '${directory.path}/voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+                          recordPath = outputPath;
+                          await _audioRecorder.start(
+                            const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100, numChannels: 1),
+                            path: outputPath,
+                          );
+                          setModalState(() => isRecording = true);
+                        } else {
+                          await _audioRecorder.stop();
+                          setModalState(() => isRecording = false);
+                          if (recordPath != null) {
+                            _addEvidenceItem(_EvidenceItem(type: EvidenceType.voice, path: recordPath!, name: 'Voice Note ${DateTime.now().toIso8601String()}.m4a'));
+                          }
+                          if (Navigator.canPop(sheetContext)) Navigator.pop(sheetContext);
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: isRecording ? const Color(0xFFFEE2E2) : const Color(0xFFE6F5EC),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            if (isRecording)
+                              BoxShadow(color: const Color(0xFFEF4444).withValues(alpha: 0.4), blurRadius: 30, spreadRadius: 10),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          isRecording ? 'Recording...' : 'Ready to record',
-                          style: TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: isRecording
-                                ? const Color(0xFFEF4444)
-                                : Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isRecording
-                                ? const Color(0xFFEF4444)
-                                : const Color(0xFF1BA654),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(40),
+                        child: Center(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: isRecording ? 60 : 80,
+                            height: isRecording ? 60 : 80,
+                            decoration: BoxDecoration(
+                              color: isRecording ? const Color(0xFFEF4444) : const Color(0xFF1BA654),
+                              shape: BoxShape.circle,
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          onPressed: () async {
-                            if (!isRecording) {
-                              final directory = await getTemporaryDirectory();
-                              final outputPath =
-                                  '${directory.path}/voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
-                              recordPath = outputPath;
-                              await _audioRecorder.start(
-                                const RecordConfig(
-                                  encoder: AudioEncoder.aacLc,
-                                  bitRate: 128000,
-                                  sampleRate: 44100,
-                                  numChannels: 1,
-                                ),
-                                path: outputPath,
-                              );
-                              setModalState(() => isRecording = true);
-                            } else {
-                              await _audioRecorder.stop();
-                              setModalState(() => isRecording = false);
-                              if (recordPath != null) {
-                                _addEvidenceItem(
-                                  _EvidenceItem(
-                                    type: EvidenceType.voice,
-                                    path: recordPath!,
-                                    name:
-                                        'Voice Note ${DateTime.now().toIso8601String()}.m4a',
-                                  ),
-                                );
-                              }
-                              if (Navigator.canPop(sheetContext)) {
-                                Navigator.pop(sheetContext);
-                              }
-                            }
-                          },
-                          child: Text(
-                            isRecording ? 'Stop Recording' : 'Start Recording',
-                            style: const TextStyle(
-                              fontFamily: 'Roboto',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            child: Icon(isRecording ? PhosphorIconsFill.stop : PhosphorIconsFill.microphone, color: Colors.white, size: 36),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    icon: const Icon(
-                      PhosphorIconsRegular.folder,
-                      color: Color(0xFF1BA654),
                     ),
-                    label: const Text('Import audio from storage'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF1BA654),
-                      side: const BorderSide(color: Color(0xFF1BA654)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(40),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    onPressed: () async {
-                      if (isRecording) {
-                        await _audioRecorder.stop();
-                      }
-                      Navigator.pop(sheetContext);
-                      await _importAudioFile();
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () async {
-                      if (isRecording) {
-                        await _audioRecorder.stop();
-                      }
-                      if (Navigator.canPop(sheetContext)) {
-                        Navigator.pop(sheetContext);
-                      }
-                    },
-                    child: const Text(
-                      'Cancel',
+                    const SizedBox(height: 24),
+                    Text(
+                      isRecording ? 'Recording in progress...' : 'Tap to start recording',
                       style: TextStyle(
                         fontFamily: 'Roboto',
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF737373),
+                        color: isRecording ? const Color(0xFFEF4444) : const Color(0xFF374151),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 40),
+                    
+                    // Import Audio button
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton.icon(
+                        icon: const Icon(PhosphorIconsRegular.folder, color: Color(0xFF6B7280)),
+                        label: const Text('Import from storage', style: TextStyle(fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF4B5563))),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: const Color(0xFFF3F4F6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () async {
+                          if (isRecording) await _audioRecorder.stop();
+                          if (Navigator.canPop(sheetContext)) Navigator.pop(sheetContext);
+                          await _importAudioFile();
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: () async {
+                          if (isRecording) await _audioRecorder.stop();
+                          if (Navigator.canPop(sheetContext)) Navigator.pop(sheetContext);
+                        },
+                        child: const Text('Cancel', style: TextStyle(fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF9CA3AF))),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
         );
       },
-    );
+    ).whenComplete(() async {
+      // Ensure we stop recording if modal is dismissed abruptly
+      if (await _audioRecorder.isRecording()) {
+        await _audioRecorder.stop();
+      }
+    });
   }
 
   Future<void> _uploadDocument() async {
@@ -550,18 +498,65 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
 
   Future<void> _submitActivity() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        if (_forceErrorOnce) {
-          _currentStep = LogStep.error;
-          _forceErrorOnce = false;
-        } else {
+    try {
+      final user = ref.read(authProvider).user;
+      final locationState = ref.read(locationProvider);
+      
+      if (user == null) {
+        throw Exception('User data is missing');
+      }
+
+      final activityService = ref.read(activityServiceProvider);
+
+      // 1. Create Draft Activity
+      final draftRes = await activityService.createDraftActivity(
+        studentId: user.id,
+        title: _titleController.text,
+        description: _descController.text,
+        methodology: _methodController.text,
+        latitude: locationState.latitude,
+        longitude: locationState.longitude,
+        gpsAccuracy: locationState.accuracy,
+      );
+
+      if (draftRes is Failure) {
+        throw Exception((draftRes as Failure).message);
+      }
+      final draftData = (draftRes as Success).data;
+      final activityId = draftData['id'];
+
+      // 2. Upload Evidence
+      for (final item in _evidenceItems) {
+        await activityService.uploadEvidence(
+          activityId: activityId,
+          uploaderId: user.id,
+          filePath: item.path,
+          latitude: locationState.latitude,
+          longitude: locationState.longitude,
+          gpsAccuracy: locationState.accuracy,
+        );
+      }
+
+      // 3. Submit Activity
+      await activityService.submitActivity(
+        activityId: activityId,
+        studentId: user.id,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
           _currentStep = LogStep.success;
-        }
-      });
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _currentStep = LogStep.error;
+        });
+      }
     }
   }
 
@@ -1853,3 +1848,4 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     );
   }
 }
+

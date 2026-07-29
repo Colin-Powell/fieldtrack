@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:fieldtrack/shared/models/student_data.dart';
 import 'package:fieldtrack/features/supervisor/repositories/student_repository.dart';
@@ -35,7 +36,6 @@ class FeedItem {
 
 class DashboardState extends ChangeNotifier {
   final StudentRepository _repository;
-
   DashboardState({StudentRepository? repository})
     : _repository = repository ?? StudentRepository();
 
@@ -116,15 +116,22 @@ class DashboardState extends ChangeNotifier {
 
   List<FeedItem> get feedItems => _feedItems;
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   // ── Load dashboard data from repository ──────────────────────────────
 
   /// Called once at app start to hydrate the dashboard from the API.
   /// Falls back to hardcoded defaults when the backend is unavailable.
-  Future<void> loadDashboard() async {
-    _isLoading = true;
-    _hasError = false;
-    _errorMessage = '';
-    notifyListeners();
+  Future<void> loadDashboard({bool isPolling = false}) async {
+    if (!isPolling) {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = '';
+      notifyListeners();
+    }
 
     try {
       // 1. Fetch dashboard stats
@@ -165,7 +172,7 @@ class DashboardState extends ChangeNotifier {
       
     } catch (_) {
       // Empty state
-      _allActivities = [];
+      if (!isPolling) _allActivities = [];
     }
 
     try {
@@ -185,10 +192,12 @@ class DashboardState extends ChangeNotifier {
         }
       }
     } catch (_) {
-      _students = [];
+      if (!isPolling) _students = [];
     }
 
-    _isLoading = false;
+    if (!isPolling) {
+      _isLoading = false;
+    }
     notifyListeners();
   }
 

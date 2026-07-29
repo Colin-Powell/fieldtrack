@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart' as pkg_provider;
+import '../dashboard/dashboard_state.dart';
 import '../widgets/supervisor_top_header.dart';
 import 'package:fieldtrack/shared/models/student_data.dart';
 import 'package:fieldtrack/features/supervisor/repositories/student_repository.dart';
@@ -113,60 +115,48 @@ class SupervisorMapScreen extends StatefulWidget {
 }
 
 class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
-  bool _isLoading = true;
   String _searchQuery = '';
   final MapController _mapController = MapController();
 
-  List<MapStudent> _allStudents = [];
-  List<AlertUpdate> _alerts = [];
   MapStudent? _selectedStudent;
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchDynamicData();
+  final List<AlertUpdate> _alerts = [
+    const AlertUpdate(
+      title: 'Student left designated region',
+      subtitle: 'Jane Akinyi (BBIT/2021/045)',
+      time: '2m ago',
+    ),
+    const AlertUpdate(
+      title: 'Activity log submitted',
+      subtitle: 'Mark Mutua (BCS/2021/102)',
+      time: '15m ago',
+    ),
+  ];
+
+  List<MapStudent> _getAllStudents(List<StudentData> students) {
+    // Only include students who are checked in and have a valid GPS session captured
+    return students
+        .where((s) => s.currentSession != null && s.checkInStatus == 'Checked In')
+        .map((s) {
+      final isOnline = s.fieldStatus == FieldStatus.inField;
+      return MapStudent(
+        id: s.id,
+        name: s.name,
+        regNo: s.reg,
+        topic: s.topic,
+        status: isOnline ? StudentStatus.inField : StudentStatus.offline,
+        time: DateFormat('hh:mm a').format(s.currentSession!.checkInTime),
+        location: LatLng(s.currentSession!.latitude, s.currentSession!.longitude),
+        routeHistory: s.gpsHistory.map((g) => LatLng(g.latitude, g.longitude)).toList(),
+        avatarUrl: s.avatarUrl.isNotEmpty ? s.avatarUrl : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(s.name)}&background=1BA654&color=fff',
+      );
+    }).toList();
   }
 
-  // Fetch real students from the backend API
-  Future<void> _fetchDynamicData() async {
-    setState(() => _isLoading = true);
-    
-    try {
-      final repo = StudentRepository();
-      final students = await repo.fetchStudents();
-
-      if (!mounted) return;
-
-      setState(() {
-        _allStudents = students.map((s) {
-          final isOnline = s.fieldStatus == FieldStatus.inField;
-          
-          return MapStudent(
-            id: s.id,
-            name: s.name,
-            regNo: s.reg,
-            topic: s.topic,
-            status: isOnline ? StudentStatus.inField : StudentStatus.offline,
-            time: s.currentSession != null ? DateFormat('hh:mm a').format(s.currentSession!.checkInTime) : 'N/A',
-            location: s.currentSession != null ? LatLng(s.currentSession!.latitude, s.currentSession!.longitude) : const LatLng(-3.6300, 39.8400),
-            routeHistory: s.gpsHistory.map((g) => LatLng(g.latitude, g.longitude)).toList(),
-            avatarUrl: s.avatarUrl.isNotEmpty ? s.avatarUrl : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(s.name)}&background=1BA654&color=fff',
-          );
-        }).toList();
-
-        _alerts = []; // We can load real alerts from notifications API later
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-    }
-  }
-
-  List<MapStudent> get _filteredStudents {
-    if (_searchQuery.isEmpty) return _allStudents;
+  List<MapStudent> _getFilteredStudents(List<MapStudent> allStudents) {
+    if (_searchQuery.isEmpty) return allStudents;
     final q = _searchQuery.toLowerCase();
-    return _allStudents
+    return allStudents
         .where(
           (s) =>
               s.name.toLowerCase().contains(q) ||
@@ -193,6 +183,10 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final rawStudents = context.select<DashboardState, List<StudentData>>((s) => s.students);
+    final allStudents = _getAllStudents(rawStudents);
+    final filteredStudents = _getFilteredStudents(allStudents);
+
     return Container(
       color: _C.bg,
       child: SafeArea(
@@ -201,9 +195,9 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _isLoading ? _buildHeaderSkeleton() : _buildTopHeader(),
+              _buildTopHeader(),
               const SizedBox(height: 32),
-              _isLoading ? _buildMainContentSkeleton() : _buildMainContent(),
+              _buildMainContent(allStudents, filteredStudents),
             ],
           ),
         ),
@@ -291,22 +285,22 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   }
 
   // ── 2. Main Content (Responsive Row/Col) ──────────────────────────────
-  Widget _buildMainContent() {
+  Widget _buildMainContent(List<MapStudent> allStudents, List<MapStudent> filteredStudents) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 1000;
 
         final leftCol = Column(
           children: [
-            _buildTopStatsCard(),
+            _buildTopStatsCard(allStudents),
             const SizedBox(height: 24),
-            _buildMapCard(),
+            _buildMapCard(filteredStudents),
           ],
         );
 
         final rightCol = Column(
           children: [
-            _buildStudentsListCard(),
+            _buildStudentsListCard(allStudents, filteredStudents),
             const SizedBox(height: 24),
             _buildAlertsCard(),
           ],
@@ -331,7 +325,7 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   }
 
   // ── 3. Top Stats Card ─────────────────────────────────────────────────
-  Widget _buildTopStatsCard() {
+  Widget _buildTopStatsCard(List<MapStudent> allStudents) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 32),
@@ -343,10 +337,10 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
         builder: (context, constraints) {
           final isNarrow = constraints.maxWidth < 600;
 
-          final inFieldCount = _allStudents
+          final inFieldCount = allStudents
               .where((s) => s.status == StudentStatus.inField)
               .length;
-          final checkedOutCount = _allStudents
+          final checkedOutCount = allStudents
               .where((s) => s.status == StudentStatus.checkedOut)
               .length;
 
@@ -468,7 +462,7 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   }
 
   // ── 4. Map Card ───────────────────────────────────────────────────────
-  Widget _buildMapCard() {
+  Widget _buildMapCard(List<MapStudent> filteredStudents) {
     return Container(
       height: 650,
       decoration: BoxDecoration(
@@ -504,44 +498,93 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
                     ],
                   ),
                 MarkerLayer(
-                  markers: _filteredStudents
+                  markers: filteredStudents
                       .map(
                         (s) => Marker(
                           point: s.location,
-                          width: _selectedStudent?.id == s.id ? 72 : 56,
-                          height: _selectedStudent?.id == s.id ? 72 : 56,
-                          child: GestureDetector(
-                            onTap: () => _selectStudent(s),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: s.statusColor,
-                                  width: _selectedStudent?.id == s.id
-                                      ? 4.5
-                                      : 3.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: s.statusColor.withOpacity(0.4),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: ClipOval(
-                                child: Image.network(
-                                  s.avatarUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
+                          width: _selectedStudent?.id == s.id ? 100 : 80,
+                          height: _selectedStudent?.id == s.id ? 108 : 88,
+                          alignment: Alignment.bottomCenter,
+                          child: Tooltip(
+                            message: '${s.name}\n${s.regNo}\n${s.statusText}\nLat: ${s.location.latitude.toStringAsFixed(4)}, Lng: ${s.location.longitude.toStringAsFixed(4)}',
+                            preferBelow: false,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1F2937),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            textStyle: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 11,
+                              color: Colors.white,
+                              height: 1.6,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Floating name label
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
                                     color: Colors.white,
-                                    child: Icon(
-                                      Icons.person,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: s.statusColor, width: 1.5),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    s.name.split(' ').first,
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
                                       color: s.statusColor,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                // Avatar pin
+                                GestureDetector(
+                                  onTap: () => _selectStudent(s),
+                                  child: Container(
+                                    width: _selectedStudent?.id == s.id ? 56 : 44,
+                                    height: _selectedStudent?.id == s.id ? 56 : 44,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: s.statusColor,
+                                        width: _selectedStudent?.id == s.id ? 4.5 : 3.5,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: s.statusColor.withOpacity(0.4),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ClipOval(
+                                      child: Image.network(
+                                        s.avatarUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          color: Colors.white,
+                                          child: Icon(
+                                            Icons.person,
+                                            color: s.statusColor,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
                           ),
                         ),
@@ -858,7 +901,7 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   }
 
   // ── 5. Right Sidebar: Students List ───────────────────────────────────
-  Widget _buildStudentsListCard() {
+  Widget _buildStudentsListCard(List<MapStudent> allStudents, List<MapStudent> filteredStudents) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -869,7 +912,7 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Student in Field (${_allStudents.length})',
+            'Student in Field (${allStudents.length})',
             style: const TextStyle(
               fontFamily: 'Poppins',
               fontWeight: FontWeight.w700,
@@ -879,7 +922,7 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
           ),
           const SizedBox(height: 24),
 
-          if (_filteredStudents.isEmpty)
+          if (filteredStudents.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 32.0),
               child: Center(
@@ -893,13 +936,13 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: _filteredStudents.length,
+              itemCount: filteredStudents.length,
               separatorBuilder: (context, index) => const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: Divider(height: 1, color: _C.border),
               ),
               itemBuilder: (context, index) {
-                final s = _filteredStudents[index];
+                final s = filteredStudents[index];
                 final isSelected = _selectedStudent?.id == s.id;
 
                 return InkWell(

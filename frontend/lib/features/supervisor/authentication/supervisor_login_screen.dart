@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../main_supervisor.dart';
 import '../../../core/providers/auth_provider.dart';
 
 class SupervisorLoginScreen extends ConsumerStatefulWidget {
@@ -29,36 +30,49 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    try {
+      if (!_formKey.currentState!.validate()) return;
 
-    final success = await ref.read(authProvider.notifier).login(
-      email: _emailController.text.trim(),
-      password: _pwController.text,
-    );
+      final success = await ref.read(authProvider.notifier).login(
+        email: _emailController.text.trim(),
+        password: _pwController.text,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (success) {
-      final user = ref.read(authProvider).user;
-      if (user?.role == 'SUPERVISOR' || user?.role == 'ADMIN') {
-        context.go('/supervisor/dashboard');
+      if (success) {
+        final user = ref.read(authProvider).user;
+        if (user?.role == 'SUPERVISOR' || user?.role == 'ADMIN') {
+          context.go('/supervisor/dashboard');
+        } else {
+          rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+          rootScaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(
+              content: Text('Access denied. This portal is for supervisors only.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          ref.read(authProvider.notifier).logout();
+        }
       } else {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Access denied. This portal is for supervisors only.'),
+        final error = ref.read(authProvider).error ?? 'Login failed';
+        rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+        rootScaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text(error),
             backgroundColor: Colors.red,
           ),
         );
-        ref.read(authProvider.notifier).logout();
       }
-    } else {
-      final error = ref.read(authProvider).error ?? 'Login failed';
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
+    } catch (e, stackTrace) {
+      print('Login Exception: $e\n$stackTrace');
+      if (!mounted) return;
+      rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+      rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: Text(error),
+          content: Text('An unexpected error occurred: $e'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 10),
         ),
       );
     }
@@ -353,37 +367,59 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // --- Options Row (Remember me only) ---
+                  // --- Options Row (Remember me & Forgot Password) ---
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: Checkbox(
-                          value: _rememberMe,
-                          onChanged: (value) {
-                            setState(() {
-                              _rememberMe = value ?? false;
-                            });
-                          },
-                          activeColor: greenColor,
-                          side: const BorderSide(
-                            color: Color(0xFFD1D5DB),
-                            width: 1.5,
+                      Row(
+                        children: [
+                          SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: Checkbox(
+                              value: _rememberMe,
+                              onChanged: (value) {
+                                setState(() {
+                                  _rememberMe = value ?? false;
+                                });
+                              },
+                              activeColor: greenColor,
+                              side: const BorderSide(
+                                color: Color(0xFFD1D5DB),
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Remember me',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 14,
+                              color: Color(0xFF6B7280),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Remember me',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 14,
-                          color: Color(0xFF6B7280),
-                          fontWeight: FontWeight.w500,
+                      TextButton(
+                        onPressed: () => context.push('/supervisor/forgot-password'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: greenColor,
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'Forgot Password?',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],

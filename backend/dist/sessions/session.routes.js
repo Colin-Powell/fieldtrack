@@ -12,4 +12,6 @@ router.patch('/checkout', controller.checkOut.bind(controller));
 router.get('/active', controller.getActive.bind(controller));
 // Log a location ping
 router.post('/ping', controller.logPing.bind(controller));
+// Get all location pings for a student (supervisor view)
+router.get('/student/:studentId/pings', controller.getStudentPings.bind(controller));
 export default router;

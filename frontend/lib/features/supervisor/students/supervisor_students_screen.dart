@@ -268,6 +268,38 @@ class _SupervisorStudentsScreenState extends State<SupervisorStudentsScreen> {
     final state = context.watch<DashboardState>();
     final list = _filtered(state.students);
 
+    if (state.students.isEmpty) {
+      return Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(_C.cardRadius),
+          border: Border.all(color: _C.border),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(PhosphorIconsRegular.student, size: 48, color: _C.textFaint),
+            SizedBox(height: 16),
+            Text(
+              'No Assigned Students',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: _C.textDark,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'You currently have no students assigned to you.',
+              style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (list.isEmpty) {
       return Container(
         alignment: Alignment.center,

@@ -1,6 +1,9 @@
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:fieldtrack/features/supervisor/authentication/supervisor_login_screen.dart';
+import 'package:fieldtrack/features/supervisor/authentication/supervisor_forgot_password_screen.dart';
+import 'package:fieldtrack/features/supervisor/authentication/supervisor_otp_screen.dart';
+import 'package:fieldtrack/features/supervisor/authentication/supervisor_reset_password_screen.dart';
 import 'package:fieldtrack/features/supervisor/dashboard/supervisor_dashboard_screen.dart';
 import 'package:fieldtrack/features/supervisor/dashboard/dashboard_state.dart';
 import 'package:fieldtrack/features/supervisor/widgets/supervisor_scaffold.dart';
@@ -28,6 +31,21 @@ final GoRouter supervisorRouter = GoRouter(
     GoRoute(
       path: '/supervisor/login',
       builder: (context, state) => const SupervisorLoginScreen(),
+    ),
+    GoRoute(
+      path: '/supervisor/forgot-password',
+      builder: (context, state) => const SupervisorForgotPasswordScreen(),
+    ),
+    GoRoute(
+      path: '/supervisor/verify-otp',
+      builder: (context, state) {
+        final email = state.extra as String? ?? '';
+        return SupervisorOtpScreen(email: email);
+      },
+    ),
+    GoRoute(
+      path: '/supervisor/reset-password',
+      builder: (context, state) => const SupervisorResetPasswordScreen(),
     ),
 
     // ── Shell Route to inject DashboardState Provider above SupervisorScaffold/child pages ──
@@ -82,7 +100,7 @@ final GoRouter supervisorRouter = GoRouter(
             final studentId = state.pathParameters['id'] ?? '';
             final studentName = state.extra is String
                 ? (state.extra as String)
-                : 'Jane Akinyi';
+                : '';
             return SupervisorScaffold(
               currentLocation: '/supervisor/student/$studentId/logs',
               child: SupervisorDailyFieldLogsScreen(
@@ -114,7 +132,7 @@ final GoRouter supervisorRouter = GoRouter(
             final extraMap = state.extra is Map<String, String>
                 ? (state.extra as Map<String, String>)
                 : <String, String>{};
-            final studentName = extraMap['studentName'] ?? 'Jane Akinyi';
+            final studentName = extraMap['studentName'] ?? '';
             final activityTitle = extraMap['activityTitle'] ?? 'Activity Details';
             return SupervisorScaffold(
               currentLocation:

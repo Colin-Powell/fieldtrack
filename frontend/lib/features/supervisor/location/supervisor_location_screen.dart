@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fieldtrack/features/supervisor/repositories/student_repository.dart';
+import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/shared/models/student_data.dart';
+import 'package:intl/intl.dart';
+import 'package:fieldtrack/core/network/api_result.dart';
+
+final supervisorStudentGpsProvider = FutureProvider.family.autoDispose<List<GPSLocation>, String>((ref, studentId) async {
+  final repo = StudentRepository();
+  return await repo.fetchStudentGpsHistory(studentId);
+});
 
 // ==========================================
 // DESIGN TOKENS
@@ -18,16 +29,17 @@ class _C {
   static const cardRadius = 32.0;
 }
 
-class SupervisorLocationScreen extends StatefulWidget {
+class SupervisorLocationScreen extends ConsumerStatefulWidget {
   final String studentId;
+  final String? activityId;
   
-  const SupervisorLocationScreen({super.key, required this.studentId});
+  const SupervisorLocationScreen({super.key, required this.studentId, this.activityId});
 
   @override
-  State<SupervisorLocationScreen> createState() => _SupervisorLocationScreenState();
+  ConsumerState<SupervisorLocationScreen> createState() => _SupervisorLocationScreenState();
 }
 
-class _SupervisorLocationScreenState extends State<SupervisorLocationScreen> {
+class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScreen> {
   // Add a MapController to manage map actions programmatically
   final MapController _mapController = MapController();
   
@@ -73,15 +85,69 @@ class _SupervisorLocationScreenState extends State<SupervisorLocationScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(_C.cardRadius),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildStatCol('Field Session', '21 July 2026', ''),
-                    _buildStatCol('Time in Field', '7h 20m', 'Total Duration'),
-                    _buildStatCol('Distance Traveled', '12.6 km', 'Total Distance'),
-                    _buildStatCol('Avg. Accuracy', '4.2 m', 'GPS Accuracy'),
-                    _buildStatCol('GPS Points', '186', 'Total Points'),
-                  ],
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final gpsAsync = ref.watch(supervisorStudentGpsProvider(widget.studentId));
+                    List<GPSLocation> gpsHistory = gpsAsync.asData?.value ?? [];
+                    
+                    String fieldSession = '-';
+                    String timeInField = '-';
+                    String distanceStr = '0 km';
+                    String accuracyStr = '-';
+                    
+                    if (widget.activityId != null) {
+                      final activityAsync = ref.watch(activityDetailsProvider(widget.activityId!));
+                      final activityResult = activityAsync.asData?.value;
+                      final activity = activityResult is Success ? (activityResult as Success).data : null;
+                      if (activity != null && activity['latitude'] != null && activity['longitude'] != null) {
+                        final lat = (activity['latitude'] as num).toDouble();
+                        final lng = (activity['longitude'] as num).toDouble();
+                        final timestamp = activity['timestamp'] != null ? DateTime.parse(activity['timestamp']) : DateTime.now();
+                        gpsHistory = [GPSLocation(latitude: lat, longitude: lng, altitude: 0.0, heading: 0.0, accuracy: (activity['gpsAccuracy'] as num?)?.toDouble() ?? 5.0, capturedAt: timestamp, speed: 0.0, address: '')];
+                      } else {
+                        gpsHistory = [];
+                      }
+                    }
+                    
+                    if (gpsHistory.isNotEmpty) {
+                      final first = gpsHistory.first;
+                      final last = gpsHistory.last;
+                      
+                      fieldSession = DateFormat('dd MMM yyyy').format(first.capturedAt);
+                      
+                      final duration = last.capturedAt.difference(first.capturedAt);
+                      final hours = duration.inHours;
+                      final minutes = duration.inMinutes.remainder(60);
+                      timeInField = '${hours}h ${minutes}m';
+                      
+                      // basic distance using route points
+                      double totalDist = 0;
+                      final distance = const Distance();
+                      for (int i = 0; i < gpsHistory.length - 1; i++) {
+                        totalDist += distance.as(
+                          LengthUnit.Kilometer, 
+                          LatLng(gpsHistory[i].latitude, gpsHistory[i].longitude), 
+                          LatLng(gpsHistory[i+1].latitude, gpsHistory[i+1].longitude)
+                        );
+                      }
+                      distanceStr = '${totalDist.toStringAsFixed(1)} km';
+                      
+                      double totalAcc = 0;
+                      for (var loc in gpsHistory) { totalAcc += loc.accuracy; }
+                      accuracyStr = '${(totalAcc / gpsHistory.length).toStringAsFixed(1)} m';
+                    }
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildStatCol('Field Session', fieldSession, ''),
+                        _buildStatCol('Time in Field', timeInField, 'Total Duration'),
+                        _buildStatCol('Distance Traveled', distanceStr, 'Total Distance'),
+                        _buildStatCol('Avg. Accuracy', accuracyStr, 'GPS Accuracy'),
+                        _buildStatCol('GPS Points', '${gpsHistory.length}', 'Total Points'),
+                      ],
+                    );
+                  }
                 ),
               ),
             ),
@@ -104,10 +170,26 @@ class _SupervisorLocationScreenState extends State<SupervisorLocationScreen> {
                       style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.w700, color: _C.textDark),
                     ),
                     const SizedBox(height: 16),
-                    // Replaced image & video icons with logical map tracking symbols
-                    _buildLocationDetailRow(PhosphorIconsRegular.mapPin, 'Start point (Check In)', '21 Jul 2026, 07:52 AM'),
-                    const SizedBox(height: 12),
-                    _buildLocationDetailRow(PhosphorIconsRegular.flag, 'End point (Check Out)', '21 Jul 2026, 03:12 PM'),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final gpsAsync = ref.watch(supervisorStudentGpsProvider(widget.studentId));
+                        final gpsHistory = gpsAsync.asData?.value ?? [];
+                        String startStr = '-';
+                        String endStr = '-';
+                        if (gpsHistory.isNotEmpty) {
+                          startStr = DateFormat('dd Jul yyyy, hh:mm a').format(gpsHistory.first.capturedAt.toLocal());
+                          endStr = DateFormat('dd Jul yyyy, hh:mm a').format(gpsHistory.last.capturedAt.toLocal());
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLocationDetailRow(PhosphorIconsRegular.mapPin, 'Start point (Check In)', startStr),
+                            const SizedBox(height: 12),
+                            _buildLocationDetailRow(PhosphorIconsRegular.flag, 'End point (Check Out)', endStr),
+                          ],
+                        );
+                      }
+                    ),
                   ],
                 ),
               ),
@@ -135,33 +217,83 @@ class _SupervisorLocationScreenState extends State<SupervisorLocationScreen> {
               child: Stack(
                 children: [
                   // Flutter Map Component
-                  FlutterMap(
-                    mapController: _mapController, // Attach controller
-                    options: MapOptions(
-                      initialCenter: _initialCenter,
-                      initialZoom: _initialZoom,
-                      interactionOptions: const InteractionOptions(
-                        flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-                      ),
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.fieldtrack.app',
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: const LatLng(-3.6305, 39.8499),
-                            child: const Icon(PhosphorIconsFill.mapPin, color: _C.green, size: 32),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final gpsAsync = ref.watch(supervisorStudentGpsProvider(widget.studentId));
+                      final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider(widget.studentId));
+
+                      List<GPSLocation> gpsHistory = gpsAsync.asData?.value ?? [];
+                      
+                      if (widget.activityId != null) {
+                        final activityAsyncDetail = ref.watch(activityDetailsProvider(widget.activityId!));
+                        final activityResultDetail = activityAsyncDetail.asData?.value;
+                        final activity = activityResultDetail is Success ? (activityResultDetail as Success).data : null;
+                        if (activity != null && activity['latitude'] != null && activity['longitude'] != null) {
+                          final lat = (activity['latitude'] as num).toDouble();
+                          final lng = (activity['longitude'] as num).toDouble();
+                          final timestamp = activity['timestamp'] != null ? DateTime.parse(activity['timestamp']) : DateTime.now();
+                          gpsHistory = [GPSLocation(latitude: lat, longitude: lng, altitude: 0.0, heading: 0.0, speed: 0.0, address: 'Unknown', accuracy: (activity['gpsAccuracy'] as num?)?.toDouble() ?? 5.0, capturedAt: timestamp)];
+                        } else {
+                          gpsHistory = [];
+                        }
+                      }
+                      
+                      final routePoints = gpsHistory.map((l) => LatLng(l.latitude, l.longitude)).toList();
+                      
+                      final activityMarkers = <Marker>[];
+                      if (activitiesAsync.hasValue) {
+                        final activitiesResult = activitiesAsync.value!;
+                        if (activitiesResult is Success) {
+                          final activities = (activitiesResult as Success).data as List<dynamic>;
+                          for (final activity in activities) {
+                            if (activity['latitude'] != null && activity['longitude'] != null) {
+                              activityMarkers.add(
+                                Marker(
+                                  point: LatLng((activity['latitude'] as num).toDouble(), (activity['longitude'] as num).toDouble()),
+                                  child: const Icon(PhosphorIconsFill.mapPin, color: _C.green, size: 32),
+                                )
+                              );
+                            }
+                          }
+                        }
+                      }
+                      
+                      // Update center if we have route points and haven't centered yet
+                      if (routePoints.isNotEmpty && _mapController.camera.center.latitude == _initialCenter.latitude) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                           try { _mapController.move(routePoints.first, _initialZoom); } catch (_) {}
+                        });
+                      }
+
+                      return FlutterMap(
+                        mapController: _mapController, // Attach controller
+                        options: MapOptions(
+                          initialCenter: _initialCenter,
+                          initialZoom: _initialZoom,
+                          interactionOptions: const InteractionOptions(
+                            flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                           ),
-                          Marker(
-                            point: const LatLng(-3.6350, 39.8550),
-                            child: const Icon(PhosphorIconsRegular.circle, color: _C.blue, size: 24),
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.fieldtrack.app',
+                          ),
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: routePoints,
+                                strokeWidth: 4.0,
+                                color: _C.blue,
+                              ),
+                            ],
+                          ),
+                          MarkerLayer(
+                            markers: activityMarkers,
                           ),
                         ],
-                      ),
-                    ],
+                      );
+                    },
                   ),
                   
                   // Floating Map Style Button (Top Right)

@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/core/constants/app_constants.dart';
+import 'package:fieldtrack/core/network/api_result.dart';
+import 'package:fieldtrack/core/network/api_result_builder.dart';
+import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
+import 'package:intl/intl.dart';
 
 // ==========================================
 // DESIGN TOKENS
@@ -21,17 +28,17 @@ class _C {
   static const innerCardRadius = 24.0; // Scaled down for tiny cards to prevent circle-clipping
 }
 
-class SupervisorEvidenceScreen extends StatefulWidget {
+class SupervisorEvidenceScreen extends ConsumerStatefulWidget {
   final String studentId;
   final String activityId;
   
   const SupervisorEvidenceScreen({super.key, required this.studentId, required this.activityId});
 
   @override
-  State<SupervisorEvidenceScreen> createState() => _SupervisorEvidenceScreenState();
+  ConsumerState<SupervisorEvidenceScreen> createState() => _SupervisorEvidenceScreenState();
 }
 
-class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
+class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -52,99 +59,40 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // ── MAIN SCROLLABLE CONTENT ─────────────────────────────────────
-        SingleChildScrollView(
-          controller: _scrollController,
-          padding: const EdgeInsets.all(24.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── LEFT COLUMN: Media (Images, Videos, Voice Notes) ────────
-              Expanded(
-                flex: 11,
-                child: Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(_C.cardRadius),
-                    border: Border.all(color: _C.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // --- IMAGES ---
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8.0),
-                        child: Text('Images (6)', style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w700, color: _C.textDark)),
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // 6 Images per row layout
-                      GridView.count(
-                        crossAxisCount: 6,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(), // Disables inner scrolling
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 0.75, // Keeps vertical space for text
-                        children: [
-                          _buildImageCard(context, 'Mangrove_01.jpg', '08:15 AM', '4.2m', 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=300&q=80'),
-                          _buildImageCard(context, 'Mangrove_02.jpg', '08:18 AM', '3.2m', 'https://images.unsplash.com/photo-1544257124-741165bc6f23?auto=format&fit=crop&w=300&q=80'),
-                          _buildImageCard(context, 'Mangrove_03.jpg', '08:22 AM', '3.1m', 'https://images.unsplash.com/photo-1590680608249-144a2df72186?auto=format&fit=crop&w=300&q=80'),
-                          _buildImageCard(context, 'Mangrove_04.jpg', '08:35 AM', '4.1m', 'https://images.unsplash.com/photo-1616423640778-28d1b53229bd?auto=format&fit=crop&w=300&q=80'),
-                          _buildImageCard(context, 'Mangrove_05.jpg', '08:42 AM', '4.3m', 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=300&q=80'),
-                          _buildImageCard(context, 'Mangrove_06.jpg', '08:58 AM', '4.1m', 'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=300&q=80'),
-                        ],
-                      ),
-                      
-                      const SizedBox(height: 32), 
-                      
-                      // --- VIDEOS ---
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8.0),
-                        child: Text('Videos (1)', style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w700, color: _C.textDark)),
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Videos layout (3 per row)
-                      GridView.count(
-                        crossAxisCount: 3,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.2,
-                        children: [
-                          _buildVideoCard(context, 'Site_Overview.mp4', '09:00 AM', '02:14', 'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=400&q=80'),
-                        ],
-                      ),
+    final activityAsync = ref.watch(activityDetailsProvider(widget.activityId));
+    
+    return ApiResultBuilder<Map<String, dynamic>>(
+      asyncValue: activityAsync,
+      onRetry: () => ref.refresh(activityDetailsProvider(widget.activityId)),
+      customLoading: const Scaffold(backgroundColor: Colors.white, body: Center(child: CircularProgressIndicator(color: _C.green))),
+      onData: (activity) {
+        final evidenceList = activity['evidence'] as List<dynamic>? ?? [];
+        final images = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('image/')).toList();
+        final videos = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('video/')).toList();
+        final audios = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('audio/')).toList();
+        final docs = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('application/')).toList();
+        
+        String submittedDateStr = 'N/A';
+        if (activity['timestamp'] != null) {
+            final dt = DateTime.parse(activity['timestamp']).toLocal();
+            submittedDateStr = DateFormat('dd MMM yyyy').format(dt);
+        }
+        
+        String accuracy = 'N/A';
 
-                      const SizedBox(height: 32),
-
-                      // --- VOICE NOTES ---
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8.0),
-                        child: Text('Voice Notes (1)', style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w700, color: _C.textDark)),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildVoiceNoteCard(context),
-                    ],
-                  ),
-                ),
-              ),
-              
-              const SizedBox(width: 24),
-              
-              // ── RIGHT COLUMN: Documents, Summary & Info ───────────────────
-              Expanded(
-                flex: 6,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Documents Section
-                    Container(
+        return Stack(
+          children: [
+            // ── MAIN SCROLLABLE CONTENT ─────────────────────────────────────
+            SingleChildScrollView(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(24.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── LEFT COLUMN: Media (Images, Videos, Voice Notes) ────────
+                  Expanded(
+                    flex: 11,
+                    child: Container(
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -154,41 +102,155 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.only(left: 8.0),
-                            child: Text('Documents (1)', style: TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: _C.textDark)),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildDocumentCard(),
+                          // --- IMAGES ---
+                          if (images.isNotEmpty) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8.0),
+                              child: Text('Images (${images.length})', style: const TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w700, color: _C.textDark)),
+                            ),
+                            const SizedBox(height: 16),
+                            
+                            GridView.builder(
+                              itemCount: images.length,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 6,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                                childAspectRatio: 0.75,
+                              ),
+                              itemBuilder: (context, index) {
+                                final ev = images[index];
+                                final url = ev['storagePath'] != null ? '${AppConstants.apiUrl}/${ev['storagePath']}' : '';
+                                final time = submittedDateStr;
+                                return _buildImageCard(context, ev['fileName'] ?? 'Image_$index.jpg', time, accuracy, url);
+                              },
+                            ),
+                            const SizedBox(height: 32), 
+                          ],
+                          
+                          // --- VIDEOS ---
+                          if (videos.isNotEmpty) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8.0),
+                              child: Text('Videos (${videos.length})', style: const TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w700, color: _C.textDark)),
+                            ),
+                            const SizedBox(height: 16),
+                            
+                            GridView.builder(
+                              itemCount: videos.length,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                                childAspectRatio: 1.2,
+                              ),
+                              itemBuilder: (context, index) {
+                                final ev = videos[index];
+                                final url = ev['storagePath'] != null ? '${AppConstants.apiUrl}/${ev['storagePath']}' : '';
+                                final time = submittedDateStr;
+                                return _buildVideoCard(context, ev['fileName'] ?? 'Video_$index.mp4', time, 'N/A', url);
+                              },
+                            ),
+                            const SizedBox(height: 32),
+                          ],
+
+                          // --- VOICE NOTES ---
+                          if (audios.isNotEmpty) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8.0),
+                              child: Text('Voice Notes (${audios.length})', style: const TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w700, color: _C.textDark)),
+                            ),
+                            const SizedBox(height: 16),
+                            ListView.builder(
+                              itemCount: audios.length,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemBuilder: (context, index) {
+                                final ev = audios[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: _buildVoiceNoteCard(context, ev['fileName'] ?? 'Audio_$index.mp3', ev['storagePath'] != null ? '${AppConstants.apiUrl}/${ev['storagePath']}' : ''),
+                                );
+                              }
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    
-                    const SizedBox(height: 24),
-                    _buildEvidenceSummaryCard(),
-                    
-                    const SizedBox(height: 24),
-                    _buildSubmissionInfoCard(),
-                  ],
-                ),
+                  ),
+                  
+                  const SizedBox(width: 24),
+                  
+                  // ── RIGHT COLUMN: Documents, Summary & Info ───────────────────
+                  Expanded(
+                    flex: 6,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Documents Section
+                        if (docs.isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.all(32),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(_C.cardRadius),
+                              border: Border.all(color: _C.border),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8.0),
+                                  child: Text('Documents (${docs.length})', style: const TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: _C.textDark)),
+                                ),
+                                const SizedBox(height: 16),
+                                ListView.builder(
+                                  itemCount: docs.length,
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemBuilder: (context, index) {
+                                    final ev = docs[index];
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 12.0),
+                                      child: _buildDocumentCard(ev['fileName'] ?? 'Doc_$index.pdf', ev['storagePath'] != null ? '${AppConstants.apiUrl}/${ev['storagePath']}' : ''),
+                                    );
+                                  }
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                        
+                        _buildEvidenceSummaryCard(images.length, videos.length, audios.length, docs.length),
+                        const SizedBox(height: 24),
+                        _buildSubmissionInfoCard(submittedDateStr, accuracy),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
 
-        // ── FLOATING SCROLL DOWN BUTTON ─────────────────────────────────
-        Positioned(
-          bottom: 40,
-          right: 40,
-          child: FloatingActionButton(
-            backgroundColor: _C.green,
-            elevation: 8,
-            shape: const CircleBorder(),
-            onPressed: _scrollToBottom,
-            child: const Icon(PhosphorIconsRegular.caretDown, color: Colors.white, size: 24),
-          ),
-        ),
-      ],
+            // ── FLOATING SCROLL DOWN BUTTON ─────────────────────────────────
+            Positioned(
+              bottom: 40,
+              right: 40,
+              child: FloatingActionButton(
+                backgroundColor: _C.green,
+                elevation: 8,
+                shape: const CircleBorder(),
+                onPressed: _scrollToBottom,
+                child: const Icon(PhosphorIconsRegular.caretDown, color: Colors.white, size: 24),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -257,28 +319,15 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(_C.innerCardRadius)),
-                    child: Image.network(url, fit: BoxFit.cover),
-                  ),
-                  Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.black26,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(_C.innerCardRadius)),
+                    child: Container(
+                      color: Colors.black12,
+                      child: const Center(child: Icon(PhosphorIconsFill.videoCamera, size: 48, color: Colors.black26)),
                     ),
                   ),
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                      child: const Icon(PhosphorIconsFill.play, color: Colors.white, size: 24),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 8,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(12)),
-                      child: Text(duration, style: const TextStyle(fontFamily: 'Poppins', fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
+                  const Center(
+                    child: CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: Icon(PhosphorIconsFill.play, color: _C.textDark, size: 16),
                     ),
                   ),
                 ],
@@ -290,9 +339,20 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text(title, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w700, color: _C.textDark), overflow: TextOverflow.ellipsis),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: const TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w700, color: _C.textDark), overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 4),
+                        Text(time, style: const TextStyle(fontFamily: 'Poppins', fontSize: 10, color: _C.textFaint)),
+                      ],
+                    ),
                   ),
-                  Text(time, style: const TextStyle(fontFamily: 'Poppins', fontSize: 10, color: _C.textFaint)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(8)),
+                    child: Text(duration, style: const TextStyle(fontFamily: 'Poppins', fontSize: 9, fontWeight: FontWeight.w600, color: _C.textBody)),
+                  ),
                 ],
               ),
             ),
@@ -302,9 +362,9 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
     );
   }
 
-  Widget _buildVoiceNoteCard(BuildContext context) {
+  Widget _buildVoiceNoteCard(BuildContext context, String title, String url) {
     return GestureDetector(
-      onTap: () => _showAudioPlayer(context, 'Field_Observation_Audio.mp3'),
+      onTap: () => _showAudioPlayer(context, title),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         decoration: BoxDecoration(
@@ -324,15 +384,15 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Field_Observation_Audio.mp3', style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w700, color: _C.textDark)),
+                  Text(title, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w700, color: _C.textDark)),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Text('03:45 mins', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w500, color: _C.blue)),
+                      const Text('Audio File', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w500, color: _C.blue)),
                       const SizedBox(width: 8),
                       Container(width: 4, height: 4, decoration: const BoxDecoration(color: _C.textFaint, shape: BoxShape.circle)),
                       const SizedBox(width: 8),
-                      const Text('2.4 MB', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: _C.textFaint)),
+                      const Text('Tap to listen', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: _C.textFaint)),
                     ],
                   ),
                 ],
@@ -351,7 +411,7 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
 
   // ── RIGHT COLUMN META WIDGETS ─────────────────────────────────────────
 
-  Widget _buildDocumentCard() {
+  Widget _buildDocumentCard(String title, String url) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), 
       decoration: BoxDecoration(
@@ -370,10 +430,10 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('Survey_data.pdf', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w700, color: _C.textDark), overflow: TextOverflow.ellipsis),
-                SizedBox(height: 2),
-                Text('1.2 MB', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: _C.textFaint)),
+              children: [
+                Text(title, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w700, color: _C.textDark), overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                const Text('Document File', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: _C.textFaint)),
               ],
             ),
           ),
@@ -386,7 +446,7 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
     );
   }
 
-  Widget _buildEvidenceSummaryCard() {
+  Widget _buildEvidenceSummaryCard(int numImages, int numVideos, int numAudios, int numDocs) {
     return Container(
       padding: const EdgeInsets.all(32), 
       decoration: BoxDecoration(
@@ -399,13 +459,13 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
         children: [
           const Text('Evidence Summary', style: TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: _C.textDark)),
           const SizedBox(height: 20),
-          _buildSummaryRow(PhosphorIconsRegular.image, 'Images', '6'),
+          _buildSummaryRow(PhosphorIconsRegular.image, 'Images', '$numImages'),
           const SizedBox(height: 12),
-          _buildSummaryRow(PhosphorIconsRegular.videoCamera, 'Videos', '1'),
+          _buildSummaryRow(PhosphorIconsRegular.videoCamera, 'Videos', '$numVideos'),
           const SizedBox(height: 12),
-          _buildSummaryRow(PhosphorIconsRegular.microphone, 'Voice Notes', '1'),
+          _buildSummaryRow(PhosphorIconsRegular.microphone, 'Voice Notes', '$numAudios'),
           const SizedBox(height: 12),
-          _buildSummaryRow(PhosphorIconsRegular.fileText, 'Documents', '1'),
+          _buildSummaryRow(PhosphorIconsRegular.fileText, 'Documents', '$numDocs'),
         ],
       ),
     );
@@ -423,7 +483,7 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
     );
   }
 
-  Widget _buildSubmissionInfoCard() {
+  Widget _buildSubmissionInfoCard(String date, String accuracy) {
     return Container(
       padding: const EdgeInsets.all(32), 
       decoration: BoxDecoration(
@@ -436,9 +496,9 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
         children: [
           const Text('Submission Info', style: TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: _C.textDark)),
           const SizedBox(height: 20),
-          _buildInfoRow('Submitted', const Text('21 Jul 2026', style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w700, color: _C.textDark))),
+          _buildInfoRow('Submitted', Text(date, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w700, color: _C.textDark))),
           const SizedBox(height: 16),
-          _buildInfoRow('GPS Accuracy', const Text('4.2 M', style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w700, color: _C.green))),
+          _buildInfoRow('GPS Accuracy', Text(accuracy, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w700, color: _C.green))),
           const SizedBox(height: 24),
           
           SizedBox(
@@ -516,10 +576,15 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Mock Video Frame
+            // Mock Video Frame (could use actual VideoPlayer if available)
             ClipRRect(
               borderRadius: BorderRadius.circular(24),
-              child: Image.network(url, fit: BoxFit.cover, width: double.infinity, height: double.infinity),
+              child: Container(
+                color: Colors.black87,
+                child: const Center(
+                  child: Icon(PhosphorIconsFill.videoCamera, size: 100, color: Colors.white24),
+                ),
+              ),
             ),
             Container(decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(24))),
             
@@ -552,18 +617,18 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
                 children: [
                   const Icon(PhosphorIconsFill.pause, color: Colors.white, size: 24),
                   const SizedBox(width: 16),
-                  const Text('00:45', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
+                  const Text('00:00', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
                   const SizedBox(width: 16),
                   Expanded(
                     child: LinearProgressIndicator(
-                      value: 0.35,
+                      value: 0.0,
                       backgroundColor: Colors.white.withOpacity(0.3),
                       valueColor: const AlwaysStoppedAnimation<Color>(_C.green),
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Text('02:14', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
+                  const Text('--:--', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
                   const SizedBox(width: 16),
                   const Icon(PhosphorIconsRegular.cornersOut, color: Colors.white, size: 24),
                 ],
@@ -622,11 +687,11 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
                   // Floating Progress Bar
                   Row(
                     children: [
-                      const Text('01:20', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
+                      const Text('00:00', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
                       const SizedBox(width: 16),
                       Expanded(
                         child: LinearProgressIndicator(
-                          value: 0.45,
+                          value: 0.0,
                           backgroundColor: Colors.white24,
                           valueColor: const AlwaysStoppedAnimation<Color>(_C.blue),
                           borderRadius: BorderRadius.circular(8),
@@ -634,7 +699,7 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Text('03:45', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
+                      const Text('--:--', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
                     ],
                   ),
                   const SizedBox(height: 32),
@@ -645,19 +710,19 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
                     children: [
                       Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
                         child: const Icon(PhosphorIconsFill.rewindCircle, color: Colors.white, size: 32),
                       ),
                       const SizedBox(width: 24),
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle),
-                        child: const Icon(PhosphorIconsFill.pause, color: Colors.white, size: 36),
+                        child: const Icon(PhosphorIconsFill.play, color: Colors.white, size: 36),
                       ),
                       const SizedBox(width: 24),
                       Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
                         child: const Icon(PhosphorIconsFill.fastForwardCircle, color: Colors.white, size: 32),
                       ),
                     ],
@@ -671,3 +736,4 @@ class _SupervisorEvidenceScreenState extends State<SupervisorEvidenceScreen> {
     );
   }
 }
+

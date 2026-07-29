@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:dio/dio.dart';
+import 'package:fieldtrack/core/network/api_client.dart';
+import 'package:image_picker/image_picker.dart';
 
 // ==========================================
 // DESIGN TOKENS
@@ -101,7 +104,64 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
   void initState() {
     super.initState();
     _selectedTab = widget.initialTab;
-    // TODO(API): Fetch initial configuration data from server here
+    _loadSettings();
+  }
+
+  List<dynamic> _activeSessions = [];
+  String? _avatarPath;
+
+  Future<void> _loadSettings() async {
+    try {
+      final res = await ApiClient().dio.get('/settings/profile');
+      final p = res.data['profile'];
+      final sup = p['supervisorProfile'] ?? {};
+      final prefs = p['preferences'] ?? {};
+      final sessions = p['refreshTokens'] ?? [];
+      
+      if (mounted) {
+        setState(() {
+          _nameCtrl.text = p['name'] ?? '';
+          _emailCtrl.text = p['email'] ?? '';
+          _phoneCtrl.text = sup['phone'] ?? '';
+          _deptCtrl.text = sup['department'] ?? '';
+          _facultyCtrl.text = sup['faculty'] ?? '';
+          _researchCtrl.text = sup['specialization'] ?? '';
+          _officeCtrl.text = sup['office'] ?? '';
+          _twoFactorAuth = p['twoFactorEnabled'] ?? false;
+          _secLoginAlerts = p['loginAlertsEnabled'] ?? true;
+          _avatarPath = sup['avatar'];
+          _activeSessions = sessions;
+
+          // Notifications
+          _notifNewActivity = prefs['notifNewActivity'] ?? true;
+          _notifCheckInOut = prefs['notifCheckInOut'] ?? true;
+          _notifReview = prefs['notifReview'] ?? true;
+          _notifComments = prefs['notifComments'] ?? true;
+          _notifAnnouncements = prefs['notifAnnouncements'] ?? true;
+          _chanEmail = prefs['chanEmail'] ?? true;
+          _chanInApp = prefs['chanInApp'] ?? true;
+          _quietStart = prefs['quietStart'] ?? '10:00 PM';
+          _quietEnd = prefs['quietEnd'] ?? '06:00 AM';
+
+          // Preferences
+          _prefDashboard = prefs['prefDashboard'] ?? 'Overview';
+          _prefLanding = prefs['prefLanding'] ?? 'Home';
+          _prefZoom = prefs['prefZoom'] ?? 'City';
+          _prefMapType = prefs['prefMapType'] ?? 'Satellite';
+          _prefDateFormat = prefs['prefDateFormat'] ?? 'DD/MM/YYYY';
+          _prefTimeFormat = prefs['prefTimeFormat'] ?? '12 Hour';
+          _prefLanguage = prefs['prefLanguage'] ?? 'English';
+          _prefRefresh = prefs['prefRefresh'] ?? 'Every 30 seconds';
+          _prefRows = prefs['prefRows'] ?? '20';
+          _prefTheme = prefs['prefTheme'] ?? 'Light';
+          _exportPdf = prefs['exportPdf'] ?? true;
+          _exportExcel = prefs['exportExcel'] ?? false;
+          _exportCsv = prefs['exportCsv'] ?? true;
+        });
+      }
+    } catch (e) {
+      if (mounted) _showSnackbar('Failed to load settings');
+    }
   }
 
   @override
@@ -159,27 +219,86 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
   Future<void> _handleSave() async {
     setState(() => _isSaving = true);
     
-    // TODO(API): Package state objects and PUT/POST to backend
-    // final payload = {
-    //   'notifications': { 'newActivity': _notifNewActivity, ... },
-    //   'profile': { 'name': _nameCtrl.text, ... }
-    // };
-    // await api.updateSettings(payload);
+    try {
+      await ApiClient().dio.put('/settings/profile', data: {
+        'name': _nameCtrl.text,
+        'phone': _phoneCtrl.text,
+        'department': _deptCtrl.text,
+        'faculty': _facultyCtrl.text,
+        'specialization': _researchCtrl.text,
+        'office': _officeCtrl.text,
+      });
 
-    await Future.delayed(const Duration(milliseconds: 1200));
-    setState(() => _isSaving = false);
-    _showSnackbar('Settings updated successfully!');
+      await ApiClient().dio.put('/settings/security', data: {
+        'twoFactorEnabled': _twoFactorAuth,
+        'loginAlertsEnabled': _secLoginAlerts,
+      });
+
+      await ApiClient().dio.put('/settings/preferences', data: {
+        'notifNewActivity': _notifNewActivity,
+        'notifCheckInOut': _notifCheckInOut,
+        'notifReview': _notifReview,
+        'notifComments': _notifComments,
+        'notifAnnouncements': _notifAnnouncements,
+        'chanEmail': _chanEmail,
+        'chanInApp': _chanInApp,
+        'quietStart': _quietStart,
+        'quietEnd': _quietEnd,
+        'prefDashboard': _prefDashboard,
+        'prefLanding': _prefLanding,
+        'prefZoom': _prefZoom,
+        'prefMapType': _prefMapType,
+        'prefDateFormat': _prefDateFormat,
+        'prefTimeFormat': _prefTimeFormat,
+        'prefLanguage': _prefLanguage,
+        'prefRefresh': _prefRefresh,
+        'prefRows': _prefRows,
+        'prefTheme': _prefTheme,
+        'exportPdf': _exportPdf,
+        'exportExcel': _exportExcel,
+        'exportCsv': _exportCsv,
+      });
+
+      if (mounted) _showSnackbar('Settings updated successfully!');
+    } catch (e) {
+      if (mounted) {
+        String msg = 'Failed to save settings';
+        if (e is DioException) {
+          msg = e.response?.data?['message'] ?? msg;
+        }
+        _showSnackbar(msg);
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _pickImage() async {
-    // TODO(API): Integrate image_picker or file_picker package
-    // Example:
-    // final picker = ImagePicker();
-    // final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    // if (pickedFile != null) { 
-    //    // Upload to API
-    // }
-    _showSnackbar('Opening file explorer... (Needs image_picker API wired)');
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) { 
+         setState(() => _isSaving = true);
+         final formData = FormData.fromMap({
+           'avatar': await MultipartFile.fromFile(pickedFile.path),
+         });
+         
+         final res = await ApiClient().dio.post('/settings/avatar', data: formData);
+         
+         if (mounted) {
+           setState(() {
+             _avatarPath = res.data['avatar'];
+             _isSaving = false;
+           });
+           _showSnackbar('Profile picture updated successfully!');
+         }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        _showSnackbar('Failed to update picture');
+      }
+    }
   }
 
   void _confirmPasswordChange() {
@@ -211,14 +330,26 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                 style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              // TODO(API): Wire up password update API endpoint
-              // await api.changePassword(_currPassCtrl.text, _newPassCtrl.text);
-              _currPassCtrl.clear();
-              _newPassCtrl.clear();
-              _confPassCtrl.clear();
-              _showSnackbar('Password updated successfully!');
+              try {
+                await ApiClient().dio.put('/settings/password', data: {
+                  'currentPassword': _currPassCtrl.text,
+                  'newPassword': _newPassCtrl.text,
+                });
+                _currPassCtrl.clear();
+                _newPassCtrl.clear();
+                _confPassCtrl.clear();
+                if (mounted) _showSnackbar('Password updated successfully!');
+              } catch (e) {
+                if (mounted) {
+                  String msg = 'Failed to update password';
+                  if (e is DioException) {
+                    msg = e.response?.data?['message'] ?? msg;
+                  }
+                  _showSnackbar(msg);
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _C.green,
@@ -254,10 +385,22 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                 style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              // TODO(API): Wire up account deactivation API endpoint
-              _showSnackbar('Account deactivated (Simulated)');
+              try {
+                await ApiClient().dio.delete('/settings/deactivate');
+                if (mounted) {
+                  _showSnackbar('Account deactivated successfully.');
+                }
+              } catch (e) {
+                if (mounted) {
+                  String msg = 'Failed to deactivate account';
+                  if (e is DioException) {
+                    msg = e.response?.data?['message'] ?? msg;
+                  }
+                  _showSnackbar(msg);
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _C.red,
@@ -659,12 +802,27 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                 Row(
                   children: [
                     ClipOval(
-                      child: Image.network(
-                        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                      ),
+                      child: _avatarPath != null
+                          ? Image.network(
+                              'http://192.168.18.4:3000$_avatarPath',
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 80,
+                                height: 80,
+                                color: _C.bg,
+                                child: Icon(PhosphorIcons.user(),
+                                    color: _C.textDark),
+                              ),
+                            )
+                          : Container(
+                              width: 80,
+                              height: 80,
+                              color: _C.bg,
+                              child: Icon(PhosphorIcons.user(),
+                                  color: _C.textDark),
+                            ),
                     ),
                     const SizedBox(width: 24),
                     OutlinedButton.icon(
@@ -847,29 +1005,31 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _buildSessionItem(
-                  PhosphorIcons.desktop(),
-                  'Windows 11 • Chrome',
-                  'Current Device • Now',
-                  true,
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Divider(color: _C.border),
-                ),
-                _buildSessionItem(
-                  PhosphorIcons.deviceMobile(),
-                  'Samsung S23 • App',
-                  'Mombasa • Yesterday',
-                  false,
-                ),
-                const SizedBox(height: 32),
+                ..._activeSessions.map((session) => Column(
+                  children: [
+                    _buildSessionItem(
+                      PhosphorIcons.desktop(),
+                      session['deviceInfo'] ?? 'Unknown Device',
+                      'IP: ${session['ipAddress'] ?? 'Unknown'}',
+                      false,
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Divider(color: _C.border),
+                    ),
+                  ],
+                )),
+                const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: OutlinedButton(
-                    onPressed: () {
-                      // TODO(API): Invalidate all other session tokens
-                      _showSnackbar('Other devices logged out successfully.');
+                    onPressed: () async {
+                      try {
+                        await ApiClient().dio.post('/settings/logout-others');
+                        if (mounted) _showSnackbar('Other devices logged out successfully.');
+                      } catch (e) {
+                        if (mounted) _showSnackbar('Failed to logout other devices');
+                      }
                     },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
