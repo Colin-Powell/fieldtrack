@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'providers/admin_dashboard_provider.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
 
 // ==========================================
 // LOCAL SCREEN MODELS (Flutter-specific types)
@@ -103,6 +105,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   int? _hoveredBarIndex;
   int? _hoveredLineIndex;
+  int? _hoveredDonutIndex;
+  Offset? _donutHoverPos;
 
   void _updateBarHover(
     Offset pos,
@@ -147,6 +151,52 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         if (_hoveredLineIndex != i) setState(() => _hoveredLineIndex = i);
         return;
       }
+    }
+  }
+
+  void _updateDonutHover(Offset pos, Size size, List<DonutSegment> data) {
+    if (data.isEmpty) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final dx = pos.dx - center.dx;
+    final dy = pos.dy - center.dy;
+    final distance = sqrt(dx * dx + dy * dy);
+
+    // Donut radius checks
+    final radius = min(size.width / 2, size.height / 2) - 20;
+    final innerRadius = radius - 24; // Half stroke width approx
+    final outerRadius = radius + 24;
+
+    if (distance < innerRadius || distance > outerRadius) {
+      if (_hoveredDonutIndex != null) {
+        setState(() {
+          _hoveredDonutIndex = null;
+          _donutHoverPos = null;
+        });
+      }
+      return;
+    }
+
+    double angle = atan2(dy, dx);
+    // Convert angle to match our drawing logic starting from -pi/2
+    angle += pi / 2;
+    if (angle < 0) angle += 2 * pi;
+
+    final total = data.fold(0.0, (sum, item) => sum + item.value);
+    double currentAngle = 0;
+
+    for (int i = 0; i < data.length; i++) {
+      final sweepAngle = (data[i].value / total) * 2 * pi;
+      if (angle >= currentAngle && angle <= currentAngle + sweepAngle) {
+        if (_hoveredDonutIndex != i) {
+          setState(() {
+            _hoveredDonutIndex = i;
+            _donutHoverPos = pos;
+          });
+        }
+        return;
+      }
+      currentAngle += sweepAngle;
     }
   }
 
@@ -211,7 +261,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
           // ── STATS GRID ──
           ref
-              .watch(adminDashboardProvider)
+              .watch(adminDashboardProvider(_timeFilter))
               .when(
                 data: (stats) {
                   final trendUp = '↑';
@@ -328,7 +378,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
           // ── MAIN LAYOUT (CHARTS + SIDE PANEL) ──
           ref
-              .watch(adminDashboardProvider)
+              .watch(adminDashboardProvider(_timeFilter))
               .when(
                 data: (stats) {
                   return LayoutBuilder(
@@ -459,12 +509,42 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                             (s) => s.value == 0,
                                           )
                                       ? _buildEmptyState('No submissions yet')
-                                      : SizedBox(
-                                          width: double.infinity,
-                                          child: CustomPaint(
-                                            painter: _DonutChartPainter(
-                                              segments: donutSegments,
-                                            ),
+                                      : MouseRegion(
+                                          onHover: (e) => _updateDonutHover(
+                                            e.localPosition,
+                                            Size(
+                                              (isNarrow
+                                                          ? constraints.maxWidth
+                                                          : (constraints.maxWidth -
+                                                                        32) *
+                                                                    0.7 -
+                                                                24) *
+                                                      0.4 -
+                                                  48,
+                                              320 - 96,
+                                            ), // Approximate size based on flex/padding, better to use LayoutBuilder but we can just use the provided Size in CustomPainter. Wait, CustomPainter passes the exact size, so I'll wrap in LayoutBuilder.
+                                            donutSegments,
+                                          ),
+                                          onExit: (_) => setState(() {
+                                            _hoveredDonutIndex = null;
+                                            _donutHoverPos = null;
+                                          }),
+                                          child: LayoutBuilder(
+                                            builder:
+                                                (
+                                                  context,
+                                                  donutConstraints,
+                                                ) => SizedBox(
+                                                  width: double.infinity,
+                                                  child: CustomPaint(
+                                                    painter: _DonutChartPainter(
+                                                      segments: donutSegments,
+                                                      activeIndex:
+                                                          _hoveredDonutIndex,
+                                                      hoverPos: _donutHoverPos,
+                                                    ),
+                                                  ),
+                                                ),
                                           ),
                                         ),
                                 ),
@@ -527,19 +607,24 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                   final u = stats.recentUsers[i];
                                   return Row(
                                     children: [
-                                      Container(
+                                      SizedBox(
                                         width: 44,
                                         height: 44,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: const Color(
-                                            0xFF169B45,
-                                          ).withValues(alpha: 0.1),
-                                        ),
-                                        child: const Icon(
-                                          PhosphorIconsFill.userCircle,
-                                          color: Color(0xFF169B45),
-                                          size: 32,
+                                        child: AppAvatar(
+                                          imagePath: u.avatarUrl,
+                                          size: 44,
+                                          shape: AvatarShape.circle,
+                                          initials: u.name.isNotEmpty
+                                              ? u.name
+                                                    .split(' ')
+                                                    .map(
+                                                      (s) => s.isNotEmpty
+                                                          ? s[0]
+                                                          : '',
+                                                    )
+                                                    .take(2)
+                                                    .join()
+                                              : null,
                                         ),
                                       ),
                                       const SizedBox(width: 16),
@@ -1244,14 +1329,14 @@ class _SmoothLineChartPainter extends CustomPainter {
 
     final fillPaint = Paint()
       ..shader = ui.Gradient.linear(Offset(0, 0), Offset(0, chartHeight), [
-        const Color(0xFF3B82F6).withOpacity(0.3),
-        const Color(0xFF3B82F6).withOpacity(0.0),
+        const Color(0xFF10B981).withOpacity(0.3),
+        const Color(0xFF10B981).withOpacity(0.0),
       ]);
     canvas.drawPath(fillPath, fillPaint);
 
     // Line Stroke
     final strokePaint = Paint()
-      ..color = const Color(0xFF3B82F6)
+      ..color = const Color(0xFF10B981)
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -1267,14 +1352,14 @@ class _SmoothLineChartPainter extends CustomPainter {
         Offset(pt.dx, pt.dy),
         Offset(pt.dx, chartHeight),
         Paint()
-          ..color = const Color(0xFF3B82F6).withOpacity(0.3)
+          ..color = const Color(0xFF10B981).withOpacity(0.3)
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke,
       );
 
       // Dot
       canvas.drawCircle(pt, 6, Paint()..color = Colors.white);
-      canvas.drawCircle(pt, 4, Paint()..color = const Color(0xFF3B82F6));
+      canvas.drawCircle(pt, 4, Paint()..color = const Color(0xFF10B981));
 
       // Tooltip
       final tooltipRect = RRect.fromRectAndRadius(
@@ -1324,8 +1409,10 @@ class _SmoothLineChartPainter extends CustomPainter {
 // 3. Donut Chart Painter
 class _DonutChartPainter extends CustomPainter {
   final List<DonutSegment> segments;
+  final int? activeIndex;
+  final Offset? hoverPos;
 
-  _DonutChartPainter({required this.segments});
+  _DonutChartPainter({required this.segments, this.activeIndex, this.hoverPos});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1373,21 +1460,76 @@ class _DonutChartPainter extends CustomPainter {
     );
 
     // Draw Arcs
-    for (var s in segments) {
+    for (int i = 0; i < segments.length; i++) {
+      var s = segments[i];
       final sweepAngle = (s.value / total) * 2 * pi;
+
+      final isHovered = activeIndex == i;
+      final strokeWidth = isHovered ? 28.0 : 24.0;
+
       final paint = Paint()
         ..color = s.color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 24
+        ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
 
       // Add a tiny gap (subtract slightly from sweep)
       canvas.drawArc(rect, currentAngle, sweepAngle - 0.08, false, paint);
       currentAngle += sweepAngle;
     }
+
+    // Hover Tooltip
+    if (activeIndex != null &&
+        hoverPos != null &&
+        activeIndex! < segments.length) {
+      final s = segments[activeIndex!];
+
+      // Tooltip background
+      final tooltipRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(hoverPos!.dx - 40, hoverPos!.dy - 54, 80, 40),
+        const Radius.circular(12),
+      );
+      canvas.drawRRect(
+        tooltipRect.shift(const Offset(0, 4)),
+        Paint()
+          ..color = Colors.black.withOpacity(0.05)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+      canvas.drawRRect(tooltipRect, Paint()..color = Colors.white);
+
+      // Tooltip text
+      textPainter.text = TextSpan(
+        children: [
+          TextSpan(
+            text: '${s.label}\n',
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 10,
+              fontFamily: 'Inter',
+            ),
+          ),
+          TextSpan(
+            text: s.value.toInt().toString(),
+            style: const TextStyle(
+              color: Color(0xFF171717),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Inter',
+            ),
+          ),
+        ],
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(hoverPos!.dx - textPainter.width / 2, hoverPos!.dy - 46),
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _DonutChartPainter oldDelegate) =>
-      oldDelegate.segments != segments;
+      oldDelegate.segments != segments ||
+      oldDelegate.activeIndex != activeIndex ||
+      oldDelegate.hoverPos != hoverPos;
 }

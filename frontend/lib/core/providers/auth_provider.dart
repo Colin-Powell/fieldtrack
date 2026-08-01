@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../network/api_client.dart';
+import '../network/api_endpoints.dart';
+import '../network/error_handler.dart';
 
 // Represents the authenticated user
 class AuthUser {
@@ -25,6 +28,7 @@ class AuthUser {
   final String? specialization;
   final String? office;
   final int? studentCapacity;
+  final String? avatarUrl;
 
   AuthUser({
     required this.id,
@@ -44,6 +48,7 @@ class AuthUser {
     this.specialization,
     this.office,
     this.studentCapacity,
+    this.avatarUrl,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
@@ -69,6 +74,7 @@ class AuthUser {
       specialization: supervisorProf?['specialization'],
       office: supervisorProf?['office'],
       studentCapacity: supervisorProf?['studentCapacity'],
+      avatarUrl: studentProf?['avatar'] ?? supervisorProf?['avatar'],
     );
   }
 }
@@ -213,7 +219,37 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Login failed: $e',
+        error: 'Login failed: ${ErrorHandler.getFriendlyErrorMessage(e)}',
+      );
+      return false;
+    }
+  }
+
+  // Avatar Upload Handler
+  Future<bool> uploadAvatar(File imageFile) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final fileName = imageFile.path.split('/').last;
+      final formData = FormData.fromMap({
+        'avatar': await MultipartFile.fromFile(imageFile.path, filename: fileName),
+      });
+
+      final response = await _apiClient.dio.post(
+        ApiEndpoints.avatarUpload,
+        data: formData,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Fetch fresh profile to get the new avatarUrl
+        await checkAuthStatus(isPolling: false);
+        return true;
+      }
+      state = state.copyWith(isLoading: false, error: 'Failed to upload avatar');
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Upload failed: ${ErrorHandler.getFriendlyErrorMessage(e)}',
       );
       return false;
     }

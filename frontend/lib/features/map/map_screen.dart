@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:fieldtrack/core/providers/auth_provider.dart';
+import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/core/providers/location_provider.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/features/map/providers/student_map_provider.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -17,7 +21,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _mapController = MapController();
 
   // Fallback centre if GPS hasn't locked yet (Kilifi/Pwani University area)
-  static const LatLng _fallbackLocation = LatLng(-3.6305, 39.8499);
+  static const LatLng _fallbackLocation = LatLng(-1.2921, 36.8219); // Default Nairobi fallback
 
   @override
   Widget build(BuildContext context) {
@@ -73,12 +77,47 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   )),
                   // Activity locations
-                  ...mapState.activityLocations.map((point) => Marker(
-                    point: point,
-                    width: 32,
-                    height: 32,
-                    child: const Icon(Icons.location_on, color: Color(0xFFF97316), size: 32),
-                  )),
+                  ...mapState.activityLocations.map((markerData) {
+                    final user = ref.read(authProvider).user;
+                    final avatar = markerData.avatarUrl ?? user?.avatarUrl;
+                    
+                    return Marker(
+                      point: markerData.position,
+                      width: 48,
+                      height: 48,
+                      child: Tooltip(
+                        message: '${markerData.title}\n${markerData.description}',
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: const TextStyle(color: Colors.white, fontSize: 12),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFF97316), width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: Colors.white,
+                            backgroundImage: avatar != null && avatar.isNotEmpty
+                                ? NetworkImage(ImageUtils.getFullImageUrl(avatar)) 
+                                : null,
+                            child: avatar == null 
+                                ? const Icon(PhosphorIconsFill.userCircle, color: Color(0xFF9CA3AF), size: 24)
+                                : null,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
                   // Supervisor Location
                   if (mapState.supervisorLocation != null)
                     Marker(

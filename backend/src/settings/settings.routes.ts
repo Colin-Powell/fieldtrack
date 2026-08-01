@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
+import path from 'path';
 import {
   getProfileSettings,
   updateProfileSettings,
@@ -14,7 +15,18 @@ import {
 import { authenticate } from '../auth/auth.middleware.js';
 
 const router = Router();
-const upload = multer({ dest: 'storage/avatars/' });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'storage/avatars/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage });
 
 // All settings routes require authentication
 router.use(authenticate);

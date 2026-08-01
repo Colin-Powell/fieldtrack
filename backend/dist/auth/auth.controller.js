@@ -156,11 +156,50 @@ export async function refresh(req, res) {
             role: user.role,
             email: user.email,
         });
-        // Optionally implement token rotation here (revoke old, issue new refresh token)
-        return res.json({ success: true, token });
+        // Token rotation
+        const newRefreshToken = generateRefreshToken({ userId: user.id });
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        // Revoke old token
+        await prisma.refreshToken.update({
+            where: { id: savedToken.id },
+            data: { revokedAt: new Date() },
+        });
+        // Create new token
+        await prisma.refreshToken.create({
+            data: {
+                token: newRefreshToken,
+                userId: user.id,
+                expiresAt,
+            },
+        });
+        return res.json({ success: true, token, refreshToken: newRefreshToken });
     }
     catch (error) {
         console.error('Refresh token error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function logout(req, res) {
+    try {
+        const { refreshToken } = req.body;
+        if (refreshToken) {
+            await prisma.refreshToken.updateMany({
+                where: { token: refreshToken },
+                data: { revokedAt: new Date() },
+            });
+        }
+        if (req.user) {
+            await AuditLogService.log({
+                userId: req.user.userId,
+                action: 'LOGOUT',
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent'],
+            });
+        }
+        return res.json({ success: true, message: 'Logged out successfully' });
+    }
+    catch (error) {
+        console.error('Logout error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
@@ -348,6 +387,23 @@ export async function resetPassword(req, res) {
     }
     catch (error) {
         console.error('Reset password error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function updateFcmToken(req, res) {
+    try {
+        const userId = req.user?.userId;
+        const { fcmToken } = req.body;
+        if (!userId)
+            return res.status(401).json({ error: 'Unauthorized' });
+        await prisma.user.update({
+            where: { id: userId },
+            data: { fcmToken },
+        });
+        return res.json({ success: true });
+    }
+    catch (error) {
+        console.error('Update FCM token error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 }

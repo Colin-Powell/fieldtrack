@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:fieldtrack/core/providers/auth_provider.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
 
-class SupervisorScaffold extends StatefulWidget {
+class SupervisorScaffold extends ConsumerStatefulWidget {
   final Widget child;
   final String currentLocation;
 
@@ -13,10 +17,10 @@ class SupervisorScaffold extends StatefulWidget {
   });
 
   @override
-  State<SupervisorScaffold> createState() => _SupervisorScaffoldState();
+  ConsumerState<SupervisorScaffold> createState() => _SupervisorScaffoldState();
 }
 
-class _SupervisorScaffoldState extends State<SupervisorScaffold> {
+class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
   bool _isExpanded = false;
 
   @override
@@ -190,36 +194,65 @@ class _SupervisorScaffoldState extends State<SupervisorScaffold> {
                   GestureDetector(
                     onTap: () =>
                         context.go('/supervisor/settings', extra: 'Profile'),
-                    child: Row(
-                      mainAxisAlignment: _isExpanded
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.center,
-                      children: [
-                        if (_isExpanded) const SizedBox(width: 8),
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                            color: Colors.white.withOpacity(0.2),
-                          ),
-                          child: const Icon(PhosphorIconsFill.userCircle, color: Colors.white, size: 32),
-                        ),
-                        if (_isExpanded) ...[
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Text(
-                              'Prof. Okeyo',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
+                    child: Builder(
+                      builder: (ctx) {
+                        final user = ref.watch(authProvider).user;
+                        final avatarUrl = user?.avatarUrl ?? '';
+                        final displayName = user?.name ?? 'Supervisor';
+                        return Row(
+                          mainAxisAlignment: _isExpanded
+                              ? MainAxisAlignment.start
+                              : MainAxisAlignment.center,
+                          children: [
+                            if (_isExpanded) const SizedBox(width: 8),
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                                color: Colors.white.withOpacity(0.2),
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              child: SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: AppAvatar(
+                                  imagePath: avatarUrl.isNotEmpty
+                                      ? avatarUrl
+                                      : null,
+                                  size: 48,
+                                  shape: AvatarShape.circle,
+                                  initials: displayName.isNotEmpty
+                                      ? displayName
+                                            .split(' ')
+                                            .map(
+                                              (s) => s.isNotEmpty ? s[0] : '',
+                                            )
+                                            .take(2)
+                                            .join()
+                                      : null,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ],
+                            if (_isExpanded) ...[
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],

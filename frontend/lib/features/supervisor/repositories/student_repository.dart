@@ -356,6 +356,7 @@ extension TimelineEventJson on TimelineEvent {
     'type': type.name,
     'title': title,
     'description': description,
+    'imageUrl': imageUrl,
   };
 
   static TimelineEvent fromJson(Map<String, dynamic> json) => TimelineEvent(
@@ -368,6 +369,7 @@ extension TimelineEventJson on TimelineEvent {
     ),
     title: json['title'] as String? ?? '',
     description: json['description'] as String? ?? '',
+    imageUrl: json['imageUrl'] as String?,
   );
 }
 

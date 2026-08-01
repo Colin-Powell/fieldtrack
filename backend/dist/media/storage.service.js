@@ -5,8 +5,12 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '../db.js';
+import dotenv from 'dotenv';
+dotenv.config();
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-const BASE_STORAGE_DIR = path.join(process.cwd(), 'storage');
+export const BASE_STORAGE_DIR = process.env.STORAGE_DIR
+    ? path.resolve(process.env.STORAGE_DIR)
+    : path.join(process.cwd(), 'storage');
 export class StorageService {
     constructor() {
         this.ensureDirectory(BASE_STORAGE_DIR);

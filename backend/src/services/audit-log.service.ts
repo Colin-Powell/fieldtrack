@@ -1,4 +1,5 @@
 import { prisma } from '../db.js';
+import { appLogger } from '../utils/logger.js';
 
 export class AuditLogService {
   /**
@@ -34,8 +35,7 @@ export class AuditLogService {
         },
       });
     } catch (error) {
-      console.error('Failed to write audit log:', error);
-      // In a real enterprise system we might log this to a file or external monitoring service
+      appLogger.error('Failed to write audit log:', { error, action, actorId, userId });
     }
   }
 }

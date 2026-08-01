@@ -381,12 +381,14 @@ class TimelineEvent {
   final TimelineType type;
   final String title;
   final String description;
+  final String? imageUrl;
 
   const TimelineEvent({
     required this.time,
     required this.type,
     required this.title,
     required this.description,
+    this.imageUrl,
   });
 }
 

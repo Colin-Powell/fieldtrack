@@ -1,0 +1,6 @@
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: admin@fieltrack.com, RegNo: N/A","timestamp":"2026-08-01T16:59:54.681Z"}
+{"level":"warn","message":"Login failed: User not found for email/registrationNo: admin@fieltrack.com","timestamp":"2026-08-01T16:59:56.539Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: admin@fieldtrack.com, RegNo: N/A","timestamp":"2026-08-01T17:00:06.548Z"}
+{"level":"info","message":"Login successful for user ffd7f128-1522-4afc-8816-156b3a2dfa27 (admin@fieldtrack.com)","timestamp":"2026-08-01T17:00:07.502Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: ochiengdavis062@gmail.com, RegNo: N/A","timestamp":"2026-08-01T17:11:31.519Z"}
+{"level":"info","message":"Login successful for user 6af194c3-153e-40ba-959b-b01dd6f235d0 (ochiengdavis062@gmail.com)","timestamp":"2026-08-01T17:11:32.677Z"}

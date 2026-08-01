@@ -1,55 +1,118 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:fieldtrack/features/notifications/providers/notifications_provider.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
 
-class NotificationsScreen extends StatefulWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   int _selectedFilterIndex = 0;
   final List<String> _filters = ['All', 'Unread', 'Mentions'];
 
   @override
   Widget build(BuildContext context) {
+    final notificationsState = ref.watch(notificationsProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24), // Adjusted padding since nav is removed
-          child: Column(
-            children: [
-              _buildHeaderTitle(),
-              _buildSearchBar(),
-              _buildFilters(),
-              
-              // Notifications List
-              if (_selectedFilterIndex == 0 || _selectedFilterIndex == 1)
-                _buildNotificationCard(
-                  title: 'Prof. Okeyo Commented on',
-                  subtitle: 'Vegetation Survey',
-                  time: '2m ago',
-                  imageUrl: 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?q=80&w=256&auto=format&fit=crop',
-                ),
-              if (_selectedFilterIndex == 0)
-                _buildNotificationCard(
-                  title: 'Don\'t forget to check out today',
-                  subtitle: '',
-                  time: '3h ago',
-                  icon: PhosphorIconsFill.bellRinging,
-                  iconColor: const Color(0xFFF97316), // Orange
-                ),
+        child: RefreshIndicator(
+          onRefresh: () => ref.read(notificationsProvider.notifier).fetchNotifications(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              children: [
+                _buildHeaderTitle(),
+                _buildSearchBar(),
+                _buildFilters(),
                 
-              // Empty State for other tabs
-              if (_selectedFilterIndex == 2)
-                _buildEmptyState(),
-            ],
+                notificationsState.when(
+                  loading: () => const Padding(
+                    padding: EdgeInsets.only(top: 64),
+                    child: CircularProgressIndicator(color: Color(0xFF1BA654)),
+                  ),
+                  error: (error, stack) => Padding(
+                    padding: const EdgeInsets.only(top: 64),
+                    child: Text('Error loading notifications', style: const TextStyle(color: Colors.red)),
+                  ),
+                  data: (notifications) {
+                    final filtered = notifications.where((n) {
+                      if (_selectedFilterIndex == 1) return !n.isRead;
+                      if (_selectedFilterIndex == 2) return false; // Mentions not yet implemented on backend
+                      return true; // All
+                    }).toList();
+
+                    if (filtered.isEmpty) {
+                      return _buildEmptyState();
+                    }
+
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final n = filtered[index];
+                        final timeString = _formatTime(n.createdAt);
+                        
+                        return GestureDetector(
+                          onTap: () {
+                            if (!n.isRead) {
+                              ref.read(notificationsProvider.notifier).markAsRead(n.id);
+                            }
+                          },
+                          child: Opacity(
+                            opacity: n.isRead ? 0.6 : 1.0,
+                            child: _buildNotificationCard(
+                              title: n.title,
+                              subtitle: n.message,
+                              time: timeString,
+                              icon: _getIconForType(n.type),
+                              iconColor: _getColorForType(n.type),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  String _formatTime(DateTime time) {
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  IconData _getIconForType(String type) {
+    switch (type) {
+      case 'CHECKED_IN': return PhosphorIconsFill.mapPin;
+      case 'REVIEW_RECEIVED': return PhosphorIconsFill.star;
+      case 'SYSTEM_ALERT': return PhosphorIconsFill.warningCircle;
+      default: return PhosphorIconsFill.bellRinging;
+    }
+  }
+  
+  Color _getColorForType(String type) {
+    switch (type) {
+      case 'CHECKED_IN': return const Color(0xFF1BA654);
+      case 'REVIEW_RECEIVED': return const Color(0xFFF59E0B);
+      case 'SYSTEM_ALERT': return const Color(0xFFE53935);
+      default: return const Color(0xFFF97316);
+    }
   }
 
   // --- WIDGET COMPONENTS ---
@@ -60,7 +123,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         margin: const EdgeInsets.only(top: 24, bottom: 32),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFCBE5D2), // Very pale green
+          color: const Color(0xFFCBE5D2),
           borderRadius: BorderRadius.circular(30),
         ),
         child: const Text(
@@ -171,24 +234,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Left Avatar (Image or Icon)
           if (imageUrl != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(32),
-              child: Image.network(
-                imageUrl,
-                width: 64,
-                height: 64,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 64,
-                    height: 64,
-                    color: const Color(0xFFF3F4F6),
-                    child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 32),
-                  );
-                },
-              ),
+              child: imageUrl.isNotEmpty
+                  ? Image.network(
+                      ImageUtils.getFullImageUrl(imageUrl),
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 64,
+                          height: 64,
+                          color: const Color(0xFFF3F4F6),
+                          child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 32),
+                        );
+                      },
+                    )
+                  : Container(
+                      width: 64,
+                      height: 64,
+                      color: const Color(0xFFF3F4F6),
+                      child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 32),
+                    ),
             )
           else if (icon != null)
             SizedBox(
@@ -201,7 +270,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             
           const SizedBox(width: 16),
           
-          // Right Content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

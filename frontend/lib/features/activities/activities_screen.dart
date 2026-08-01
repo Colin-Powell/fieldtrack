@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:fieldtrack/core/network/api_result_builder.dart';
 import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
 import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
 
 class ActivitiesScreen extends ConsumerStatefulWidget {
   const ActivitiesScreen({super.key});
@@ -240,7 +241,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
               if (mimeType.startsWith('image/')) {
                 final path = ev['storagePath'];
                 if (path != null) {
-                  imageUrl = '${AppConstants.apiUrl}/$path';
+                  imageUrl = path;
                   break;
                 }
               }
@@ -298,7 +299,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(32),
             child: imageUrl != null ? Image.network(
-              imageUrl,
+              ImageUtils.getFullImageUrl(imageUrl),
               width: 64,
               height: 64,
               fit: BoxFit.cover,

@@ -1,6 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:dio/dio.dart';
+import 'package:fieldtrack/core/network/api_client.dart';
+import 'package:fieldtrack/features/auth/login_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fieldtrack/core/network/error_handler.dart';
+
 
 // --- Theme Colors ---
 const Color _lightGreen = Color(0xFFCDE8D5); 
@@ -19,12 +25,37 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // --- Simulated State for API Readiness ---
+  // --- API State ---
+  bool _isLoading = true;
   bool _isDarkMode = false;
   bool _isOfflineSyncEnabled = true;
-  double _downloadedMB = 256.0;
-  DateTime _lastSyncTime = DateTime.now().subtract(const Duration(hours: 1));
+  double _downloadedMB = 0.0;
+  DateTime _lastSyncTime = DateTime.now();
   bool _isSyncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final res = await ApiClient().dio.get('/settings/profile');
+      final p = res.data['profile'];
+      final prefs = p['preferences'] ?? {};
+      
+      if (mounted) {
+        setState(() {
+          _isDarkMode = prefs['prefTheme'] == 'Dark';
+          _isOfflineSyncEnabled = true; // Placeholder for actual sync pref
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   // Simulate an API Sync call
   Future<void> _performManualSync() async {
@@ -63,10 +94,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('Cancel', style: TextStyle(color: _textLight, fontFamily: _fontFamily)),
           ),
           ElevatedButton(
-            onPressed: () {
-              // TODO: Clear local tokens and push replacement to Login Route
-              Navigator.pop(context); // Close dialog
-              Navigator.of(context).popUntil((route) => route.isFirst); // Go to first screen as fallback
+            onPressed: () async {
+              try {
+                await ApiClient().dio.post('/auth/logout');
+              } catch (_) {}
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _dangerRed,
@@ -428,6 +463,43 @@ class _SettingsNotificationsScreenState extends State<SettingsNotificationsScree
   bool push = true;
   bool email = false;
   bool dataAlerts = true;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    try {
+      final res = await ApiClient().dio.get('/settings/profile');
+      final p = res.data['profile'];
+      final prefs = p['preferences'] ?? {};
+      if (mounted) {
+        setState(() {
+          push = prefs['chanInApp'] ?? true;
+          email = prefs['chanEmail'] ?? false;
+          dataAlerts = prefs['notifAnnouncements'] ?? true;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _savePrefs() async {
+    try {
+      await ApiClient().dio.put('/settings/preferences', data: {
+        'chanInApp': push,
+        'chanEmail': email,
+        'notifAnnouncements': dataAlerts,
+      });
+    } catch (e) {
+      // Handle error
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -442,21 +514,21 @@ class _SettingsNotificationsScreenState extends State<SettingsNotificationsScree
             title: const Text('Push Notifications', style: TextStyle(fontFamily: _fontFamily, fontWeight: FontWeight.bold)),
             subtitle: const Text('Receive alerts on your device', style: TextStyle(fontFamily: _fontFamily)),
             value: push,
-            onChanged: (v) => setState(() => push = v), // TODO: API Update
+            onChanged: (v) { setState(() => push = v); _savePrefs(); },
           ),
           SwitchListTile(
             activeThumbColor: _primaryGreen,
             title: const Text('Email Summaries', style: TextStyle(fontFamily: _fontFamily, fontWeight: FontWeight.bold)),
             subtitle: const Text('Weekly report of your activities', style: TextStyle(fontFamily: _fontFamily)),
             value: email,
-            onChanged: (v) => setState(() => email = v), // TODO: API Update
+            onChanged: (v) { setState(() => email = v); _savePrefs(); },
           ),
           SwitchListTile(
             activeThumbColor: _primaryGreen,
             title: const Text('Data Upload Alerts', style: TextStyle(fontFamily: _fontFamily, fontWeight: FontWeight.bold)),
             subtitle: const Text('Notify when pending data is synced', style: TextStyle(fontFamily: _fontFamily)),
             value: dataAlerts,
-            onChanged: (v) => setState(() => dataAlerts = v), // TODO: API Update
+            onChanged: (v) { setState(() => dataAlerts = v); _savePrefs(); },
           ),
         ],
       ),

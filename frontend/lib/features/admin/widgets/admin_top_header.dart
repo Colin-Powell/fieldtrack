@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../notifications/admin_notifications_screen.dart';
+import 'admin_search_bar.dart';
 
 class AdminTopHeader extends ConsumerWidget {
   final String currentLocation;
@@ -29,6 +31,8 @@ class AdminTopHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final notificationsAsync = ref.watch(adminNotificationsProvider);
+    final hasUnread = (notificationsAsync.valueOrNull?.where((n) => !n.isRead).length ?? 0) > 0;
     final userName = user?.name ?? 'Admin User';
     final userEmail = user?.email ?? 'admin@university.edu';
     final pageTitle = _getPageTitle();
@@ -67,44 +71,14 @@ class AdminTopHeader extends ConsumerWidget {
                 const SizedBox(width: 24),
                 // Search Bar
                 Expanded(
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 320),
-                    height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search across system...',
-                    hintStyle: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      color: Color(0xFF9CA3AF),
-                    ),
-                    prefixIcon: Icon(
-                      PhosphorIcons.magnifyingGlass(),
-                      color: const Color(0xFF9CA3AF),
-                      size: 20,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: const AdminSearchBar(),
                   ),
                 ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-
           // Right Side: Actions and Profile
           Row(
             children: [
@@ -120,7 +94,7 @@ class AdminTopHeader extends ConsumerWidget {
                   icon: Stack(
                     children: [
                       Icon(PhosphorIcons.bell(), color: const Color(0xFF4B5563), size: 22),
-                      Positioned(
+                      if (hasUnread) Positioned(
                         right: 0,
                         top: 0,
                         child: Container(

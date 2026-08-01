@@ -5,6 +5,7 @@ import 'package:fieldtrack/features/activities/activities_screen.dart';
 import 'package:fieldtrack/features/dashboard/dashboard_screen.dart';
 import 'package:fieldtrack/features/map/map_screen.dart';
 import 'package:fieldtrack/features/notifications/notifications_screen.dart';
+import 'package:fieldtrack/features/notifications/providers/notifications_provider.dart';
 import 'package:fieldtrack/features/profile/profile_screen.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,6 +33,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   Widget build(BuildContext context) {
     const greenColor = Color(0xFF1BA654);
     final selectedIndex = ref.watch(navigationIndexProvider);
+    final notifsAsync = ref.watch(notificationsProvider);
+    final unreadCount = notifsAsync.valueOrNull?.where((n) => !n.isRead).length ?? 0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -71,7 +74,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                   _buildNavItem(Icons.home, 'Home', 0, selectedIndex, greenColor),
                   _buildNavItem(Icons.article, 'Activities', 1, selectedIndex, greenColor),
                   _buildNavItem(Icons.location_on, 'Map', 2, selectedIndex, greenColor),
-                  _buildNavItem(Icons.notifications, 'Alerts', 3, selectedIndex, greenColor, badgeCount: 2),
+                  _buildNavItem(Icons.notifications, 'Alerts', 3, selectedIndex, greenColor, badgeCount: unreadCount),
                   _buildNavItem(Icons.account_circle, 'Profile', 4, selectedIndex, greenColor),
                 ],
               ),

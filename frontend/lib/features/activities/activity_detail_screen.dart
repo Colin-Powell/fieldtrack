@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
 import 'package:fieldtrack/core/network/api_result_builder.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
 
 class ActivityDetailScreen extends ConsumerWidget {
   final String activityId;
@@ -61,7 +62,7 @@ class ActivityDetailScreen extends ConsumerWidget {
             if (mimeType.startsWith('image/')) {
               final path = ev['storagePath'];
               if (path != null) {
-                imageUrl = '${AppConstants.apiUrl}/$path';
+                imageUrl = path;
                 break;
               }
             }
@@ -77,7 +78,7 @@ class ActivityDetailScreen extends ConsumerWidget {
                 height: MediaQuery.of(context).size.height * 0.45,
                 child: imageUrl != null
                     ? Image.network(
-                        imageUrl,
+                        ImageUtils.getFullImageUrl(imageUrl),
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(

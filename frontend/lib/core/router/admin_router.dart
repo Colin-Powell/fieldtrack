@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
@@ -10,6 +11,8 @@ import 'package:fieldtrack/features/admin/widgets/admin_scaffold.dart';
 import 'package:fieldtrack/features/admin/dashboard/admin_dashboard_screen.dart';
 import 'package:fieldtrack/features/admin/users/admin_users_screen.dart';
 import 'package:fieldtrack/features/admin/departments/admin_departments_screen.dart';
+import 'package:fieldtrack/features/admin/departments/admin_add_department_screen.dart';
+import 'package:fieldtrack/features/admin/departments/admin_department_detail_screen.dart';
 import 'package:fieldtrack/features/admin/projects/admin_projects_screen.dart';
 import 'package:fieldtrack/features/admin/reports/admin_reports_screen.dart';
 import 'package:fieldtrack/features/admin/map/admin_map_screen.dart';
@@ -19,37 +22,49 @@ import 'package:fieldtrack/features/admin/settings/admin_settings_screen.dart';
 import 'package:fieldtrack/features/admin/profile/admin_profile_screen.dart';
 import 'package:fieldtrack/core/utils/toast_service.dart';
 
+
+class _AdminRouterNotifier extends ChangeNotifier {
+  _AdminRouterNotifier(this._ref) {
+    _ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
+  }
+  final Ref _ref;
+  AuthState get _auth => _ref.read(authProvider);
+
+  String? redirect(BuildContext context, GoRouterState state) {
+    if (_auth.isLoading) return null;
+
+    final isAuth = _auth.isAuthenticated;
+    final user = _auth.user;
+    final path = state.uri.path;
+    final isAuthRoute = path.startsWith('/admin/login') || path.startsWith('/admin/forgot-password') || path.startsWith('/admin/verify-otp') || path.startsWith('/admin/reset-password');
+
+    if (!isAuth && !isAuthRoute) {
+      return '/admin/login';
+    }
+
+    if (isAuth && isAuthRoute) {
+      if (user?.role == 'ADMIN') {
+        return '/admin/dashboard';
+      }
+    }
+
+    if (isAuth && user?.role != 'ADMIN' && path.startsWith('/admin') && !isAuthRoute) {
+      _ref.read(authProvider.notifier).logout();
+      return '/admin/login';
+    }
+
+    return null;
+  }
+}
+
 final adminRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final notifier = _AdminRouterNotifier(ref);
 
   return GoRouter(
     navigatorKey: ToastService.navigatorKey,
     initialLocation: '/admin/login',
-    redirect: (context, state) {
-      if (authState.isLoading) return null;
-
-      final isAuth = authState.isAuthenticated;
-      final user = authState.user;
-      final path = state.uri.path;
-      final isAuthRoute = path.startsWith('/admin/login') || path.startsWith('/admin/forgot-password') || path.startsWith('/admin/verify-otp') || path.startsWith('/admin/reset-password');
-
-      if (!isAuth && !isAuthRoute) {
-        return '/admin/login';
-      }
-
-      if (isAuth && isAuthRoute) {
-        if (user?.role == 'ADMIN') {
-          return '/admin/dashboard';
-        }
-      }
-
-      if (isAuth && user?.role != 'ADMIN' && path.startsWith('/admin') && !isAuthRoute) {
-        ref.read(authProvider.notifier).logout();
-        return '/admin/login';
-      }
-
-      return null;
-    },
+    refreshListenable: notifier,
+    redirect: notifier.redirect,
     routes: [
       GoRoute(
         path: '/admin/login',
@@ -88,15 +103,34 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      GoRoute(
-        path: '/admin/departments',
-        builder: (context, state) {
-          return const AdminScaffold(
-            currentLocation: '/admin/departments',
-            child: AdminDepartmentsScreen(),
-          );
-        },
-      ),
+        GoRoute(
+          path: '/admin/departments',
+          builder: (context, state) {
+            return const AdminScaffold(
+              currentLocation: '/admin/departments',
+              child: AdminDepartmentsScreen(),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/admin/departments/add',
+          builder: (context, state) {
+            return const AdminScaffold(
+              currentLocation: '/admin/departments',
+              child: AdminAddDepartmentScreen(),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/admin/departments/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AdminScaffold(
+              currentLocation: '/admin/departments',
+              child: AdminDepartmentDetailScreen(departmentId: id),
+            );
+          },
+        ),
       GoRoute(
         path: '/admin/projects',
         builder: (context, state) {

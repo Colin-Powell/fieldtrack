@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+
+import 'package:fieldtrack/core/network/error_handler.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
 import 'checkin_provider.dart';
@@ -83,7 +85,7 @@ class LocationNotifier extends StateNotifier<LocationState> {
         },
       );
     } catch (e) {
-      state = state.copyWith(isLocating: false, locationName: 'Unable to capture GPS', error: e.toString());
+      state = state.copyWith(isLocating: false, locationName: 'Unable to capture GPS', error: ErrorHandler.getFriendlyErrorMessage(e));
     }
   }
 

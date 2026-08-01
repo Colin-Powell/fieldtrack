@@ -5,6 +5,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/toast_service.dart';
+import 'package:fieldtrack/core/network/error_handler.dart';
 
 class _C {
   static const Color green = Color(0xFF169B45);
@@ -161,7 +162,7 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
       final errorMsg = e.response?.data?['error'] ?? 'Failed to update user (Status ${e.response?.statusCode})';
       ToastService.showError(errorMsg);
     } catch (e) {
-      ToastService.showError(e.toString());
+      ToastService.showError(ErrorHandler.getFriendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

@@ -1614,7 +1614,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         const SizedBox(height: 40),
 
         // Provided SVG Asset
-        SvgPicture.asset('lib/assets/image/submit.svg', height: 180),
+        SvgPicture.asset('lib/assets/Images/submit.svg', height: 180),
 
         const SizedBox(height: 32),
         const Text(

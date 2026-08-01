@@ -13,6 +13,9 @@ import 'package:fieldtrack/features/activities/providers/student_activities_prov
 import 'package:fieldtrack/core/network/api_result_builder.dart';
 import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
 import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
+import 'package:fieldtrack/core/utils/time_utils.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -24,11 +27,19 @@ class DashboardScreen extends ConsumerWidget {
     const greenColor = Color(0xFF1BA654);
 
     // Status styling based on checkin state
-    final Color statusBgColor = checkInState.isCheckedIn ? const Color(0xFFC3DFCC) : const Color(0xFFFFEBEE);
-    final Color statusIconBgColor = checkInState.isCheckedIn ? greenColor : const Color(0xFFE53935);
-    final Color statusTextColor = checkInState.isCheckedIn ? greenColor : const Color(0xFFE53935);
-    final String statusTitle = checkInState.isCheckedIn ? 'Checked In' : 'Not Checked In';
-    final String statusTime = checkInState.isCheckedIn 
+    final Color statusBgColor = checkInState.isCheckedIn
+        ? const Color(0xFFC3DFCC)
+        : const Color(0xFFFFEBEE);
+    final Color statusIconBgColor = checkInState.isCheckedIn
+        ? greenColor
+        : const Color(0xFFE53935);
+    final Color statusTextColor = checkInState.isCheckedIn
+        ? greenColor
+        : const Color(0xFFE53935);
+    final String statusTitle = checkInState.isCheckedIn
+        ? 'Checked In'
+        : 'Not Checked In';
+    final String statusTime = checkInState.isCheckedIn
         ? '${DateFormat('hh:mm a').format(checkInState.checkInTime!)} | ${DateFormat('dd MMM yyyy').format(checkInState.checkInTime!)}'
         : 'Tap to check in';
 
@@ -40,7 +51,17 @@ class DashboardScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(context, locState, checkInState, statusBgColor, statusIconBgColor, statusTextColor, statusTitle, statusTime, ref),
+            _buildHeader(
+              context,
+              locState,
+              checkInState,
+              statusBgColor,
+              statusIconBgColor,
+              statusTextColor,
+              statusTitle,
+              statusTime,
+              ref,
+            ),
             const SizedBox(height: 24),
             _buildSectionTitle('Today\'s Summary'),
             _buildSummaryGrid(ref),
@@ -59,15 +80,15 @@ class DashboardScreen extends ConsumerWidget {
 
   // --- 1. GREEN HEADER COMPONENT ---
   Widget _buildHeader(
-      BuildContext context, 
-      LocationState locState, 
-      CheckInState checkInState,
-      Color statusBgColor,
-      Color statusIconBgColor,
-      Color statusTextColor,
-      String statusTitle,
-      String statusTime,
-      WidgetRef ref
+    BuildContext context,
+    LocationState locState,
+    CheckInState checkInState,
+    Color statusBgColor,
+    Color statusIconBgColor,
+    Color statusTextColor,
+    String statusTitle,
+    String statusTime,
+    WidgetRef ref,
   ) {
     const greenColor = Color(0xFF1BA654);
     final authState = ref.watch(authProvider);
@@ -75,7 +96,7 @@ class DashboardScreen extends ConsumerWidget {
 
     // Display student name or fallback
     final name = user?.name ?? 'Student';
-    
+
     // Fetch real student profile details from authentication payload
     final prog = user?.programme ?? 'Environmental Sciences';
     final dept = user?.department ?? 'Pwani University';
@@ -106,9 +127,9 @@ class DashboardScreen extends ConsumerWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Good Morning,',
-                    style: TextStyle(
+                  Text(
+                    getGreeting(),
+                    style: const TextStyle(
                       fontFamily: 'Roboto',
                       fontSize: 16,
                       color: Colors.white,
@@ -155,17 +176,28 @@ class DashboardScreen extends ConsumerWidget {
                     border: Border.all(color: Colors.white, width: 2),
                     color: Colors.white.withValues(alpha: 0.2),
                   ),
-                  child: const Icon(
-                    PhosphorIconsFill.userCircle,
-                    color: Colors.white,
-                    size: 36,
+                  child: SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: AppAvatar(
+                      imagePath: user?.avatarUrl,
+                      size: 56,
+                      shape: AvatarShape.circle,
+                      initials: user?.name?.isNotEmpty == true
+                          ? user!.name!
+                                .split(' ')
+                                .map((s) => s.isNotEmpty ? s[0] : '')
+                                .take(2)
+                                .join()
+                          : null,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 24),
-          
+
           // Stats Row
           Row(
             children: [
@@ -173,9 +205,7 @@ class DashboardScreen extends ConsumerWidget {
                 flex: 3,
                 child: _buildHeaderStat(
                   'Location',
-                  locState.isLocating
-                      ? 'Locating...'
-                      : locState.locationName,
+                  locState.isLocating ? 'Locating...' : locState.locationName,
                 ),
               ),
               const SizedBox(width: 12),
@@ -191,7 +221,14 @@ class DashboardScreen extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
-                child: _buildHeaderStat('Time in field', '02h 15m'),
+                child: _buildHeaderStat(
+                  'Time in field',
+                  checkInState.isCheckedIn && checkInState.checkInTime != null
+                      ? formatDuration(
+                          DateTime.now().difference(checkInState.checkInTime!),
+                        )
+                      : '0h 0m',
+                ),
               ),
             ],
           ),
@@ -207,8 +244,8 @@ class DashboardScreen extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: statusBgColor, 
-                borderRadius: BorderRadius.circular(40), 
+                color: statusBgColor,
+                borderRadius: BorderRadius.circular(40),
               ),
               child: Row(
                 children: [
@@ -219,7 +256,11 @@ class DashboardScreen extends ConsumerWidget {
                       color: statusIconBgColor,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(PhosphorIconsFill.article, color: Colors.white, size: 20),
+                    child: const Icon(
+                      PhosphorIconsFill.article,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   // Text Column
@@ -274,8 +315,6 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-
-
   Widget _buildHeaderStat(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,10 +351,13 @@ class DashboardScreen extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Container(
-        clipBehavior: Clip.antiAlias, // Ensures internal dividers don't bleed out of larger corner radii
+        clipBehavior: Clip
+            .antiAlias, // Ensures internal dividers don't bleed out of larger corner radii
         decoration: BoxDecoration(
           color: const Color(0xFFF3F9F5), // Very light pale green
-          borderRadius: BorderRadius.circular(40), // Increased for larger pill shape
+          borderRadius: BorderRadius.circular(
+            40,
+          ), // Increased for larger pill shape
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: statsAsync.when(
@@ -323,28 +365,67 @@ class DashboardScreen extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Expanded(child: _buildSummaryCell('Activities', '${stats.approvals}', PhosphorIconsFill.article)),
-                  Container(width: 1, height: 60, color: const Color(0xFFE5E7EB)),
-                  Expanded(child: _buildSummaryCell('Hours Logged', '${stats.hoursLogged}', PhosphorIconsFill.folder)),
+                  Expanded(
+                    child: _buildSummaryCell(
+                      'Activities',
+                      '${stats.approvals}',
+                      PhosphorIconsFill.article,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 60,
+                    color: const Color(0xFFE5E7EB),
+                  ),
+                  Expanded(
+                    child: _buildSummaryCell(
+                      'Hours Logged',
+                      '${stats.hoursLogged}',
+                      PhosphorIconsFill.folder,
+                    ),
+                  ),
                 ],
               ),
               Container(height: 1, color: const Color(0xFFE5E7EB)),
               Row(
                 children: [
-                  Expanded(child: _buildSummaryCell('Status', stats.status, PhosphorIconsFill.cloudCheck)),
-                  Container(width: 1, height: 60, color: const Color(0xFFE5E7EB)),
-                  Expanded(child: _buildSummaryCell('Check Out', '--', PhosphorIconsBold.arrowsClockwise)),
+                  Expanded(
+                    child: _buildSummaryCell(
+                      'Status',
+                      stats.status,
+                      PhosphorIconsFill.cloudCheck,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 60,
+                    color: const Color(0xFFE5E7EB),
+                  ),
+                  Expanded(
+                    child: _buildSummaryCell(
+                      'Check Out',
+                      '--',
+                      PhosphorIconsBold.arrowsClockwise,
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
           loading: () => const Padding(
             padding: EdgeInsets.all(32.0),
-            child: Center(child: CircularProgressIndicator(color: Color(0xFF169B45))),
+            child: Center(
+              child: CircularProgressIndicator(color: Color(0xFF169B45)),
+            ),
           ),
           error: (error, stack) => Padding(
             padding: const EdgeInsets.all(32.0),
-            child: Center(child: Text('Error loading stats', style: TextStyle(color: Colors.red))),
+            child: Center(
+              child: Text(
+                'Error loading stats',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
           ),
         ),
       ),
@@ -407,35 +488,37 @@ class DashboardScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildQuickActionBtn(
-            'Check Out', 
-            PhosphorIconsRegular.target, 
-            const Color(0xFFFEE2E2), 
+            'Check Out',
+            PhosphorIconsRegular.target,
+            const Color(0xFFFEE2E2),
             const Color(0xFFEF4444),
             onTap: () async {
-              final success = await ref.read(checkInProvider.notifier).checkOut();
+              final success = await ref
+                  .read(checkInProvider.notifier)
+                  .checkOut();
               if (success) {
                 ToastService.showSuccess('Checked out. Session recorded.');
               }
             },
           ),
           _buildQuickActionBtn(
-            'New Activity', 
-            PhosphorIconsFill.article, 
-            const Color(0xFFC3DFCC), 
+            'New Activity',
+            PhosphorIconsFill.article,
+            const Color(0xFFC3DFCC),
             const Color(0xFF1BA654),
             onTap: () => context.push('/field-session'),
           ),
           _buildQuickActionBtn(
-            'Feedback', 
-            PhosphorIconsFill.chatCircleText, 
-            const Color(0xFFC3DFCC), 
+            'Feedback',
+            PhosphorIconsFill.chatCircleText,
+            const Color(0xFFC3DFCC),
             const Color(0xFF1BA654),
             onTap: () => ref.read(navigationIndexProvider.notifier).state = 1,
           ),
           _buildQuickActionBtn(
-            'View Map', 
-            PhosphorIconsFill.mapTrifold, 
-            const Color(0xFFC3DFCC), 
+            'View Map',
+            PhosphorIconsFill.mapTrifold,
+            const Color(0xFFC3DFCC),
             const Color(0xFF1BA654),
             onTap: () => ref.read(navigationIndexProvider.notifier).state = 2,
           ),
@@ -444,33 +527,36 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickActionBtn(String label, IconData icon, Color bgColor, Color iconColor, {VoidCallback? onTap}) {
+  Widget _buildQuickActionBtn(
+    String label,
+    IconData icon,
+    Color bgColor,
+    Color iconColor, {
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: bgColor,
-            shape: BoxShape.circle,
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+            child: Icon(icon, color: iconColor, size: 24),
           ),
-          child: Icon(icon, color: iconColor, size: 24),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
           ),
-        ),
-      ],
-    ),
+        ],
+      ),
     );
   }
 
@@ -499,7 +585,7 @@ class DashboardScreen extends ConsumerWidget {
             children: activities.map<Widget>((activity) {
               final title = activity['title'] ?? 'Untitled Activity';
               final status = activity['status'] ?? 'DRAFT';
-              
+
               // Map status to colors
               Color statusColor = const Color(0xFF1BA654);
               Color statusBgColor = const Color(0xFFC3DFCC);
@@ -527,7 +613,8 @@ class DashboardScreen extends ConsumerWidget {
                   context: context,
                   id: activity['id'],
                   title: title,
-                  location: "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}",
+                  location:
+                      "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}",
                   time: timeStr,
                   status: status,
                   statusColor: statusColor,
@@ -557,7 +644,9 @@ class DashboardScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(40), // Increased for larger pill shape
+          borderRadius: BorderRadius.circular(
+            40,
+          ), // Increased for larger pill shape
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Row(
@@ -570,81 +659,90 @@ class DashboardScreen extends ConsumerWidget {
                 color: const Color(0xFFF3F4F6), // Light grey placeholder
                 borderRadius: BorderRadius.circular(32), // Completely round
               ),
-            child: const Icon(
-              PhosphorIconsRegular.image, 
-              color: Color(0xFF9CA3AF), // Grey icon
-              size: 32,
+              child: const Icon(
+                PhosphorIconsRegular.image,
+                color: Color(0xFF9CA3AF), // Grey icon
+                size: 32,
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Status Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusBgColor,
-                        borderRadius: BorderRadius.circular(20), // Increased for pill styling
-                      ),
-                      child: Text(
-                        status,
-                        style: TextStyle(
-                          fontFamily: 'Roboto',
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: statusColor,
+            const SizedBox(width: 16),
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      // Status Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusBgColor,
+                          borderRadius: BorderRadius.circular(
+                            20,
+                          ), // Increased for pill styling
+                        ),
+                        child: Text(
+                          status,
+                          style: TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    location,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF737373),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  location,
-                  style: const TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF737373),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  time,
-                  style: const TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF737373),
+                  const SizedBox(height: 2),
+                  Text(
+                    time,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF737373),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(PhosphorIconsRegular.caretRight, color: Colors.black, size: 20),
-        ],
-      ),
+            const SizedBox(width: 8),
+            const Icon(
+              PhosphorIconsRegular.caretRight,
+              color: Colors.black,
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -665,4 +763,3 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 }
-

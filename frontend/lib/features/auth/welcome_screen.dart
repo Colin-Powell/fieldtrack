@@ -89,29 +89,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              // --- Supervisor Login Button ---
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton(
-                  onPressed: () => context.go('/supervisor/login'),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF16A34A), width: 2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Text(
-                    'Supervisor Portal',
-                    style: TextStyle(
-                      fontFamily: 'Roboto',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF16A34A),
-                    ),
-                  ),
-                ),
-              ),
+              
               const SizedBox(height: 16), // Bottom safe space
             ],
           ),

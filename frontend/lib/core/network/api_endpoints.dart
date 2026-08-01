@@ -70,4 +70,7 @@ class ApiEndpoints {
 
   // ── Media ────────────────────────────────────────────────────────────
   static const String mediaUpload = '/media/upload';
+  
+  // ── Settings ─────────────────────────────────────────────────────────
+  static const String avatarUpload = '/settings/avatar';
 }

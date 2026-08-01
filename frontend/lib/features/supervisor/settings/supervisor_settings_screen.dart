@@ -804,7 +804,7 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                     ClipOval(
                       child: _avatarPath != null
                           ? Image.network(
-                              'http://192.168.18.4:3000$_avatarPath',
+                              'http://192.168.18.5:3000$_avatarPath',
                               width: 80,
                               height: 80,
                               fit: BoxFit.cover,

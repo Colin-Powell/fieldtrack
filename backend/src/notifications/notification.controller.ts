@@ -6,11 +6,11 @@ const notificationService = new NotificationService();
 export class NotificationController {
   async getUserNotifications(req: Request, res: Response) {
     try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ error: 'Missing userId' });
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
       }
-      const notifications = await notificationService.getUserNotifications(userId);
+      const notifications = await notificationService.getUserNotifications(user.userId);
       res.status(200).json(notifications);
     } catch (error) {
       console.error('[getUserNotifications]', error);

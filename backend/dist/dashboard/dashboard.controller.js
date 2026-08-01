@@ -7,22 +7,53 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 export async function getAdminDashboard(req, res) {
     try {
+        const period = req.query.period;
+        let periodStart;
+        const currentDate = new Date();
+        switch (period) {
+            case 'Today':
+                periodStart = new Date(currentDate.setHours(0, 0, 0, 0));
+                break;
+            case 'This Week': {
+                const d = new Date();
+                const day = d.getDay();
+                const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                periodStart = new Date(d.setDate(diff));
+                periodStart.setHours(0, 0, 0, 0);
+                break;
+            }
+            case 'This Month':
+                periodStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+                break;
+            case 'This Year':
+                periodStart = new Date(currentDate.getFullYear(), 0, 1);
+                break;
+            case 'All Time':
+                periodStart = undefined;
+                break;
+            default: {
+                const defaultD = new Date();
+                const day = defaultD.getDay();
+                const diff = defaultD.getDate() - day + (day === 0 ? -6 : 1);
+                periodStart = new Date(defaultD.setDate(diff));
+                periodStart.setHours(0, 0, 0, 0);
+                break;
+            }
+        }
         // ── General Stats ──
         const totalStudents = await prisma.user.count({ where: { role: 'STUDENT' } });
         const activeSupervisors = await prisma.user.count({ where: { role: 'SUPERVISOR' } });
-        // Students in field — have an active (non-checked-out) FieldSession today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Students in field — have an active (non-checked-out) FieldSession
         const studentsInField = await prisma.fieldSession.count({
             where: {
                 checkOutTime: null,
-                checkInTime: { gte: today },
+                ...(periodStart ? { checkInTime: { gte: periodStart } } : {}),
             },
         });
-        // Submissions today (FieldLogs created today, not DRAFT)
+        // Submissions in period (FieldLogs created in period, not DRAFT)
         const submittedToday = await prisma.fieldLog.count({
             where: {
-                timestamp: { gte: today },
+                ...(periodStart ? { timestamp: { gte: periodStart } } : {}),
                 status: { not: 'DRAFT' },
             },
         });
@@ -32,58 +63,85 @@ export async function getAdminDashboard(req, res) {
                 status: { in: ['SUBMITTED', 'RESUBMITTED', 'UNDER_REVIEW'] },
             },
         });
-        // Active projects — count distinct students with at least one field session this year
+        // Active projects — count distinct students with at least one field session in period
         const activeProjects = await prisma.fieldSession.groupBy({
             by: ['studentId'],
             _count: { id: true },
-            where: { checkInTime: { gte: new Date(new Date().getFullYear(), 0, 1) } },
+            where: periodStart ? { checkInTime: { gte: periodStart } } : {},
         });
-        // ── Activity Trend (last 7 days) ──
-        const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        // ── Dynamic Trend Generation ──
         const activityTrend = [];
-        for (let i = 6; i >= 0; i--) {
-            const dayStart = new Date(today);
-            dayStart.setDate(dayStart.getDate() - i);
-            const dayEnd = new Date(dayStart);
-            dayEnd.setDate(dayEnd.getDate() + 1);
-            const count = await prisma.fieldLog.count({
+        const attendanceTrend = [];
+        const intervals = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (period === 'This Month') {
+            // 4 weeks of the month
+            const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            for (let i = 0; i < 4; i++) {
+                const wStart = new Date(startOfMonth);
+                wStart.setDate(startOfMonth.getDate() + (i * 7));
+                const wEnd = new Date(wStart);
+                wEnd.setDate(wStart.getDate() + 7);
+                intervals.push({
+                    start: wStart,
+                    end: wEnd,
+                    label: `Week ${i + 1}`,
+                    dateLabel: `${wStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${wEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+                });
+            }
+        }
+        else if (period === 'This Year' || period === 'All Time') {
+            // 12 months
+            for (let i = 0; i < 12; i++) {
+                const mStart = new Date(currentDate.getFullYear(), i, 1);
+                const mEnd = new Date(currentDate.getFullYear(), i + 1, 1);
+                intervals.push({
+                    start: mStart,
+                    end: mEnd,
+                    label: mStart.toLocaleString('default', { month: 'short' }),
+                    dateLabel: mStart.toLocaleString('default', { month: 'long', year: 'numeric' }),
+                });
+            }
+        }
+        else {
+            // 7 days (Today, This Week, default)
+            const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            for (let i = 6; i >= 0; i--) {
+                const dStart = new Date(today);
+                dStart.setDate(today.getDate() - i);
+                const dEnd = new Date(dStart);
+                dEnd.setDate(dEnd.getDate() + 1);
+                intervals.push({
+                    start: dStart,
+                    end: dEnd,
+                    label: dayLabels[dStart.getDay()],
+                    dateLabel: dStart.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
+                });
+            }
+        }
+        for (const inv of intervals) {
+            // Activity
+            const actCount = await prisma.fieldLog.count({
                 where: {
-                    timestamp: { gte: dayStart, lt: dayEnd },
+                    timestamp: { gte: inv.start, lt: inv.end },
                     status: { not: 'DRAFT' },
                 },
             });
-            const dayOfWeek = dayStart.getDay();
-            activityTrend.push({
-                label: dayLabels[dayOfWeek],
-                value: count,
-                dateLabel: dayStart.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
-            });
-        }
-        // ── Attendance Trend (last 7 days) ──
-        const attendanceTrend = [];
-        for (let i = 6; i >= 0; i--) {
-            const dayStart = new Date(today);
-            dayStart.setDate(dayStart.getDate() - i);
-            const dayEnd = new Date(dayStart);
-            dayEnd.setDate(dayEnd.getDate() + 1);
-            // Unique students with active sessions overlapping the day
+            activityTrend.push({ label: inv.label, value: actCount, dateLabel: inv.dateLabel });
+            // Attendance
             const activeSessionsCount = await prisma.fieldSession.groupBy({
                 by: ['studentId'],
                 where: {
-                    checkInTime: { lt: dayEnd },
+                    checkInTime: { lt: inv.end },
                     OR: [
                         { checkOutTime: null },
-                        { checkOutTime: { gte: dayStart } },
+                        { checkOutTime: { gte: inv.start } },
                     ],
                 },
                 _count: { id: true },
             });
-            const dayOfWeek = dayStart.getDay();
-            attendanceTrend.push({
-                label: dayLabels[dayOfWeek],
-                value: activeSessionsCount.length,
-                dateLabel: dayStart.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
-            });
+            attendanceTrend.push({ label: inv.label, value: activeSessionsCount.length, dateLabel: inv.dateLabel });
         }
         // ── Submission Status Breakdown ──
         const approvedCount = await prisma.fieldLog.count({ where: { status: 'APPROVED' } });
@@ -93,9 +151,9 @@ export async function getAdminDashboard(req, res) {
         const rejectedCount = await prisma.fieldLog.count({ where: { status: 'REJECTED' } });
         const totalSubmissions = approvedCount + pendingStatusCount + rejectedCount || 1; // avoid div by 0
         const submissionStatus = [
-            { label: 'Approved', value: approvedCount, color: '#169B45' },
-            { label: 'Pending', value: pendingStatusCount, color: '#FF7A00' },
-            { label: 'Rejected', value: rejectedCount, color: '#EF4444' },
+            { label: 'Approved', value: approvedCount, color: '#047857' },
+            { label: 'Pending', value: pendingStatusCount, color: '#10B981' },
+            { label: 'Rejected', value: rejectedCount, color: '#6EE7B7' },
         ];
         // ── Department Stats ──
         const deptGroups = await prisma.studentProfile.groupBy({
@@ -105,7 +163,7 @@ export async function getAdminDashboard(req, res) {
             orderBy: { _count: { id: 'desc' } },
         });
         const maxDeptCount = deptGroups.length > 0 ? Math.max(...deptGroups.map(d => d._count.id)) : 1;
-        const deptColors = ['#169B45', '#3B82F6', '#A855F7', '#14B8A6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+        const deptColors = ['#059669', '#10B981', '#34D399', '#6EE7B7', '#A7F3D0', '#047857', '#065F46'];
         const departmentStats = deptGroups.map((d, i) => ({
             name: d.department ?? 'Unknown',
             count: d._count.id,

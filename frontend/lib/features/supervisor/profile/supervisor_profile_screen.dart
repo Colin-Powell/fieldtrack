@@ -1,16 +1,60 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/utils/image_utils.dart';
+import '../../../core/widgets/app_avatar.dart';
 
-class SupervisorProfileScreen extends ConsumerWidget {
+class SupervisorProfileScreen extends ConsumerStatefulWidget {
   const SupervisorProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SupervisorProfileScreen> createState() =>
+      _SupervisorProfileScreenState();
+}
+
+class _SupervisorProfileScreenState
+    extends ConsumerState<SupervisorProfileScreen> {
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickAndUploadImage() async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+      );
+      if (pickedFile != null) {
+        final success = await ref
+            .read(authProvider.notifier)
+            .uploadAvatar(File(pickedFile.path));
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Profile picture updated')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(ref.read(authProvider).error ?? 'Upload failed'),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final userName = user?.name ?? 'Supervisor';
     final userEmail = user?.email ?? 'Not provided';
-    final initial = userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'S';
+    final initial = userName.isNotEmpty
+        ? userName.substring(0, 1).toUpperCase()
+        : 'S';
     final phone = user?.phone ?? 'Not provided';
     final staffNumber = user?.staffNumber ?? 'Not provided';
     final department = user?.supervisorDepartment ?? 'Not provided';
@@ -62,38 +106,84 @@ class SupervisorProfileScreen extends ConsumerWidget {
                             children: [
                               Row(
                                 children: [
-                                  CircleAvatar(
-                                    radius: 40,
-                                    backgroundColor: const Color(0xFF1BA654),
-                                    child: Text(
-                                      initial,
-                                      style: const TextStyle(
-                                        fontFamily: 'Poppins',
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
+                                  GestureDetector(
+                                    onTap: _pickAndUploadImage,
+                                    child: Stack(
+                                      children: [
+                                        AppAvatar(
+                                          imagePath: user?.avatarUrl,
+                                          size: 80,
+                                          shape: AvatarShape.circle,
+                                          initials: userName.isNotEmpty
+                                              ? userName
+                                                    .split(' ')
+                                                    .map(
+                                                      (s) => s.isNotEmpty
+                                                          ? s[0]
+                                                          : '',
+                                                    )
+                                                    .take(2)
+                                                    .join()
+                                              : null,
+                                        ),
+                                        Positioned(
+                                          bottom: 0,
+                                          right: 0,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF1BA654),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 2,
+                                              ),
+                                            ),
+                                            child: PhosphorIcon(
+                                              PhosphorIcons.camera(), // Added parentheses
+                                              color: Colors.white,
+                                              size: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   const SizedBox(width: 24),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         userName,
-                                        style: const TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w700),
+                                        style: const TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         userEmail,
-                                        style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: Color(0xFF6B7280)),
+                                        style: const TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontSize: 14,
+                                          color: Color(0xFF6B7280),
+                                        ),
                                       ),
                                       const SizedBox(height: 8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF1BA654).withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(40),
+                                          color: const Color(
+                                            0xFF1BA654,
+                                          ).withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            40,
+                                          ),
                                         ),
                                         child: const Text(
                                           'Supervisor',
@@ -112,36 +202,76 @@ class SupervisorProfileScreen extends ConsumerWidget {
                               const SizedBox(height: 32),
                               const Divider(color: Color(0xFFE5E7EB)),
                               const SizedBox(height: 32),
-                              
+
                               Row(
                                 children: [
-                                  Expanded(child: _buildTextField('Full Name', userName)),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Full Name',
+                                      userName,
+                                    ),
+                                  ),
                                   const SizedBox(width: 24),
-                                  Expanded(child: _buildTextField('Staff Number', staffNumber)),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Staff Number',
+                                      staffNumber,
+                                    ),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 24),
                               Row(
                                 children: [
-                                  Expanded(child: _buildTextField('Email Address', userEmail)),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Email Address',
+                                      userEmail,
+                                    ),
+                                  ),
                                   const SizedBox(width: 24),
-                                  Expanded(child: _buildTextField('Phone Number', phone)),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Phone Number',
+                                      phone,
+                                    ),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 24),
                               Row(
                                 children: [
-                                  Expanded(child: _buildTextField('Department', department)),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Department',
+                                      department,
+                                    ),
+                                  ),
                                   const SizedBox(width: 24),
-                                  Expanded(child: _buildTextField('Specialization', specialization)),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Specialization',
+                                      specialization,
+                                    ),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 24),
                               Row(
                                 children: [
-                                  Expanded(child: _buildTextField('Office Location', office)),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Office Location',
+                                      office,
+                                    ),
+                                  ),
                                   const SizedBox(width: 24),
-                                  Expanded(child: _buildTextField('Student Capacity', capacity)),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Student Capacity',
+                                      capacity,
+                                    ),
+                                  ),
                                 ],
                               ),
 
@@ -150,11 +280,22 @@ class SupervisorProfileScreen extends ConsumerWidget {
                                 onPressed: () {},
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF1BA654),
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(40),
+                                  ),
                                   elevation: 0,
                                 ),
-                                child: const Text('Save Profile Updates', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                                child: const Text(
+                                  'Save Profile Updates',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -164,7 +305,7 @@ class SupervisorProfileScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 24),
-                
+
                 // Right Column (Security)
                 Expanded(
                   flex: 1,
@@ -184,9 +325,20 @@ class SupervisorProfileScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Security & Password', style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600)),
+                        const Text(
+                          'Security & Password',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 24),
-                        _buildTextField('Current Password', '••••••••', obscure: true),
+                        _buildTextField(
+                          'Current Password',
+                          '••••••••',
+                          obscure: true,
+                        ),
                         const SizedBox(height: 24),
                         _buildTextField('New Password', '', obscure: true),
                         const SizedBox(height: 24),
@@ -195,16 +347,33 @@ class SupervisorProfileScreen extends ConsumerWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Two-Factor Authentication (2FA)', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                            const Text(
+                              'Two-Factor Authentication (2FA)',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                             const SizedBox(height: 4),
-                            Text('Add an extra layer of security', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: Colors.grey.shade500)),
+                            Text(
+                              'Add an extra layer of security',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 13,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
                             const SizedBox(height: 12),
                             OutlinedButton(
                               onPressed: () {},
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF1BA654),
-                                side: const BorderSide(color: Color(0xFF1BA654)),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+                                side: const BorderSide(
+                                  color: Color(0xFF1BA654),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(40),
+                                ),
                               ),
                               child: const Text('Enable 2FA'),
                             ),
@@ -251,9 +420,13 @@ class SupervisorProfileScreen extends ConsumerWidget {
           child: TextFormField(
             initialValue: value,
             obscureText: obscure,
-            readOnly: true, // Form fields are read-only for now until edit logic is added
+            readOnly:
+                true, // Form fields are read-only for now until edit logic is added
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 16,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(40),
                 borderSide: BorderSide.none,
@@ -264,7 +437,10 @@ class SupervisorProfileScreen extends ConsumerWidget {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(40),
-                borderSide: const BorderSide(color: Color(0xFF1BA654), width: 2),
+                borderSide: const BorderSide(
+                  color: Color(0xFF1BA654),
+                  width: 2,
+                ),
               ),
             ),
           ),

@@ -1,5 +1,9 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import morgan from 'morgan';
+import { appLogger } from './utils/logger.js';
 import { prisma } from './db.js';
 
 import authRoutes from './auth/auth.routes.js';
@@ -14,10 +18,25 @@ import reportRoutes from './reports/reports.routes.js';
 import settingsRoutes from './settings/settings.routes.js';
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Nginx) for accurate client IP
 const port = process.env.PORT || 3000;
 
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
+
+// Log HTTP requests using Morgan and Winston
+app.use(morgan('combined', { stream: { write: (msg) => appLogger.info(msg.trim()) } }));
+
+// Global Rate Limiter
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests from this IP, please try again after 15 minutes',
+});
+app.use('/api', globalLimiter);
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
@@ -30,8 +49,21 @@ app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 
-// Also serve the storage folder statically so the frontend can display images
-app.use('/storage', express.static('storage'));
+import { BASE_STORAGE_DIR } from './media/storage.service.js';
+
+// Serve the storage folder statically with caching and media streaming support
+app.use('/storage', express.static(BASE_STORAGE_DIR, {
+  maxAge: '30d',
+  setHeaders: (res, path, stat) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    // Ensure media files indicate they support byte range requests for streaming
+    if (path.endsWith('.mp4') || path.endsWith('.mp3') || path.endsWith('.m4a')) {
+      res.set('Accept-Ranges', 'bytes');
+    }
+    // Set proper cache headers
+    res.set('Cache-Control', 'public, max-age=2592000, immutable');
+  }
+}));
 
 
 
@@ -149,7 +181,7 @@ app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR'
         name: u.name,
         email: u.email,
         status: u.status,             // ACTIVE | SUSPENDED | ARCHIVED
-        avatarUrl: '',
+        avatarUrl: sp?.avatar ?? '',
         reg: sp?.registrationNo ?? '',
         programme: sp?.programme ?? '',
         department: sp?.department ?? '',
@@ -218,7 +250,7 @@ app.get('/api/v1/supervisor/students/:id', async (req: Request, res: Response) =
       name: u.name,
       email: u.email,
       status: u.status,
-      avatarUrl: '',
+      avatarUrl: sp?.avatar ?? '',
       reg: sp?.registrationNo ?? '',
       programme: sp?.programme ?? '',
       department: sp?.department ?? '',
@@ -301,12 +333,16 @@ app.get('/api/v1/supervisor/students/:id', async (req: Request, res: Response) =
           title: 'Checked Out',
           description: `Checked out`
         })),
-        ...logs.map((l: any) => ({
-          time: l.timestamp.toISOString(),
-          type: 'activitySubmit',
-          title: l.title,
-          description: `Activity submitted with ${l.evidence?.length ?? 0} evidence files`
-        }))
+        ...logs.map((l: any) => {
+          const imageEvidence = l.evidence?.find((e: any) => e.mimeType?.startsWith('image/'));
+          return {
+            time: l.timestamp.toISOString(),
+            type: 'activitySubmit',
+            title: l.title,
+            description: `Activity submitted with ${l.evidence?.length ?? 0} evidence files`,
+            imageUrl: imageEvidence?.storagePath || undefined
+          };
+        })
       ].sort((a: any, b: any) => new Date(b.time).getTime() - new Date(a.time).getTime()),
     });
   } catch (error) {

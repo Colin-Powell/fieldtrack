@@ -43,9 +43,9 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
   // Add a MapController to manage map actions programmatically
   final MapController _mapController = MapController();
   
-  // Default coordinates to center back on
   final LatLng _initialCenter = const LatLng(-3.6305, 39.8499);
   final double _initialZoom = 14.5;
+  bool _hasCentered = false;
 
   void _zoomIn() {
     final currentZoom = _mapController.camera.zoom;
@@ -59,6 +59,7 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
 
   void _recenterMap() {
     _mapController.move(_initialCenter, _initialZoom);
+    setState(() { _hasCentered = false; });
   }
 
   @override
@@ -259,7 +260,8 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
                       }
                       
                       // Update center if we have route points and haven't centered yet
-                      if (routePoints.isNotEmpty && _mapController.camera.center.latitude == _initialCenter.latitude) {
+                      if (routePoints.isNotEmpty && !_hasCentered) {
+                        _hasCentered = true;
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                            try { _mapController.move(routePoints.first, _initialZoom); } catch (_) {}
                         });

@@ -7,6 +7,9 @@ import 'package:fieldtrack/core/network/api_result.dart';
 import 'package:fieldtrack/core/network/api_result_builder.dart';
 import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
 import 'package:intl/intl.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
 
 // ==========================================
 // DESIGN TOKENS
@@ -40,10 +43,12 @@ class SupervisorEvidenceScreen extends ConsumerStatefulWidget {
 
 class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScreen> {
   final ScrollController _scrollController = ScrollController();
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -70,8 +75,13 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
         final images = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('image/')).toList();
         final videos = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('video/')).toList();
         final audios = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('audio/')).toList();
-        final docs = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('application/')).toList();
+        final docs = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('application/') || (e['mimeType'] as String? ?? '').startsWith('text/')).toList();
         
+        String studentName = 'Unknown Student';
+        if (activity['user'] != null && activity['user']['name'] != null) {
+          studentName = activity['user']['name'];
+        }
+
         String submittedDateStr = 'N/A';
         if (activity['timestamp'] != null) {
             final dt = DateTime.parse(activity['timestamp']).toLocal();
@@ -122,7 +132,7 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                               ),
                               itemBuilder: (context, index) {
                                 final ev = images[index];
-                                final url = ev['storagePath'] != null ? '${AppConstants.apiUrl}/${ev['storagePath']}' : '';
+                                final url = ImageUtils.getFullImageUrl(ev['storagePath']);
                                 final time = submittedDateStr;
                                 return _buildImageCard(context, ev['fileName'] ?? 'Image_$index.jpg', time, accuracy, url);
                               },
@@ -150,7 +160,7 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                               ),
                               itemBuilder: (context, index) {
                                 final ev = videos[index];
-                                final url = ev['storagePath'] != null ? '${AppConstants.apiUrl}/${ev['storagePath']}' : '';
+                                final url = ImageUtils.getFullImageUrl(ev['storagePath']);
                                 final time = submittedDateStr;
                                 return _buildVideoCard(context, ev['fileName'] ?? 'Video_$index.mp4', time, 'N/A', url);
                               },
@@ -173,7 +183,7 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                                 final ev = audios[index];
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 12.0),
-                                  child: _buildVoiceNoteCard(context, ev['fileName'] ?? 'Audio_$index.mp3', ev['storagePath'] != null ? '${AppConstants.apiUrl}/${ev['storagePath']}' : ''),
+                                  child: _buildVoiceNoteCard(context, ev['fileName'] ?? 'Audio_$index.mp3', ImageUtils.getFullImageUrl(ev['storagePath'])),
                                 );
                               }
                             ),
@@ -216,7 +226,12 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                                     final ev = docs[index];
                                     return Padding(
                                       padding: const EdgeInsets.only(bottom: 12.0),
-                                      child: _buildDocumentCard(ev['fileName'] ?? 'Doc_$index.pdf', ev['storagePath'] != null ? '${AppConstants.apiUrl}/${ev['storagePath']}' : ''),
+                                      child: _buildDocumentCard(
+                                        ev['originalName'] ?? ev['fileName'] ?? 'Doc_$index', 
+                                        ImageUtils.getFullImageUrl(ev['storagePath']), 
+                                        ev['fileExtension'] ?? '', 
+                                        studentName
+                                      ),
                                     );
                                   }
                                 ),
@@ -364,7 +379,7 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
 
   Widget _buildVoiceNoteCard(BuildContext context, String title, String url) {
     return GestureDetector(
-      onTap: () => _showAudioPlayer(context, title),
+      onTap: () => _showAudioPlayer(context, title, url),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         decoration: BoxDecoration(
@@ -411,7 +426,22 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
 
   // ── RIGHT COLUMN META WIDGETS ─────────────────────────────────────────
 
-  Widget _buildDocumentCard(String title, String url) {
+  Widget _buildDocumentCard(String originalName, String url, String extension, String studentName) {
+    IconData icon = PhosphorIconsFill.fileText;
+    if (extension.toLowerCase().contains('pdf')) {
+      icon = PhosphorIconsFill.filePdf;
+    } else if (extension.toLowerCase().contains('doc') || extension.toLowerCase().contains('word')) {
+      icon = PhosphorIconsFill.fileDoc;
+    } else if (extension.toLowerCase().contains('xls') || extension.toLowerCase().contains('sheet')) {
+      icon = PhosphorIconsFill.fileXls;
+    } else if (extension.toLowerCase().contains('ppt') || extension.toLowerCase().contains('presentation')) {
+      icon = PhosphorIconsFill.filePpt;
+    } else if (extension.toLowerCase().contains('zip') || extension.toLowerCase().contains('rar') || extension.toLowerCase().contains('tar')) {
+      icon = PhosphorIconsFill.fileZip;
+    }
+
+    final displayName = '${studentName.replaceAll(' ', '_')}_$originalName';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), 
       decoration: BoxDecoration(
@@ -424,22 +454,29 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
           Container(
             padding: const EdgeInsets.all(12),
             decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: const Icon(PhosphorIconsFill.filePdf, color: _C.orange, size: 24),
+            child: Icon(icon, color: _C.orange, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w700, color: _C.textDark), overflow: TextOverflow.ellipsis),
+                Text(displayName, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w700, color: _C.textDark), overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
-                const Text('Document File', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: _C.textFaint)),
+                Text('Tap to open ${extension.isNotEmpty ? extension.toUpperCase() : "Document"}', style: const TextStyle(fontFamily: 'Poppins', fontSize: 11, color: _C.textFaint)),
               ],
             ),
           ),
           IconButton(
-            onPressed: () {},
-            icon: const Icon(PhosphorIconsRegular.downloadSimple, color: _C.textDark),
+            onPressed: () async {
+              if (url.isNotEmpty) {
+                final uri = Uri.parse(url);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              }
+            },
+            icon: const Icon(PhosphorIconsRegular.arrowSquareOut, color: _C.orange),
           ),
         ],
       ),
@@ -640,100 +677,149 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
     );
   }
 
-  void _showAudioPlayer(BuildContext context, String title) {
+  void _showAudioPlayer(BuildContext context, String title, String url) {
+    final player = AudioPlayer();
+    bool isPlaying = false;
+    Duration position = Duration.zero;
+    Duration total = Duration.zero;
+
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent, // Floating translucent UI
-        elevation: 0,
-        insetPadding: const EdgeInsets.all(24),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Floating Close Button (Top Right)
-            Positioned(
-              top: 0,
-              right: 0,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(ctx),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.black87, shape: BoxShape.circle, border: Border.all(color: Colors.white24)),
-                  child: const Icon(PhosphorIconsRegular.x, color: Colors.white, size: 24),
-                ),
-              ),
-            ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          // Wire up listeners
+          player.onPositionChanged.listen((pos) {
+            setDialogState(() => position = pos);
+          });
+          player.onDurationChanged.listen((dur) {
+            setDialogState(() => total = dur);
+          });
+          player.onPlayerComplete.listen((_) {
+            setDialogState(() { isPlaying = false; position = Duration.zero; });
+          });
 
-            // Floating Audio Controls container
-            Container(
-              width: 400,
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(_C.cardRadius),
-                border: Border.all(color: Colors.white24),
-                boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 20, offset: Offset(0, 10))],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(PhosphorIconsFill.microphoneStage, color: _C.blue, size: 48),
-                  const SizedBox(height: 16),
-                  Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
-                  const Text('Voice Note', style: TextStyle(color: Colors.white54, fontFamily: 'Poppins', fontSize: 13)),
-                  const SizedBox(height: 32),
-                  
-                  // Floating Progress Bar
-                  Row(
+          String _fmt(Duration d) {
+            final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+            final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+            return '$m:$s';
+          }
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            insetPadding: const EdgeInsets.all(24),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () { player.dispose(); Navigator.pop(ctx); },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.black87, shape: BoxShape.circle, border: Border.all(color: Colors.white24)),
+                      child: const Icon(PhosphorIconsRegular.x, color: Colors.white, size: 24),
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 400,
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(_C.cardRadius),
+                    border: Border.all(color: Colors.white24),
+                    boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 20, offset: Offset(0, 10))],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('00:00', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: LinearProgressIndicator(
-                          value: 0.0,
-                          backgroundColor: Colors.white24,
-                          valueColor: const AlwaysStoppedAnimation<Color>(_C.blue),
-                          borderRadius: BorderRadius.circular(8),
-                          minHeight: 6,
-                        ),
+                      const Icon(PhosphorIconsFill.microphoneStage, color: _C.blue, size: 48),
+                      const SizedBox(height: 16),
+                      Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+                      const SizedBox(height: 8),
+                      const Text('Voice Note', style: TextStyle(color: Colors.white54, fontFamily: 'Poppins', fontSize: 13)),
+                      const SizedBox(height: 32),
+                      Row(
+                        children: [
+                          Text(_fmt(position), style: const TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SliderTheme(
+                              data: SliderThemeData(
+                                trackHeight: 4,
+                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                                activeTrackColor: _C.blue,
+                                inactiveTrackColor: Colors.white24,
+                                thumbColor: Colors.white,
+                                overlayColor: _C.blue.withOpacity(0.2),
+                              ),
+                              child: Slider(
+                                value: total.inMilliseconds > 0 ? position.inMilliseconds / total.inMilliseconds : 0.0,
+                                onChanged: (v) async {
+                                  final seek = Duration(milliseconds: (v * total.inMilliseconds).round());
+                                  await player.seek(seek);
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(_fmt(total), style: const TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      const Text('--:--', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
+                      const SizedBox(height: 32),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: () async => await player.seek(Duration(seconds: (position.inSeconds - 10).clamp(0, total.inSeconds))),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
+                              child: const Icon(PhosphorIconsFill.rewindCircle, color: Colors.white, size: 32),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          GestureDetector(
+                            onTap: () async {
+                              if (isPlaying) {
+                                await player.pause();
+                                setDialogState(() => isPlaying = false);
+                              } else {
+                                if (url.isNotEmpty) {
+                                  await player.play(UrlSource(url));
+                                }
+                                setDialogState(() => isPlaying = true);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle),
+                              child: Icon(isPlaying ? PhosphorIconsFill.pause : PhosphorIconsFill.play, color: Colors.white, size: 36),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          GestureDetector(
+                            onTap: () async => await player.seek(Duration(seconds: (position.inSeconds + 10).clamp(0, total.inSeconds))),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
+                              child: const Icon(PhosphorIconsFill.fastForwardCircle, color: Colors.white, size: 32),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 32),
-                  
-                  // Floating Action Buttons
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
-                        child: const Icon(PhosphorIconsFill.rewindCircle, color: Colors.white, size: 32),
-                      ),
-                      const SizedBox(width: 24),
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle),
-                        child: const Icon(PhosphorIconsFill.play, color: Colors.white, size: 36),
-                      ),
-                      const SizedBox(width: 24),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
-                        child: const Icon(PhosphorIconsFill.fastForwardCircle, color: Colors.white, size: 32),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
-    );
+    ).then((_) => player.dispose());
   }
 }
 

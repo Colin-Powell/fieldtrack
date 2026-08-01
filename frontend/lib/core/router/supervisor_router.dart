@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as pkg_provider;
@@ -23,37 +24,49 @@ import 'package:fieldtrack/features/supervisor/settings/supervisor_settings_scre
 import 'package:fieldtrack/features/supervisor/profile/supervisor_profile_screen.dart';
 import 'package:fieldtrack/core/utils/toast_service.dart';
 
+
+class _SupervisorRouterNotifier extends ChangeNotifier {
+  _SupervisorRouterNotifier(this._ref) {
+    _ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
+  }
+  final Ref _ref;
+  AuthState get _auth => _ref.read(authProvider);
+
+  String? redirect(BuildContext context, GoRouterState state) {
+    if (_auth.isLoading) return null;
+
+    final isAuth = _auth.isAuthenticated;
+    final user = _auth.user;
+    final path = state.uri.path;
+    final isAuthRoute = path.startsWith('/supervisor/login') || path.startsWith('/supervisor/forgot-password') || path.startsWith('/supervisor/verify-otp') || path.startsWith('/supervisor/reset-password');
+
+    if (!isAuth && !isAuthRoute) {
+      return '/supervisor/login';
+    }
+
+    if (isAuth && isAuthRoute) {
+      if (user?.role == 'SUPERVISOR' || user?.role == 'ADMIN') {
+        return '/supervisor/dashboard';
+      }
+    }
+
+    if (isAuth && user?.role != 'SUPERVISOR' && user?.role != 'ADMIN' && path.startsWith('/supervisor') && !isAuthRoute) {
+      _ref.read(authProvider.notifier).logout();
+      return '/supervisor/login';
+    }
+
+    return null;
+  }
+}
+
 final supervisorRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final notifier = _SupervisorRouterNotifier(ref);
 
   return GoRouter(
     navigatorKey: ToastService.navigatorKey,
     initialLocation: '/supervisor/login',
-    redirect: (context, state) {
-      if (authState.isLoading) return null;
-
-      final isAuth = authState.isAuthenticated;
-      final user = authState.user;
-      final path = state.uri.path;
-      final isAuthRoute = path.startsWith('/supervisor/login') || path.startsWith('/supervisor/forgot-password') || path.startsWith('/supervisor/verify-otp') || path.startsWith('/supervisor/reset-password');
-
-      if (!isAuth && !isAuthRoute) {
-        return '/supervisor/login';
-      }
-
-      if (isAuth && isAuthRoute) {
-        if (user?.role == 'SUPERVISOR' || user?.role == 'ADMIN') {
-          return '/supervisor/dashboard';
-        }
-      }
-
-      if (isAuth && user?.role != 'SUPERVISOR' && user?.role != 'ADMIN' && path.startsWith('/supervisor') && !isAuthRoute) {
-        ref.read(authProvider.notifier).logout();
-        return '/supervisor/login';
-      }
-
-      return null;
-    },
+    refreshListenable: notifier,
+    redirect: notifier.redirect,
     routes: [
       GoRoute(
         path: '/supervisor/login',

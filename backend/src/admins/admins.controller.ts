@@ -220,16 +220,19 @@ export async function getAllUsers(req: Request, res: Response) {
       let department = '-';
       let supervisorName;
       let assignedStudentsCount;
+      let avatarUrl = '';
 
       if (user.role === 'STUDENT' && user.studentProfile) {
         regNo = user.studentProfile.registrationNo;
         department = user.studentProfile.department ?? '-';
+        avatarUrl = user.studentProfile.avatar ?? '';
         if (user.studentProfile.supervisor) {
           supervisorName = user.studentProfile.supervisor.user.name;
         }
       } else if (user.role === 'SUPERVISOR' && user.supervisorProfile) {
         department = user.supervisorProfile.department ?? '-';
         assignedStudentsCount = user.supervisorProfile.assignedStudents?.length || 0;
+        avatarUrl = user.supervisorProfile.avatar ?? '';
       }
 
       return {
@@ -242,6 +245,7 @@ export async function getAllUsers(req: Request, res: Response) {
         regNo,
         supervisorName,
         assignedStudentsCount,
+        avatarUrl,
       };
     });
 
@@ -474,7 +478,10 @@ export async function deleteUser(req: Request, res: Response) {
 
 export async function getDepartments(req: Request, res: Response) {
   try {
-    // Aggregate department stats from student profiles
+    const dbDepartments = await prisma.department.findMany({
+      orderBy: { name: 'asc' },
+    });
+
     const deptGroups = await prisma.studentProfile.groupBy({
       by: ['department'],
       _count: { id: true },
@@ -482,7 +489,6 @@ export async function getDepartments(req: Request, res: Response) {
       orderBy: { _count: { id: 'desc' } },
     });
 
-    // Get supervisors per department
     const supervisorDeptGroups = await prisma.supervisorProfile.groupBy({
       by: ['department'],
       _count: { id: true },
@@ -490,26 +496,38 @@ export async function getDepartments(req: Request, res: Response) {
     });
 
     const supervisorMap = new Map(supervisorDeptGroups.map(d => [d.department, d._count.id]));
+    
+    const allDepartmentNames = new Set([
+      ...dbDepartments.map(d => d.name),
+      ...deptGroups.map(d => d.department!),
+      ...supervisorDeptGroups.map(d => d.department!)
+    ]);
 
-    // Get project counts per department (from field logs)
     const departments = await Promise.all(
-      deptGroups.map(async (dept) => {
-        const deptName = dept.department ?? 'Unknown';
+      Array.from(allDepartmentNames).map(async (deptName) => {
+        const studentCount = deptGroups.find(d => d.department === deptName)?._count.id ?? 0;
+        const supervisorCount = supervisorMap.get(deptName) ?? 0;
+        
         const studentIds = await prisma.studentProfile.findMany({
           where: { department: deptName },
           select: { userId: true },
         });
-        const studentIdList = studentIds.map(s => s.userId);
-
-        const projectCount = await prisma.fieldLog.count({
-          where: { studentId: { in: studentIdList }, status: { not: 'DRAFT' } },
-        });
+        
+        let projectCount = 0;
+        if (studentIds.length > 0) {
+          projectCount = await prisma.fieldLog.count({
+            where: { studentId: { in: studentIds.map(s => s.userId) }, status: { not: 'DRAFT' } },
+          });
+        }
+        
+        const dbDept = dbDepartments.find(d => d.name === deptName);
 
         return {
-          id: deptName.toLowerCase().replace(/\s+/g, '-'),
+          id: dbDept?.id ?? deptName.toLowerCase().replace(/\s+/g, '-'),
           name: deptName,
-          students: dept._count.id,
-          supervisors: supervisorMap.get(deptName) ?? 0,
+          description: dbDept?.description,
+          students: studentCount,
+          supervisors: supervisorCount,
           projects: projectCount,
         };
       })
@@ -518,6 +536,132 @@ export async function getDepartments(req: Request, res: Response) {
     return res.status(200).json({ departments });
   } catch (error) {
     console.error('Get departments error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function createDepartment(req: Request, res: Response) {
+  try {
+    const { name, code, faculty, description } = req.body;
+    if (!name) return res.status(400).json({ error: 'Department name is required' });
+
+    const existing = await prisma.department.findUnique({ where: { name } });
+    if (existing) return res.status(400).json({ error: 'Department already exists' });
+
+    const department = await prisma.department.create({
+      data: { name, code, faculty, description },
+    });
+
+    return res.status(201).json(department);
+  } catch (error) {
+    console.error('Create department error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function getDepartmentDetails(req: Request, res: Response) {
+  try {
+    const deptNameParam = req.params.id as string;
+    
+    // The frontend passes dept.name in the URL
+    let dbDept = await prisma.department.findFirst({
+      where: { name: { equals: deptNameParam, mode: 'insensitive' } }
+    });
+
+    const exactName = dbDept?.name || deptNameParam;
+    
+    const students = await prisma.studentProfile.findMany({
+      where: { department: { equals: exactName, mode: 'insensitive' } },
+      include: { user: { select: { id: true, name: true, email: true } } }
+    });
+
+    const supervisors = await prisma.supervisorProfile.findMany({
+      where: { department: { equals: exactName, mode: 'insensitive' } },
+      include: { user: { select: { id: true, name: true, email: true } } }
+    });
+    
+    const studentsMapped = students.map(s => ({
+      ...s,
+      user: { ...s.user, avatar: s.avatar }
+    }));
+    const supervisorsMapped = supervisors.map(s => ({
+      ...s,
+      user: { ...s.user, avatar: s.avatar }
+    }));
+
+    const projects = students.filter(s => s.topic != null).map(s => ({
+       id: s.id,
+       title: s.topic,
+       studentName: s.user.name,
+       studentId: s.userId
+    }));
+
+    return res.status(200).json({ 
+      department: dbDept ?? { id: deptNameParam, name: exactName },
+      students: studentsMapped, 
+      supervisors: supervisorsMapped,
+      projects
+    });
+  } catch (error) {
+    console.error('Get department details error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function globalSearch(req: Request, res: Response) {
+  try {
+    const q = req.query.q as string;
+    if (!q) return res.status(200).json({ users: [], departments: [], projects: [] });
+
+    const [users, departments, projects] = await Promise.all([
+      prisma.user.findMany({
+        where: { OR: [{ name: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }] },
+        take: 5,
+        select: { id: true, name: true, email: true, role: true }
+      }),
+      prisma.department.findMany({
+        where: { name: { contains: q, mode: 'insensitive' } },
+        take: 5
+      }),
+      prisma.studentProfile.findMany({
+        where: { topic: { contains: q, mode: 'insensitive' } },
+        take: 5,
+        include: { user: { select: { name: true } } }
+      })
+    ]);
+    
+    const usersMapped = await Promise.all(users.map(async u => {
+      let avatar = null;
+      if (u.role === 'STUDENT') {
+        const p = await prisma.studentProfile.findUnique({ where: { userId: u.id }, select: { avatar: true } });
+        avatar = p?.avatar;
+      } else if (u.role === 'SUPERVISOR') {
+        const p = await prisma.supervisorProfile.findUnique({ where: { userId: u.id }, select: { avatar: true } });
+        avatar = p?.avatar;
+      }
+      return { ...u, avatar };
+    }));
+
+    const dynamicDepts = await prisma.studentProfile.groupBy({
+       by: ['department'],
+       where: { department: { contains: q, mode: 'insensitive' } },
+       orderBy: { _count: { id: 'desc' } },
+       take: 5
+    });
+    
+    // Convert implicitly any types to concrete string arrays
+    const dynDeptNames: string[] = dynamicDepts.map((d: any) => d.department).filter((d: any) => d != null);
+    const dbDeptNames: string[] = departments.map((d: any) => d.name);
+    
+    const allDepts = new Set([...dbDeptNames, ...dynDeptNames]);
+
+    return res.status(200).json({ 
+      users: usersMapped, 
+      departments: Array.from(allDepts).map((name: any) => ({ name, id: departments.find((d: any) => d.name === name)?.id || name })), 
+      projects: projects.map((p: any) => ({ id: p.id, title: p.topic, studentName: p.user.name, studentId: p.userId })) 
+    });
+  } catch (error) {
+    console.error('Global search error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -688,8 +832,8 @@ export async function broadcastNotification(req: Request, res: Response) {
 
 export async function getSettings(req: Request, res: Response) {
   try {
-    // Fetch settings from the first audit log's details as config, or use defaults
-    const settings = {
+    // Default settings
+    const defaults = {
       universityName: 'Pwani University',
       systemAdmin: 'FieldTrack Admin',
       contactEmail: 'admin@fieldtrack.com',
@@ -702,6 +846,8 @@ export async function getSettings(req: Request, res: Response) {
       smtpHost: 'smtp.fieldtrack.com',
       smtpPort: '587',
       senderEmail: 'noreply@fieldtrack.com',
+      smtpPassword: '',
+      s3BucketUri: 's3://fieldtrack-prod-backups',
       backupFrequency: 1,
       autoBackup: true,
       minPasswordLength: 8,
@@ -712,8 +858,20 @@ export async function getSettings(req: Request, res: Response) {
       webhookSync: false,
     };
 
-    return res.status(200).json({ settings });
+    // Try to read from DB, merge with defaults
+    const settingsRecord = await prisma.systemSetting.findUnique({
+      where: { key: 'admin_settings' },
+    });
+
+    if (settingsRecord && settingsRecord.value) {
+      const savedSettings = settingsRecord.value as Record<string, any>;
+      const merged = { ...defaults, ...savedSettings };
+      return res.status(200).json({ settings: merged });
+    }
+
+    return res.status(200).json({ settings: defaults });
   } catch (error) {
+    console.error('getSettings error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -722,6 +880,20 @@ export async function updateSettings(req: Request, res: Response) {
   try {
     const actorId = req.user?.userId as string;
     const settings = req.body;
+
+    // Persist settings to the SystemSetting table
+    await prisma.systemSetting.upsert({
+      where: { key: 'admin_settings' },
+      update: {
+        value: settings,
+        updatedBy: actorId,
+      },
+      create: {
+        key: 'admin_settings',
+        value: settings,
+        updatedBy: actorId,
+      },
+    });
 
     // Log the settings update
     if (actorId) {
@@ -736,6 +908,55 @@ export async function updateSettings(req: Request, res: Response) {
 
     return res.status(200).json({ success: true, message: 'Settings updated successfully', settings });
   } catch (error) {
+    console.error('updateSettings error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function getSettingsHistory(req: Request, res: Response) {
+  try {
+    // Return last 20 SETTINGS_UPDATED audit logs
+    const logs = await prisma.auditLog.findMany({
+      where: { action: 'SETTINGS_UPDATED' },
+      orderBy: { timestamp: 'desc' },
+      take: 20,
+      include: {
+        actor: { select: { name: true } },
+      },
+    });
+
+    const history = logs.map((log) => ({
+      id: log.id,
+      updatedBy: log.actor?.name ?? 'System',
+      fields: log.details ? (log.details as any)?.updatedFields ?? [] : [],
+      timestamp: log.timestamp.toISOString(),
+    }));
+
+    return res.status(200).json({ history });
+  } catch (error) {
+    console.error('getSettingsHistory error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function manualBackup(req: Request, res: Response) {
+  try {
+    const actorId = req.user?.userId as string;
+
+    // Log the manual backup action
+    if (actorId) {
+      await AuditLogService.log({
+        actorId,
+        action: 'MANUAL_BACKUP',
+        details: { initiatedBy: actorId, timestamp: new Date().toISOString() },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+    }
+
+    return res.status(200).json({ success: true, message: 'Manual backup initiated successfully' });
+  } catch (error) {
+    console.error('manualBackup error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -761,6 +982,7 @@ export async function getMapData(req: Request, res: Response) {
       longitude: session.startLongitude,
       accuracy: session.startAccuracy,
       department: session.user.studentProfile?.department ?? 'Unknown',
+      avatarUrl: session.user.studentProfile?.avatar ?? '',
       checkInTime: session.checkInTime.toISOString(),
     }));
 
@@ -770,3 +992,5 @@ export async function getMapData(req: Request, res: Response) {
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+

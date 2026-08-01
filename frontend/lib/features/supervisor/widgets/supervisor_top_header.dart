@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../notifications/providers/notifications_provider.dart';
+import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-class SupervisorTopHeader extends StatefulWidget {
+class SupervisorTopHeader extends ConsumerStatefulWidget {
   final String title;
   final String? subtitle;
   final Widget? subtitleWidget;
@@ -20,10 +23,10 @@ class SupervisorTopHeader extends StatefulWidget {
   });
 
   @override
-  State<SupervisorTopHeader> createState() => _SupervisorTopHeaderState();
+  ConsumerState<SupervisorTopHeader> createState() => _SupervisorTopHeaderState();
 }
 
-class _SupervisorTopHeaderState extends State<SupervisorTopHeader> {
+class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
   bool _isNotificationOpen = false;
@@ -105,7 +108,10 @@ class _SupervisorTopHeaderState extends State<SupervisorTopHeader> {
                               ),
                             ),
                             TextButton(
-                              onPressed: _closeNotifications,
+                              onPressed: () {
+                                // Mark all as read conceptually
+                                _closeNotifications();
+                              },
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
@@ -125,27 +131,40 @@ class _SupervisorTopHeaderState extends State<SupervisorTopHeader> {
                       ),
                       const Divider(height: 1),
                       Flexible(
-                        child: ListView(
-                          shrinkWrap: true,
-                          padding: EdgeInsets.zero,
-                          children: [
-                            _buildNotificationItem(
-                              'New Field Log',
-                              'Jane Akinyi submitted a new field log.',
-                              '10 min ago',
-                              isUnread: true,
-                            ),
-                            _buildNotificationItem(
-                              'Report Ready',
-                              'Weekly supervision report is ready.',
-                              '2 hours ago',
-                            ),
-                            _buildNotificationItem(
-                              'Location Update',
-                              'David Mutua left the geofenced area.',
-                              '1 day ago',
-                            ),
-                          ],
+                        child: Consumer(
+                          builder: (context, ref, child) {
+                            final notifsAsync = ref.watch(notificationsProvider);
+                            return notifsAsync.when(
+                              data: (notifs) {
+                                if (notifs.isEmpty) {
+                                  return const Padding(
+                                    padding: EdgeInsets.all(32.0),
+                                    child: Center(child: Text('No notifications', style: TextStyle(color: Colors.grey))),
+                                  );
+                                }
+                                return ListView.builder(
+                                  shrinkWrap: true,
+                                  padding: EdgeInsets.zero,
+                                  itemCount: notifs.length,
+                                  itemBuilder: (context, index) {
+                                    final n = notifs[index];
+                                    return _buildNotificationItem(
+                                      n.title,
+                                      n.message,
+                                      DateFormat('MMM d, h:mm a').format(n.createdAt),
+                                      isUnread: !n.isRead,
+                                      onTap: () {
+                                        ref.read(notificationsProvider.notifier).markAsRead(n.id);
+                                        _closeNotifications();
+                                      }
+                                    );
+                                  },
+                                );
+                              },
+                              loading: () => const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())),
+                              error: (_, __) => const Center(child: Text('Failed to load notifications')),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -159,11 +178,9 @@ class _SupervisorTopHeaderState extends State<SupervisorTopHeader> {
     );
   }
 
-  Widget _buildNotificationItem(String title, String subtitle, String time, {bool isUnread = false}) {
+  Widget _buildNotificationItem(String title, String subtitle, String time, {bool isUnread = false, VoidCallback? onTap}) {
     return InkWell(
-      onTap: () {
-        _closeNotifications();
-      },
+      onTap: onTap ?? () { _closeNotifications(); },
       child: Container(
         color: isUnread ? const Color(0xFFF0FDF4) : Colors.transparent,
         padding: const EdgeInsets.all(16.0),
@@ -221,6 +238,8 @@ class _SupervisorTopHeaderState extends State<SupervisorTopHeader> {
 
   @override
   Widget build(BuildContext context) {
+    final notifsAsync = ref.watch(notificationsProvider);
+    final hasUnread = (notifsAsync.valueOrNull?.where((n) => !n.isRead).length ?? 0) > 0;
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = constraints.maxWidth < 600;
@@ -318,14 +337,14 @@ class _SupervisorTopHeaderState extends State<SupervisorTopHeader> {
                     alignment: Alignment.center,
                     children: [
                       const Icon(PhosphorIconsRegular.bell, color: Color(0xFF6B7280), size: 24),
-                      Positioned(
+                      if (hasUnread) Positioned(
                         top: 14,
                         right: 14,
                         child: Container(
                           width: 8,
                           height: 8,
                           decoration: const BoxDecoration(
-                            color: Color(0xFF16A34A), // Green dot
+                            color: Color(0xFF16A34A),
                             shape: BoxShape.circle,
                           ),
                         ),

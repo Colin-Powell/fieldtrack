@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
 
 // --- Theme Colors ---
 const Color _lightGreen = Color(0xFFCDE8D5); // Background for badges/buttons
@@ -86,14 +90,21 @@ class ProfileScreen extends ConsumerWidget {
               // --- Profile Picture & Edit Button ---
               Stack(
                 children: [
-                  Container(
+                  SizedBox(
                     width: 100,
                     height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF169B45).withValues(alpha: 0.1),
+                    child: AppAvatar(
+                      imagePath: user?.avatarUrl,
+                      size: 100,
+                      shape: AvatarShape.circle,
+                      initials: name.isNotEmpty
+                          ? name
+                                .split(' ')
+                                .map((s) => s.isNotEmpty ? s[0] : '')
+                                .take(2)
+                                .join()
+                          : null,
                     ),
-                    child: const Icon(PhosphorIconsFill.userCircle, color: Color(0xFF169B45), size: 64),
                   ),
                   Positioned(
                     bottom: 0,
@@ -117,7 +128,7 @@ class ProfileScreen extends ConsumerWidget {
                         child: PhosphorIcon(
                           PhosphorIcons.pencilSimple(), // Added parentheses
                           color: _primaryGreen,
-                          size: 20, 
+                          size: 20,
                         ),
                       ),
                     ),
@@ -150,7 +161,10 @@ class ProfileScreen extends ConsumerWidget {
 
               // --- Registration Badge ---
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: _lightGreen,
                   borderRadius: BorderRadius.circular(20),
@@ -174,11 +188,11 @@ class ProfileScreen extends ConsumerWidget {
               _ProfileDetailRow(label: 'Programme', value: programme),
               _ProfileDetailRow(label: 'Department', value: department),
               _ProfileDetailRow(label: 'Faculty', value: faculty),
-              const _ProfileDetailRow(label: 'University', value: 'Pwani University'),
-              _ProfileDetailRow(
-                label: 'Research Topic',
-                value: topic,
+              const _ProfileDetailRow(
+                label: 'University',
+                value: 'Pwani University',
               ),
+              _ProfileDetailRow(label: 'Research Topic', value: topic),
               _ProfileDetailRow(label: 'Supervisor', value: supervisor),
             ],
           ),
@@ -235,8 +249,31 @@ class _ProfileDetailRow extends StatelessWidget {
 }
 
 // --- Helper Page: Edit Profile Screen ---
-class EditProfileScreen extends StatelessWidget {
+class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
+
+  @override
+  ConsumerState<EditProfileScreen> createState() => _EditProfileScreenState();
+}
+
+class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
+  File? _imageFile;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+      );
+      if (pickedFile != null) {
+        setState(() {
+          _imageFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -250,7 +287,7 @@ class EditProfileScreen extends StatelessWidget {
           'Edit Profile',
           style: TextStyle(
             fontFamily: _fontFamily,
-            color: Colors.black, 
+            color: Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 22, // Increased size
           ),
@@ -263,35 +300,71 @@ class EditProfileScreen extends StatelessWidget {
           children: [
             // Upload Picture Section
             Center(
-              child: Stack(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF169B45).withValues(alpha: 0.1),
-                    ),
-                    child: const Icon(PhosphorIconsFill.userCircle, color: Color(0xFF169B45), size: 32),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 96,
+                      height: 96,
                       decoration: BoxDecoration(
-                        color: _primaryGreen,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 3),
+                        color: const Color(0xFF169B45).withValues(alpha: 0.1),
+                        image: _imageFile != null
+                            ? DecorationImage(
+                                image: FileImage(_imageFile!),
+                                fit: BoxFit.cover,
+                              )
+                            : ref.read(authProvider).user?.avatarUrl != null &&
+                                  ref
+                                      .read(authProvider)
+                                      .user!
+                                      .avatarUrl!
+                                      .isNotEmpty
+                            ? DecorationImage(
+                                image: NetworkImage(
+                                  ImageUtils.getFullImageUrl(
+                                    ref.read(authProvider).user!.avatarUrl!,
+                                  ),
+                                ),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
                       ),
-                      child: PhosphorIcon(
-                        PhosphorIcons.camera(), // Added parentheses
-                        color: Colors.white,
-                        size: 22,
+                      child:
+                          _imageFile == null &&
+                              (ref.read(authProvider).user?.avatarUrl == null ||
+                                  ref
+                                      .read(authProvider)
+                                      .user!
+                                      .avatarUrl!
+                                      .isEmpty)
+                          ? const Icon(
+                              PhosphorIconsFill.userCircle,
+                              color: Color(0xFF169B45),
+                              size: 64,
+                            )
+                          : null,
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _primaryGreen,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                        ),
+                        child: PhosphorIcon(
+                          PhosphorIcons.camera(), // Added parentheses
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -300,7 +373,7 @@ class EditProfileScreen extends StatelessWidget {
                 'Tap to change photo',
                 style: TextStyle(
                   fontFamily: _fontFamily,
-                  color: _textLight, 
+                  color: _textLight,
                   fontSize: 15, // Increased size
                 ),
               ),
@@ -358,9 +431,31 @@ class EditProfileScreen extends StatelessWidget {
               width: double.infinity,
               height: 56, // Larger button
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement save logic here
-                  Navigator.pop(context);
+                onPressed: () async {
+                  if (_imageFile != null) {
+                    final success = await ref
+                        .read(authProvider.notifier)
+                        .uploadAvatar(_imageFile!);
+                    if (success && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profile updated successfully'),
+                        ),
+                      );
+                      Navigator.pop(context);
+                    } else if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            ref.read(authProvider).error ??
+                                'Failed to upload profile',
+                          ),
+                        ),
+                      );
+                    }
+                  } else {
+                    Navigator.pop(context);
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryGreen,

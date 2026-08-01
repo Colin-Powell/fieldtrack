@@ -3,9 +3,10 @@ import {
   createStudent, createSupervisor, getAllUsers,
   getUserById, updateUser, updateUserStatus,
   reassignSupervisor, resetUserPassword, deleteUser,
-  getDepartments, getProjects, getAuditLogs,
+  getDepartments, createDepartment, getDepartmentDetails, globalSearch, getProjects, getAuditLogs,
   getNotifications, broadcastNotification,
-  getSettings, updateSettings, getMapData
+  getSettings, updateSettings, getSettingsHistory,
+  manualBackup, getMapData
 } from './admins.controller.js';
 import { authenticate, authorizeRole } from '../auth/auth.middleware.js';
 
@@ -27,6 +28,9 @@ router.delete('/users/:id', deleteUser);
 
 // Department & Project routes
 router.get('/departments', getDepartments);
+router.post('/departments', createDepartment);
+router.get('/departments/:id', getDepartmentDetails);
+router.get('/search', globalSearch);
 router.get('/projects', getProjects);
 
 // Audit log routes
@@ -39,6 +43,8 @@ router.post('/notifications/broadcast', broadcastNotification);
 // Settings routes
 router.get('/settings', getSettings);
 router.put('/settings', updateSettings);
+router.get('/settings/history', getSettingsHistory);
+router.post('/settings/backup', manualBackup);
 
 // Map data route
 router.get('/map', getMapData);

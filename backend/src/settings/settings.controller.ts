@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db.js';
 import * as bcrypt from 'bcrypt';
+import sharp from 'sharp';
+import fs from 'fs/promises';
+import path from 'path';
 
 // GET /api/v1/settings/profile
 export const getProfileSettings = async (req: Request, res: Response): Promise<void> => {
@@ -44,7 +47,7 @@ export const updateProfileSettings = async (req: Request, res: Response): Promis
       return;
     }
 
-    const { name, phone, department, faculty, specialization, office } = req.body;
+    const { name, phone, department, faculty, specialization, office, topic, programme } = req.body;
 
     const updatedUser = await prisma.user.update({
       where: { id: user.userId },
@@ -59,6 +62,18 @@ export const updateProfileSettings = async (req: Request, res: Response): Promis
                   faculty,
                   specialization,
                   office,
+                },
+              },
+            }
+          : user.role === 'STUDENT'
+          ? {
+              studentProfile: {
+                update: {
+                  phone,
+                  department,
+                  faculty,
+                  topic,
+                  programme,
                 },
               },
             }
@@ -231,8 +246,21 @@ export const uploadAvatar = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    // ── Compress & convert to WebP using sharp ──────────────────────────
+    const originalPath = req.file.path;
+    const baseName = path.basename(originalPath, path.extname(originalPath));
+    const outputPath = path.join(path.dirname(originalPath), `${baseName}.webp`);
+
+    await sharp(originalPath)
+      .resize(400, 400, { fit: 'cover', position: 'centre' })
+      .webp({ quality: 80 })
+      .toFile(outputPath);
+
+    // Remove the original (uncompressed) file
+    await fs.unlink(originalPath);
+
     // Avatar path relative to backend root
-    const avatarPath = `/storage/avatars/${req.file.filename}`;
+    const avatarPath = `/storage/avatars/${baseName}.webp`;
 
     await prisma.user.update({
       where: { id: user.userId },

@@ -410,36 +410,46 @@ export async function deleteUser(req, res) {
 // ─────────────────────────────────────────────────────────────
 export async function getDepartments(req, res) {
     try {
-        // Aggregate department stats from student profiles
+        const dbDepartments = await prisma.department.findMany({
+            orderBy: { name: 'asc' },
+        });
         const deptGroups = await prisma.studentProfile.groupBy({
             by: ['department'],
             _count: { id: true },
             where: { department: { not: null } },
             orderBy: { _count: { id: 'desc' } },
         });
-        // Get supervisors per department
         const supervisorDeptGroups = await prisma.supervisorProfile.groupBy({
             by: ['department'],
             _count: { id: true },
             where: { department: { not: null } },
         });
         const supervisorMap = new Map(supervisorDeptGroups.map(d => [d.department, d._count.id]));
-        // Get project counts per department (from field logs)
-        const departments = await Promise.all(deptGroups.map(async (dept) => {
-            const deptName = dept.department ?? 'Unknown';
+        const allDepartmentNames = new Set([
+            ...dbDepartments.map(d => d.name),
+            ...deptGroups.map(d => d.department),
+            ...supervisorDeptGroups.map(d => d.department)
+        ]);
+        const departments = await Promise.all(Array.from(allDepartmentNames).map(async (deptName) => {
+            const studentCount = deptGroups.find(d => d.department === deptName)?._count.id ?? 0;
+            const supervisorCount = supervisorMap.get(deptName) ?? 0;
             const studentIds = await prisma.studentProfile.findMany({
                 where: { department: deptName },
                 select: { userId: true },
             });
-            const studentIdList = studentIds.map(s => s.userId);
-            const projectCount = await prisma.fieldLog.count({
-                where: { studentId: { in: studentIdList }, status: { not: 'DRAFT' } },
-            });
+            let projectCount = 0;
+            if (studentIds.length > 0) {
+                projectCount = await prisma.fieldLog.count({
+                    where: { studentId: { in: studentIds.map(s => s.userId) }, status: { not: 'DRAFT' } },
+                });
+            }
+            const dbDept = dbDepartments.find(d => d.name === deptName);
             return {
-                id: deptName.toLowerCase().replace(/\s+/g, '-'),
+                id: dbDept?.id ?? deptName.toLowerCase().replace(/\s+/g, '-'),
                 name: deptName,
-                students: dept._count.id,
-                supervisors: supervisorMap.get(deptName) ?? 0,
+                description: dbDept?.description,
+                students: studentCount,
+                supervisors: supervisorCount,
                 projects: projectCount,
             };
         }));
@@ -447,6 +457,120 @@ export async function getDepartments(req, res) {
     }
     catch (error) {
         console.error('Get departments error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function createDepartment(req, res) {
+    try {
+        const { name, code, faculty, description } = req.body;
+        if (!name)
+            return res.status(400).json({ error: 'Department name is required' });
+        const existing = await prisma.department.findUnique({ where: { name } });
+        if (existing)
+            return res.status(400).json({ error: 'Department already exists' });
+        const department = await prisma.department.create({
+            data: { name, code, faculty, description },
+        });
+        return res.status(201).json(department);
+    }
+    catch (error) {
+        console.error('Create department error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function getDepartmentDetails(req, res) {
+    try {
+        const deptNameParam = req.params.id;
+        // The frontend passes dept.name in the URL
+        let dbDept = await prisma.department.findFirst({
+            where: { name: { equals: deptNameParam, mode: 'insensitive' } }
+        });
+        const exactName = dbDept?.name || deptNameParam;
+        const students = await prisma.studentProfile.findMany({
+            where: { department: { equals: exactName, mode: 'insensitive' } },
+            include: { user: { select: { id: true, name: true, email: true } } }
+        });
+        const supervisors = await prisma.supervisorProfile.findMany({
+            where: { department: { equals: exactName, mode: 'insensitive' } },
+            include: { user: { select: { id: true, name: true, email: true } } }
+        });
+        const studentsMapped = students.map(s => ({
+            ...s,
+            user: { ...s.user, avatar: s.avatar }
+        }));
+        const supervisorsMapped = supervisors.map(s => ({
+            ...s,
+            user: { ...s.user, avatar: s.avatar }
+        }));
+        const projects = students.filter(s => s.topic != null).map(s => ({
+            id: s.id,
+            title: s.topic,
+            studentName: s.user.name,
+            studentId: s.userId
+        }));
+        return res.status(200).json({
+            department: dbDept ?? { id: deptNameParam, name: exactName },
+            students: studentsMapped,
+            supervisors: supervisorsMapped,
+            projects
+        });
+    }
+    catch (error) {
+        console.error('Get department details error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function globalSearch(req, res) {
+    try {
+        const q = req.query.q;
+        if (!q)
+            return res.status(200).json({ users: [], departments: [], projects: [] });
+        const [users, departments, projects] = await Promise.all([
+            prisma.user.findMany({
+                where: { OR: [{ name: { contains: q, mode: 'insensitive' } }, { email: { contains: q, mode: 'insensitive' } }] },
+                take: 5,
+                select: { id: true, name: true, email: true, role: true }
+            }),
+            prisma.department.findMany({
+                where: { name: { contains: q, mode: 'insensitive' } },
+                take: 5
+            }),
+            prisma.studentProfile.findMany({
+                where: { topic: { contains: q, mode: 'insensitive' } },
+                take: 5,
+                include: { user: { select: { name: true } } }
+            })
+        ]);
+        const usersMapped = await Promise.all(users.map(async (u) => {
+            let avatar = null;
+            if (u.role === 'STUDENT') {
+                const p = await prisma.studentProfile.findUnique({ where: { userId: u.id }, select: { avatar: true } });
+                avatar = p?.avatar;
+            }
+            else if (u.role === 'SUPERVISOR') {
+                const p = await prisma.supervisorProfile.findUnique({ where: { userId: u.id }, select: { avatar: true } });
+                avatar = p?.avatar;
+            }
+            return { ...u, avatar };
+        }));
+        const dynamicDepts = await prisma.studentProfile.groupBy({
+            by: ['department'],
+            where: { department: { contains: q, mode: 'insensitive' } },
+            orderBy: { _count: { id: 'desc' } },
+            take: 5
+        });
+        // Convert implicitly any types to concrete string arrays
+        const dynDeptNames = dynamicDepts.map((d) => d.department).filter((d) => d != null);
+        const dbDeptNames = departments.map((d) => d.name);
+        const allDepts = new Set([...dbDeptNames, ...dynDeptNames]);
+        return res.status(200).json({
+            users: usersMapped,
+            departments: Array.from(allDepts).map((name) => ({ name, id: departments.find((d) => d.name === name)?.id || name })),
+            projects: projects.map((p) => ({ id: p.id, title: p.topic, studentName: p.user.name, studentId: p.userId }))
+        });
+    }
+    catch (error) {
+        console.error('Global search error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
@@ -600,8 +724,8 @@ export async function broadcastNotification(req, res) {
 }
 export async function getSettings(req, res) {
     try {
-        // Fetch settings from the first audit log's details as config, or use defaults
-        const settings = {
+        // Default settings
+        const defaults = {
             universityName: 'Pwani University',
             systemAdmin: 'FieldTrack Admin',
             contactEmail: 'admin@fieldtrack.com',
@@ -614,6 +738,8 @@ export async function getSettings(req, res) {
             smtpHost: 'smtp.fieldtrack.com',
             smtpPort: '587',
             senderEmail: 'noreply@fieldtrack.com',
+            smtpPassword: '',
+            s3BucketUri: 's3://fieldtrack-prod-backups',
             backupFrequency: 1,
             autoBackup: true,
             minPasswordLength: 8,
@@ -623,9 +749,19 @@ export async function getSettings(req, res) {
             googleMapsKey: '',
             webhookSync: false,
         };
-        return res.status(200).json({ settings });
+        // Try to read from DB, merge with defaults
+        const settingsRecord = await prisma.systemSetting.findUnique({
+            where: { key: 'admin_settings' },
+        });
+        if (settingsRecord && settingsRecord.value) {
+            const savedSettings = settingsRecord.value;
+            const merged = { ...defaults, ...savedSettings };
+            return res.status(200).json({ settings: merged });
+        }
+        return res.status(200).json({ settings: defaults });
     }
     catch (error) {
+        console.error('getSettings error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
@@ -633,6 +769,19 @@ export async function updateSettings(req, res) {
     try {
         const actorId = req.user?.userId;
         const settings = req.body;
+        // Persist settings to the SystemSetting table
+        await prisma.systemSetting.upsert({
+            where: { key: 'admin_settings' },
+            update: {
+                value: settings,
+                updatedBy: actorId,
+            },
+            create: {
+                key: 'admin_settings',
+                value: settings,
+                updatedBy: actorId,
+            },
+        });
         // Log the settings update
         if (actorId) {
             await AuditLogService.log({
@@ -646,6 +795,51 @@ export async function updateSettings(req, res) {
         return res.status(200).json({ success: true, message: 'Settings updated successfully', settings });
     }
     catch (error) {
+        console.error('updateSettings error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function getSettingsHistory(req, res) {
+    try {
+        // Return last 20 SETTINGS_UPDATED audit logs
+        const logs = await prisma.auditLog.findMany({
+            where: { action: 'SETTINGS_UPDATED' },
+            orderBy: { timestamp: 'desc' },
+            take: 20,
+            include: {
+                actor: { select: { name: true } },
+            },
+        });
+        const history = logs.map((log) => ({
+            id: log.id,
+            updatedBy: log.actor?.name ?? 'System',
+            fields: log.details ? log.details?.updatedFields ?? [] : [],
+            timestamp: log.timestamp.toISOString(),
+        }));
+        return res.status(200).json({ history });
+    }
+    catch (error) {
+        console.error('getSettingsHistory error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+export async function manualBackup(req, res) {
+    try {
+        const actorId = req.user?.userId;
+        // Log the manual backup action
+        if (actorId) {
+            await AuditLogService.log({
+                actorId,
+                action: 'MANUAL_BACKUP',
+                details: { initiatedBy: actorId, timestamp: new Date().toISOString() },
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent'],
+            });
+        }
+        return res.status(200).json({ success: true, message: 'Manual backup initiated successfully' });
+    }
+    catch (error) {
+        console.error('manualBackup error:', error);
         return res.status(500).json({ error: 'Internal server error' });
     }
 }

@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { prisma } from './db.js';
 import authRoutes from './auth/auth.routes.js';
 import adminRoutes from './admins/admins.routes.js';
@@ -10,10 +12,22 @@ import mediaRoutes from './media/media.routes.js';
 import notificationRoutes from './notifications/notification.routes.js';
 import reviewRoutes from './reviews/review.routes.js';
 import reportRoutes from './reports/reports.routes.js';
+import settingsRoutes from './settings/settings.routes.js';
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Nginx) for accurate client IP
 const port = process.env.PORT || 3000;
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
+// Global Rate Limiter
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Too many requests from this IP, please try again after 15 minutes',
+});
+app.use('/api', globalLimiter);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
@@ -23,8 +37,21 @@ app.use('/api/v1/media', mediaRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/reports', reportRoutes);
-// Also serve the storage folder statically so the frontend can display images
-app.use('/storage', express.static('storage'));
+app.use('/api/v1/settings', settingsRoutes);
+import { BASE_STORAGE_DIR } from './media/storage.service.js';
+// Serve the storage folder statically with caching and media streaming support
+app.use('/storage', express.static(BASE_STORAGE_DIR, {
+    maxAge: '30d',
+    setHeaders: (res, path, stat) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        // Ensure media files indicate they support byte range requests for streaming
+        if (path.endsWith('.mp4') || path.endsWith('.mp3') || path.endsWith('.m4a')) {
+            res.set('Accept-Ranges', 'bytes');
+        }
+        // Set proper cache headers
+        res.set('Cache-Control', 'public, max-age=2592000, immutable');
+    }
+}));
 // ── Health Check ──
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });

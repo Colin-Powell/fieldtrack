@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fieldtrack/core/constants/app_constants.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/features/supervisor/field_logs/supervisor_daily_field_logs_screen.dart';
 import 'package:fieldtrack/shared/models/student_data.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:fieldtrack/features/supervisor/repositories/student_repository.dart';
+import 'package:fieldtrack/core/network/error_handler.dart';
 
 // ==========================================
 // DESIGN TOKENS
@@ -59,7 +62,7 @@ class _SupervisorStudentProfileScreenState
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = ErrorHandler.getFriendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -240,23 +243,39 @@ class _SupervisorStudentProfileScreenState
           children: [
             // Avatar with error builder
             ClipOval(
-              child: Image.network(
-                _student?.avatarUrl ??
-                    'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=150&q=80',
-                width: 140,
-                height: 140,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  width: 100,
-                  height: 100,
-                  color: _C.border,
-                  child: const Icon(
-                    PhosphorIconsRegular.user,
-                    color: _C.textMuted,
-                    size: 40,
-                  ),
-                ),
-              ),
+              child: _student?.avatarUrl != null && _student!.avatarUrl.isNotEmpty
+                  ? Image.network(
+                      ImageUtils.getFullImageUrl(_student!.avatarUrl),
+                      width: 140,
+                      height: 140,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 100,
+                        height: 100,
+                        color: _C.border,
+                        child: const Icon(
+                          PhosphorIconsRegular.user,
+                          color: _C.textMuted,
+                          size: 40,
+                        ),
+                      ),
+                    )
+                  : Image.network(
+                      'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=150&q=80',
+                      width: 140,
+                      height: 140,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 100,
+                        height: 100,
+                        color: _C.border,
+                        child: const Icon(
+                          PhosphorIconsRegular.user,
+                          color: _C.textMuted,
+                          size: 40,
+                        ),
+                      ),
+                    ),
             ),
             const SizedBox(width: 24),
 
@@ -402,7 +421,7 @@ class _SupervisorStudentProfileScreenState
                   const SizedBox(height: 12),
                   _buildDetailRow(
                     'Research Topic',
-                    _student?.topic ?? 'Mangrove Ecosystem Services Assessment in Kilifi County',
+                    _student?.topic ?? 'No topic assigned',
                     maxLines: 2,
                   ),
                 ],
@@ -697,7 +716,7 @@ class _SupervisorStudentProfileScreenState
                           time: _formatTime(event.time),
                           status: event.type.name,
                           statusColor: event.type.name == 'activitySubmit' ? _C.green : _C.textMuted,
-                          imgUrl: 'https://images.unsplash.com/photo-1544257124-741165bc6f23?auto=format&fit=crop&w=150&q=80',
+                          imgUrl: event.imageUrl != null ? ImageUtils.getFullImageUrl(event.imageUrl!) : 'https://images.unsplash.com/photo-1544257124-741165bc6f23?auto=format&fit=crop&w=150&q=80',
                           isLast: isLast,
                           activityId: event.type.name == 'activitySubmit' ? 'act-id' : null,
                         ),

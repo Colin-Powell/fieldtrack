@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { generateToken, generateRefreshToken, verifyToken } from './jwt.js';
 import { AuditLogService } from '../services/audit-log.service.js';
+import { authLogger } from '../utils/logger.js';
 import { prisma } from '../db.js';
 
 export async function login(req: Request, res: Response) {
@@ -10,7 +11,7 @@ export async function login(req: Request, res: Response) {
     const ipAddress = req.ip;
     const userAgent = req.headers['user-agent'];
     
-    console.log(`[Auth] Login attempt from IP: ${ipAddress} - Email: ${email || 'N/A'}, RegNo: ${registrationNo || 'N/A'}`);
+    authLogger.info(`Login attempt from IP: ${ipAddress} - Email: ${email || 'N/A'}, RegNo: ${registrationNo || 'N/A'}`);
 
     if (!password) {
       return res.status(400).json({ error: 'Password is required' });
@@ -34,7 +35,7 @@ export async function login(req: Request, res: Response) {
     }
 
     if (!user) {
-      console.warn(`[Auth] Login failed: User not found for email/registrationNo`);
+      authLogger.warn(`Login failed: User not found for email/registrationNo: ${email || registrationNo}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -63,7 +64,7 @@ export async function login(req: Request, res: Response) {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.warn(`[Auth] Login failed: Incorrect password for user ${user.id} (${user.email})`);
+      authLogger.warn(`Login failed: Incorrect password for user ${user.id} (${user.email})`);
       // Increment failed attempts
       const attempts = user.failedLoginAttempts + 1;
       const updates: any = { failedLoginAttempts: attempts };
@@ -124,7 +125,7 @@ export async function login(req: Request, res: Response) {
       userAgent,
     });
     
-    console.log(`[Auth] Login successful for user ${user.id} (${user.email})`);
+    authLogger.info(`Login successful for user ${user.id} (${user.email})`);
 
     return res.json({
       success: true,
@@ -139,7 +140,7 @@ export async function login(req: Request, res: Response) {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    authLogger.error('Login error:', { error });
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -178,10 +179,54 @@ export async function refresh(req: Request, res: Response) {
       email: user.email,
     });
 
-    // Optionally implement token rotation here (revoke old, issue new refresh token)
-    return res.json({ success: true, token });
+    // Token rotation
+    const newRefreshToken = generateRefreshToken({ userId: user.id });
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    
+    // Revoke old token
+    await prisma.refreshToken.update({
+      where: { id: savedToken.id },
+      data: { revokedAt: new Date() },
+    });
+    
+    // Create new token
+    await prisma.refreshToken.create({
+      data: {
+        token: newRefreshToken,
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    return res.json({ success: true, token, refreshToken: newRefreshToken });
   } catch (error) {
-    console.error('Refresh token error:', error);
+    authLogger.error('Refresh token error:', { error });
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function logout(req: Request, res: Response) {
+  try {
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      await prisma.refreshToken.updateMany({
+        where: { token: refreshToken },
+        data: { revokedAt: new Date() },
+      });
+    }
+    
+    if (req.user) {
+      await AuditLogService.log({
+        userId: req.user.userId,
+        action: 'LOGOUT',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+    }
+
+    return res.json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    authLogger.error('Logout error:', { error });
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -250,6 +295,7 @@ export async function me(req: Request, res: Response) {
         mustChangePassword: true,
         studentProfile: {
           select: {
+            avatar: true,
             registrationNo: true,
             phone: true,
             topic: true,
@@ -269,6 +315,7 @@ export async function me(req: Request, res: Response) {
         },
         supervisorProfile: {
           select: {
+            avatar: true,
             staffNumber: true,
             department: true,
             faculty: true,
@@ -390,6 +437,24 @@ export async function resetPassword(req: Request, res: Response) {
     return res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+export async function updateFcmToken(req: Request, res: Response) {
+  try {
+    const userId = req.user?.userId;
+    const { fcmToken } = req.body;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    
+    await prisma.user.update({
+      where: { id: userId },
+      data: { fcmToken },
+    });
+    
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Update FCM token error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

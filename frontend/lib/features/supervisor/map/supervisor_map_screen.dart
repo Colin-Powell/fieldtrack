@@ -4,6 +4,10 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart' as pkg_provider;
+import 'package:fieldtrack/core/constants/app_constants.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import '../dashboard/dashboard_state.dart';
 import '../widgets/supervisor_top_header.dart';
 import 'package:fieldtrack/shared/models/student_data.dart';
@@ -136,21 +140,31 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   List<MapStudent> _getAllStudents(List<StudentData> students) {
     // Only include students who are checked in and have a valid GPS session captured
     return students
-        .where((s) => s.currentSession != null && s.checkInStatus == 'Checked In')
+        .where(
+          (s) => s.currentSession != null && s.checkInStatus == 'Checked In',
+        )
         .map((s) {
-      final isOnline = s.fieldStatus == FieldStatus.inField;
-      return MapStudent(
-        id: s.id,
-        name: s.name,
-        regNo: s.reg,
-        topic: s.topic,
-        status: isOnline ? StudentStatus.inField : StudentStatus.offline,
-        time: DateFormat('hh:mm a').format(s.currentSession!.checkInTime),
-        location: LatLng(s.currentSession!.latitude, s.currentSession!.longitude),
-        routeHistory: s.gpsHistory.map((g) => LatLng(g.latitude, g.longitude)).toList(),
-        avatarUrl: s.avatarUrl.isNotEmpty ? s.avatarUrl : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(s.name)}&background=1BA654&color=fff',
-      );
-    }).toList();
+          final isOnline = s.fieldStatus == FieldStatus.inField;
+          return MapStudent(
+            id: s.id,
+            name: s.name,
+            regNo: s.reg,
+            topic: s.topic,
+            status: isOnline ? StudentStatus.inField : StudentStatus.offline,
+            time: DateFormat('hh:mm a').format(s.currentSession!.checkInTime),
+            location: LatLng(
+              s.currentSession!.latitude,
+              s.currentSession!.longitude,
+            ),
+            routeHistory: s.gpsHistory
+                .map((g) => LatLng(g.latitude, g.longitude))
+                .toList(),
+            avatarUrl: s.avatarUrl.isNotEmpty
+                ? s.avatarUrl
+                : 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(s.name)}&background=1BA654&color=fff',
+          );
+        })
+        .toList();
   }
 
   List<MapStudent> _getFilteredStudents(List<MapStudent> allStudents) {
@@ -183,7 +197,9 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final rawStudents = context.select<DashboardState, List<StudentData>>((s) => s.students);
+    final rawStudents = context.select<DashboardState, List<StudentData>>(
+      (s) => s.students,
+    );
     final allStudents = _getAllStudents(rawStudents);
     final filteredStudents = _getFilteredStudents(allStudents);
 
@@ -285,7 +301,10 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   }
 
   // ── 2. Main Content (Responsive Row/Col) ──────────────────────────────
-  Widget _buildMainContent(List<MapStudent> allStudents, List<MapStudent> filteredStudents) {
+  Widget _buildMainContent(
+    List<MapStudent> allStudents,
+    List<MapStudent> filteredStudents,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 1000;
@@ -477,7 +496,10 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
             FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: const LatLng(-3.6305, 39.8499), // Kilifi View
+                initialCenter: const LatLng(
+                  -1.2921,
+                  36.8219,
+                ), // Nairobi Default
                 initialZoom: 13.0,
                 onTap: (_, __) => setState(() => _selectedStudent = null),
               ),
@@ -506,7 +528,8 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
                           height: _selectedStudent?.id == s.id ? 108 : 88,
                           alignment: Alignment.bottomCenter,
                           child: Tooltip(
-                            message: '${s.name}\n${s.regNo}\n${s.statusText}\nLat: ${s.location.latitude.toStringAsFixed(4)}, Lng: ${s.location.longitude.toStringAsFixed(4)}',
+                            message:
+                                '${s.name}\n${s.regNo}\n${s.statusText}\nLat: ${s.location.latitude.toStringAsFixed(4)}, Lng: ${s.location.longitude.toStringAsFixed(4)}',
                             preferBelow: false,
                             decoration: BoxDecoration(
                               color: const Color(0xFF1F2937),
@@ -523,11 +546,17 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
                               children: [
                                 // Floating name label
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: s.statusColor, width: 1.5),
+                                    border: Border.all(
+                                      color: s.statusColor,
+                                      width: 1.5,
+                                    ),
                                     boxShadow: [
                                       BoxShadow(
                                         color: Colors.black.withOpacity(0.08),
@@ -553,13 +582,19 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
                                 GestureDetector(
                                   onTap: () => _selectStudent(s),
                                   child: Container(
-                                    width: _selectedStudent?.id == s.id ? 56 : 44,
-                                    height: _selectedStudent?.id == s.id ? 56 : 44,
+                                    width: _selectedStudent?.id == s.id
+                                        ? 56
+                                        : 44,
+                                    height: _selectedStudent?.id == s.id
+                                        ? 56
+                                        : 44,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
                                         color: s.statusColor,
-                                        width: _selectedStudent?.id == s.id ? 4.5 : 3.5,
+                                        width: _selectedStudent?.id == s.id
+                                            ? 4.5
+                                            : 3.5,
                                       ),
                                       boxShadow: [
                                         BoxShadow(
@@ -569,17 +604,15 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
                                         ),
                                       ],
                                     ),
-                                    child: ClipOval(
-                                      child: Image.network(
-                                        s.avatarUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Container(
-                                          color: Colors.white,
-                                          child: Icon(
-                                            Icons.person,
-                                            color: s.statusColor,
-                                          ),
-                                        ),
+                                    child: SizedBox(
+                                      width: 46,
+                                      height: 46,
+                                      child: AppAvatar(
+                                        imagePath: s.avatarUrl.isNotEmpty
+                                            ? s.avatarUrl
+                                            : null,
+                                        size: 46,
+                                        shape: AvatarShape.circle,
                                       ),
                                     ),
                                   ),
@@ -646,18 +679,15 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
         children: [
           Row(
             children: [
-              ClipOval(
-                child: Image.network(
-                  student.avatarUrl,
-                  width: 48,
-                  height: 48,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 48,
-                    height: 48,
-                    color: _C.bg,
-                    child: const Icon(Icons.person, color: _C.textMuted),
-                  ),
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: AppAvatar(
+                  imagePath: student.avatarUrl.isNotEmpty
+                      ? student.avatarUrl
+                      : null,
+                  size: 48,
+                  shape: AvatarShape.circle,
                 ),
               ),
               const SizedBox(width: 16),
@@ -901,7 +931,10 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   }
 
   // ── 5. Right Sidebar: Students List ───────────────────────────────────
-  Widget _buildStudentsListCard(List<MapStudent> allStudents, List<MapStudent> filteredStudents) {
+  Widget _buildStudentsListCard(
+    List<MapStudent> allStudents,
+    List<MapStudent> filteredStudents,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -961,21 +994,15 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
                     ),
                     child: Row(
                       children: [
-                        ClipOval(
-                          child: Image.network(
-                            s.avatarUrl,
-                            width: 44,
-                            height: 44,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 44,
-                              height: 44,
-                              color: _C.bg,
-                              child: const Icon(
-                                Icons.person,
-                                color: _C.textMuted,
-                              ),
-                            ),
+                        SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: AppAvatar(
+                            imagePath: s.avatarUrl.isNotEmpty
+                                ? s.avatarUrl
+                                : null,
+                            size: 44,
+                            shape: AvatarShape.circle,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -1166,22 +1193,15 @@ class _StudentActionModal extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  ClipOval(
-                    child: Image.network(
-                      student.avatarUrl,
-                      width: 64,
-                      height: 64,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 64,
-                        height: 64,
-                        color: _C.bg,
-                        child: const Icon(
-                          Icons.person,
-                          color: _C.textMuted,
-                          size: 32,
-                        ),
-                      ),
+                  SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: AppAvatar(
+                      imagePath: student.avatarUrl.isNotEmpty
+                          ? student.avatarUrl
+                          : null,
+                      size: 64,
+                      shape: AvatarShape.circle,
                     ),
                   ),
                   const SizedBox(width: 20),

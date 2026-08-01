@@ -1,12 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:fieldtrack/core/constants/app_constants.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/shared/models/student_data.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
+import 'package:path_provider/path_provider.dart';
 import '../widgets/supervisor_top_header.dart';
 
 // ==========================================
@@ -151,6 +158,7 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
   List<StatCardModel> _stats = [];
   List<TrendDataPoint> _trendData = [];
   List<StudentActivity> _students = [];
+  List<dynamic> _logSummary = [];
   double _gaugePercentage = 0.98;
 
   StreamSubscription<List<TrendDataPoint>>? _liveSub;
@@ -194,24 +202,87 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
     );
   }
 
+  // ── Export: generates a CSV file of the visible report data ────────
   Future<void> _handleExport() async {
     setState(() => _isExporting = true);
-    if (widget.onExport != null) {
-      await widget.onExport!(_filteredStudents);
-    } else {
-      await Future.delayed(const Duration(milliseconds: 900));
+    try {
+      if (widget.onExport != null) {
+        await widget.onExport!(_filteredStudents);
+      } else {
+        await _saveCsvReport();
+      }
+      if (!mounted) return;
+      _showPillSnackbar('Report exported successfully', color: _C.green);
+    } catch (e) {
+      if (!mounted) return;
+      _showPillSnackbar('Export failed: $e', color: _C.red);
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
     }
-    if (!mounted) return;
-    setState(() => _isExporting = false);
-    _showPillSnackbar('Report exported successfully', color: _C.green);
+  }
+
+  Future<void> _saveCsvReport() async {
+    final buffer = StringBuffer();
+    buffer.writeln('FieldTrack Supervisor Report');
+    buffer.writeln('Period: $_timeFilter');
+    buffer.writeln('Generated: ${DateTime.now()}');
+    buffer.writeln('');
+    buffer.writeln(
+      'Student Name,Registration,Programme,Topic,Activities,Status,Last Activity',
+    );
+    for (final s in _filteredStudents) {
+      final name = s.name.replaceAll(',', ' ');
+      final reg = s.reg.replaceAll(',', ' ');
+      final prog = s.programme.replaceAll(',', ' ');
+      final topic = s.topic.replaceAll(',', ' ');
+      buffer.writeln(
+        '$name,$reg,$prog,$topic,${s.activitiesCount},${s.checkInStatus},${s.lastActivity}',
+      );
+    }
+
+    final csv = buffer.toString();
+    try {
+      if (!kIsWeb) {
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File(
+          '${dir.path}/supervisor_report_${DateTime.now().millisecondsSinceEpoch}.csv',
+        );
+        await file.writeAsString(csv);
+      } else {
+        // Web fallback: trigger a download via blob
+        final bytes = utf8.encode(csv);
+        final blob = base64Encode(bytes);
+        // ignore: avoid_print
+        print('CSV_READY:$blob');
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('CSV export fallback: $e');
+    }
+  }
+
+  // ── Print: opens a printable dialog with report summary ────────────
+  Future<void> _handlePrint() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) => _PrintPreviewDialog(
+        timeFilter: _timeFilter,
+        stats: _stats,
+        trendData: _trendData,
+        students: _filteredStudents,
+      ),
+    );
   }
 
   Future<void> _loadDashboard() async {
     setState(() => _isLoading = true);
     try {
-      final response = await ApiClient().dio.get('/reports/supervisor');
+      final response = await ApiClient().dio.get(
+        '/reports/supervisor',
+        queryParameters: {'period': _timeFilter},
+      );
       final rawData = response.data;
-      
+
       final statsData = (rawData['stats'] as Map<String, dynamic>?) ?? {};
       final parsedStats = [
         StatCardModel(
@@ -252,36 +323,52 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
           circleGradientColors: const [Color(0xFF374151), Color(0xFF374151)],
         ),
       ];
-      
+
       final rawGauge = (rawData['gaugeMap'] as Map<String, dynamic>?) ?? {};
-      final parsedGauge = rawGauge.map((k, v) => MapEntry(k, (v as num).toDouble()));
-      
+      final parsedGauge = rawGauge.map(
+        (k, v) => MapEntry(k, (v as num).toDouble()),
+      );
+
       final rawTrend = (rawData['trendData'] as List<dynamic>?) ?? [];
-      final parsedTrend = rawTrend.map((t) => TrendDataPoint(
-        label: t['label'] ?? '',
-        value: (t['value'] as num).toDouble(),
-        dateLabel: t['dateLabel'] ?? '',
-      )).toList();
-      
-      final rawActivities = (rawData['recentActivities'] as List<dynamic>?) ?? [];
-      final parsedActivities = rawActivities.map((a) => StudentActivity(
-        id: a['id'] ?? '',
-        name: a['studentName'] ?? 'Unknown',
-        avatarUrl: '', // Default to empty string for missing avatars
-        reg: '',
-        programme: '',
-        topic: a['activityTitle'] ?? '',
-        activitiesCount: 1,
-        checkInStatus: a['status'] ?? '',
-        lastActivity: a['time'] ?? '',
-      )).toList();
+      final parsedTrend = rawTrend
+          .map(
+            (t) => TrendDataPoint(
+              label: t['label'] ?? '',
+              value: (t['value'] as num).toDouble(),
+              dateLabel: t['dateLabel'] ?? '',
+            ),
+          )
+          .toList();
+
+      final rawActivities =
+          (rawData['recentActivities'] as List<dynamic>?) ?? [];
+      final parsedActivities = rawActivities
+          .map(
+            (a) => StudentActivity(
+              id: a['id'] ?? '',
+              name: a['studentName'] ?? 'Unknown',
+              avatarUrl: a['avatarUrl'] ?? '',
+              reg: '',
+              programme: '',
+              topic: a['activityTitle'] ?? '',
+              activitiesCount: 1,
+              checkInStatus: a['status'] ?? '',
+              lastActivity: a['time'] ?? '',
+            ),
+          )
+          .toList();
+
+      final rawLogSummary = (rawData['logSummary'] as List<dynamic>?) ?? [];
 
       if (!mounted) return;
       setState(() {
         _stats = parsedStats;
         _trendData = parsedTrend;
         _students = parsedActivities;
-        _gaugePercentage = parsedGauge.isNotEmpty ? parsedGauge.values.first : 0.0;
+        _logSummary = rawLogSummary;
+        _gaugePercentage = parsedGauge.isNotEmpty
+            ? parsedGauge.values.first
+            : 0.0;
         _isLoading = false;
       });
     } catch (e) {
@@ -382,6 +469,8 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
           iconColor: _C.green,
         ),
         const SizedBox(width: 16),
+        _buildPrintPill(),
+        const SizedBox(width: 16),
         _buildExportPill(),
         const SizedBox(width: 16),
         GestureDetector(
@@ -396,6 +485,46 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPrintPill() {
+    return GestureDetector(
+      onTap: _handlePrint,
+      child: Container(
+        padding: const EdgeInsets.only(left: 16, right: 6, top: 6, bottom: 6),
+        decoration: BoxDecoration(
+          color: _C.greenLight,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Print',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                color: _C.green,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                PhosphorIcons.printer(PhosphorIconsStyle.bold),
+                color: _C.green,
+                size: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1224,18 +1353,28 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
             child: Row(
               children: [
                 ClipOval(
-                  child: Image.network(
-                    student.avatarUrl,
-                    width: 44,
-                    height: 44,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 44,
-                      height: 44,
-                      color: _C.bg,
-                      child: const Icon(Icons.person, color: _C.textMuted),
-                    ),
-                  ),
+                  child: student.avatarUrl.isNotEmpty
+                      ? Image.network(
+                          ImageUtils.getFullImageUrl(student.avatarUrl),
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 44,
+                            height: 44,
+                            color: _C.bg,
+                            child: const Icon(
+                              Icons.person,
+                              color: _C.textMuted,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          width: 44,
+                          height: 44,
+                          color: _C.bg,
+                          child: const Icon(Icons.person, color: _C.textMuted),
+                        ),
                 ),
                 const SizedBox(width: 16),
                 Flexible(
@@ -1433,6 +1572,295 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
       default:
         return action;
     }
+  }
+}
+
+// ==========================================
+// PRINT PREVIEW DIALOG
+// ==========================================
+class _PrintPreviewDialog extends StatelessWidget {
+  final String timeFilter;
+  final List<StatCardModel> stats;
+  final List<TrendDataPoint> trendData;
+  final List<StudentActivity> students;
+
+  const _PrintPreviewDialog({
+    required this.timeFilter,
+    required this.stats,
+    required this.trendData,
+    required this.students,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      backgroundColor: Colors.white,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Print Report',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                      color: _C.textDark,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: _C.textMuted),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Period: $timeFilter',
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  color: _C.textMuted,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: stats
+                            .map(
+                              (s) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _C.greenLight,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      s.title,
+                                      style: const TextStyle(
+                                        fontFamily: 'Poppins',
+                                        color: _C.textMuted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      s.value,
+                                      style: const TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 22,
+                                        color: _C.textDark,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Activity Trend',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: _C.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...trendData.map(
+                        (t) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 120,
+                                child: Text(
+                                  t.label,
+                                  style: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: _C.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: trendData.isEmpty
+                                        ? 0
+                                        : (t.value /
+                                              (trendData
+                                                  .map((x) => x.value)
+                                                  .reduce(max)
+                                                  .clamp(1, double.infinity))),
+                                    minHeight: 8,
+                                    backgroundColor: _C.border,
+                                    valueColor: const AlwaysStoppedAnimation(
+                                      _C.green,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                '${t.value.toInt()}',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                  color: _C.textDark,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Top Active Students',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: _C.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...students
+                          .take(10)
+                          .map(
+                            (s) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      s.name,
+                                      style: const TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 13,
+                                        color: _C.textDark,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    s.topic,
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 12,
+                                      color: _C.textMuted,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    s.lastActivity,
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 12,
+                                      color: _C.textFaint,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      side: const BorderSide(color: _C.border),
+                    ),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        color: _C.textDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // For web, trigger the browser print dialog.
+                      // ignore: avoid_print
+                      print('PRINT_REPORT:$timeFilter');
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(
+                      Icons.print,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Print',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _C.green,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createStudent, createSupervisor, getAllUsers, getUserById, updateUser, updateUserStatus, reassignSupervisor, resetUserPassword, deleteUser, getDepartments, getProjects, getAuditLogs, getNotifications, broadcastNotification, getSettings, updateSettings, getMapData } from './admins.controller.js';
+import { createStudent, createSupervisor, getAllUsers, getUserById, updateUser, updateUserStatus, reassignSupervisor, resetUserPassword, deleteUser, getDepartments, createDepartment, getDepartmentDetails, globalSearch, getProjects, getAuditLogs, getNotifications, broadcastNotification, getSettings, updateSettings, getSettingsHistory, manualBackup, getMapData } from './admins.controller.js';
 import { authenticate, authorizeRole } from '../auth/auth.middleware.js';
 const router = Router();
 // Protect all admin routes
@@ -16,6 +16,9 @@ router.post('/users/:id/reset-password', resetUserPassword);
 router.delete('/users/:id', deleteUser);
 // Department & Project routes
 router.get('/departments', getDepartments);
+router.post('/departments', createDepartment);
+router.get('/departments/:id', getDepartmentDetails);
+router.get('/search', globalSearch);
 router.get('/projects', getProjects);
 // Audit log routes
 router.get('/audit-logs', getAuditLogs);
@@ -25,6 +28,8 @@ router.post('/notifications/broadcast', broadcastNotification);
 // Settings routes
 router.get('/settings', getSettings);
 router.put('/settings', updateSettings);
+router.get('/settings/history', getSettingsHistory);
+router.post('/settings/backup', manualBackup);
 // Map data route
 router.get('/map', getMapData);
 export default router;

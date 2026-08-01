@@ -56,6 +56,13 @@ dependencies:
   dio_cache_interceptor_hive_store: ^4.0.0
   shimmer: ^3.0.0
   dio_smart_retry: ^7.0.1
+  shared_preferences: ^2.5.5
+  firebase_core: ^4.12.1
+  firebase_messaging: ^16.4.3
+  flutter_local_notifications: ^22.2.0
+  url_launcher: ^6.3.2
+  cached_network_image: ^3.2.3
+  flutter_cache_manager: ^3.3.0
 
 dev_dependencies:
   flutter_test:

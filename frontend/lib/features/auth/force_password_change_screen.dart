@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import '../../core/network/api_client.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/utils/toast_service.dart';
+import 'package:fieldtrack/core/network/error_handler.dart';
 
 class ForcePasswordChangeScreen extends ConsumerStatefulWidget {
   const ForcePasswordChangeScreen({super.key});
@@ -80,7 +81,7 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ToastService.showError('Unexpected error: ${e.toString()}');
+      ToastService.showError('Unexpected error: ${ErrorHandler.getFriendlyErrorMessage(e)}');
     }
   }
 

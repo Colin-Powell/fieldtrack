@@ -7,14 +7,21 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:math' show pi;
 import 'dart:async';
+import 'package:fieldtrack/core/constants/app_constants.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import 'package:fieldtrack/shared/models/student_data.dart';
 import 'dashboard_state.dart';
 import '../widgets/supervisor_top_header.dart';
+import 'package:fieldtrack/core/utils/time_utils.dart';
+
 // ── Design tokens ────────────────────────────────────────────────────────
 class _C {
-  static const bg = Color(0xFFF3F4F6); // Adjusted to match light grey background
+  static const bg = Color(
+    0xFFF3F4F6,
+  ); // Adjusted to match light grey background
   static const green = Color(0xFF16A34A);
   static const greenLight = Color(0xFFC5E8D2);
   static const greenDark = Color(0xFF115E2E);
@@ -35,7 +42,8 @@ class SupervisorDashboardScreen extends StatefulWidget {
   static const double _stackBreakpoint = 1000;
 
   @override
-  State<SupervisorDashboardScreen> createState() => _SupervisorDashboardScreenState();
+  State<SupervisorDashboardScreen> createState() =>
+      _SupervisorDashboardScreenState();
 }
 
 class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
@@ -58,7 +66,9 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
         padding: const EdgeInsets.all(24.0),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final sideBySide = constraints.maxWidth >= SupervisorDashboardScreen._stackBreakpoint;
+            final sideBySide =
+                constraints.maxWidth >=
+                SupervisorDashboardScreen._stackBreakpoint;
 
             final mainColumnBody = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,15 +77,19 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                 Consumer<DashboardState>(
                   builder: (context, state, _) {
                     final supName = state.supervisor?['name'] ?? 'Supervisor';
-                    final title = 'Good morning, $supName';
+                    final title = '${getGreeting()} $supName';
                     return SupervisorTopHeader(
                       title: title,
                       subtitle: "Here's what's happening today",
                       onSearchChanged: state.setSearchQuery,
                       trailingWidget: sideBySide
                           ? IconButton(
-                              icon: const Icon(PhosphorIconsRegular.arrowsClockwise),
-                              onPressed: () => context.read<DashboardState>().loadDashboard(isPolling: false),
+                              icon: const Icon(
+                                PhosphorIconsRegular.arrowsClockwise,
+                              ),
+                              onPressed: () => context
+                                  .read<DashboardState>()
+                                  .loadDashboard(isPolling: false),
                               tooltip: 'Refresh Dashboard',
                             )
                           : null,
@@ -107,14 +121,19 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                   const SizedBox(width: 24),
                   Expanded(
                     flex: 3,
-                    child: _RightSidebar(scrollableInternally: true, isLoading: _isLoading),
+                    child: _RightSidebar(
+                      scrollableInternally: true,
+                      isLoading: _isLoading,
+                    ),
                   ),
                 ],
               );
             }
 
             return RefreshIndicator(
-              onRefresh: () => context.read<DashboardState>().loadDashboard(isPolling: false),
+              onRefresh: () => context.read<DashboardState>().loadDashboard(
+                isPolling: false,
+              ),
               color: _C.green,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -125,7 +144,10 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                     const SizedBox(height: 24),
                     _BottomSectionStacked(isLoading: _isLoading),
                     const SizedBox(height: 24),
-                    _RightSidebar(scrollableInternally: false, isLoading: _isLoading),
+                    _RightSidebar(
+                      scrollableInternally: false,
+                      isLoading: _isLoading,
+                    ),
                   ],
                 ),
               ),
@@ -149,7 +171,8 @@ class _Skeleton extends StatefulWidget {
   State<_Skeleton> createState() => _SkeletonState();
 }
 
-class _SkeletonState extends State<_Skeleton> with SingleTickerProviderStateMixin {
+class _SkeletonState extends State<_Skeleton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -170,9 +193,10 @@ class _SkeletonState extends State<_Skeleton> with SingleTickerProviderStateMixi
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: Tween<double>(begin: 0.3, end: 1.0).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-      ),
+      opacity: Tween<double>(
+        begin: 0.3,
+        end: 1.0,
+      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
       child: Container(
         width: widget.width,
         height: widget.height,
@@ -192,10 +216,18 @@ class _StatCardsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final studentsCheckedInToday = context.select<DashboardState, int>((s) => s.studentsCheckedInToday);
-    final trend = context.select<DashboardState, Map<String, dynamic>?>((s) => s.trend);
-    final studentsInField = context.select<DashboardState, int>((s) => s.studentsInField);
-    final activitiesSubmitted = context.select<DashboardState, int>((s) => s.activitiesSubmitted);
+    final studentsCheckedInToday = context.select<DashboardState, int>(
+      (s) => s.studentsCheckedInToday,
+    );
+    final trend = context.select<DashboardState, Map<String, dynamic>?>(
+      (s) => s.trend,
+    );
+    final studentsInField = context.select<DashboardState, int>(
+      (s) => s.studentsInField,
+    );
+    final activitiesSubmitted = context.select<DashboardState, int>(
+      (s) => s.activitiesSubmitted,
+    );
     final cards = [
       _StatCard(
         title: 'Students Checked\nIn Today',
@@ -223,8 +255,8 @@ class _StatCardsRow extends StatelessWidget {
         value: '$activitiesSubmitted',
         subtitle: '${trend?['activities'] ?? ''} from yesterday',
         isPositive: true,
-        bgColor: const Color(0xFFD1F0E0), 
-        iconColor: Colors.black, 
+        bgColor: const Color(0xFFD1F0E0),
+        iconColor: Colors.black,
         icon: PhosphorIconsFill.fileText,
         isLoading: isLoading,
       ),
@@ -248,7 +280,9 @@ class _StatCardsRow extends StatelessWidget {
           return Wrap(
             spacing: 24,
             runSpacing: 24,
-            children: cards.map((c) => SizedBox(width: cardWidth, child: c)).toList(),
+            children: cards
+                .map((c) => SizedBox(width: cardWidth, child: c))
+                .toList(),
           );
         }
         return Column(
@@ -361,8 +395,12 @@ class _StatCard extends StatelessWidget {
                     children: [
                       if (showArrow) ...[
                         Icon(
-                          isPositive ? PhosphorIconsBold.arrowUp : PhosphorIconsBold.arrowDown,
-                          color: iconColor == Colors.black ? _C.green : iconColor,
+                          isPositive
+                              ? PhosphorIconsBold.arrowUp
+                              : PhosphorIconsBold.arrowDown,
+                          color: iconColor == Colors.black
+                              ? _C.green
+                              : iconColor,
                           size: 16,
                         ),
                         const SizedBox(width: 6),
@@ -372,7 +410,9 @@ class _StatCard extends StatelessWidget {
                           subtitle,
                           style: TextStyle(
                             fontFamily: 'Poppins',
-                            color: iconColor == Colors.black ? _C.green : iconColor,
+                            color: iconColor == Colors.black
+                                ? _C.green
+                                : iconColor,
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
@@ -455,7 +495,10 @@ class _QuickActionsRow extends StatelessWidget {
         content: Text(
           'Launching: $action',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500),
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w500,
+          ),
         ),
         behavior: SnackBarBehavior.floating,
         width: 280, // Size constrained neatly to text instead of entire width
@@ -468,10 +511,26 @@ class _QuickActionsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
-      _QuickAction(PhosphorIconsFill.fileText, 'Review Activities', onTap: () => _showAction(context, 'Review Activities')),
-      _QuickAction(PhosphorIconsFill.fileArrowDown, 'Generate Report', onTap: () => _showAction(context, 'Generate Report')),
-      _QuickAction(PhosphorIconsFill.graduationCap, 'View Students', onTap: () => context.go('/supervisor/students')),
-      _QuickAction(PhosphorIconsFill.export, 'Export Logs', onTap: () => _showAction(context, 'Export Logs')),
+      _QuickAction(
+        PhosphorIconsFill.fileText,
+        'Review Activities',
+        onTap: () => _showAction(context, 'Review Activities'),
+      ),
+      _QuickAction(
+        PhosphorIconsFill.fileArrowDown,
+        'Generate Report',
+        onTap: () => _showAction(context, 'Generate Report'),
+      ),
+      _QuickAction(
+        PhosphorIconsFill.graduationCap,
+        'View Students',
+        onTap: () => context.go('/supervisor/students'),
+      ),
+      _QuickAction(
+        PhosphorIconsFill.export,
+        'Export Logs',
+        onTap: () => _showAction(context, 'Export Logs'),
+      ),
     ];
 
     if (!scrollable) {
@@ -539,11 +598,15 @@ class _PendingReviews extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pending = context.select<DashboardState, int>((s) => s.pendingReviews);
+    final pending = context.select<DashboardState, int>(
+      (s) => s.pendingReviews,
+    );
     final isEmpty = pending == 0;
-    
+
     // Dynamic styles based on empty states
-    final bgColor = isEmpty ? _C.greenLight.withOpacity(0.4) : _C.orangeLight.withOpacity(0.74);
+    final bgColor = isEmpty
+        ? _C.greenLight.withOpacity(0.4)
+        : _C.orangeLight.withOpacity(0.74);
     final iconColor = isEmpty ? _C.green : _C.orange;
 
     return Container(
@@ -603,12 +666,11 @@ class _PendingReviews extends StatelessWidget {
           ),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: iconColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: iconColor, shape: BoxShape.circle),
             child: Icon(
-              isEmpty ? PhosphorIconsBold.check : PhosphorIconsBold.arrowUpRight,
+              isEmpty
+                  ? PhosphorIconsBold.check
+                  : PhosphorIconsBold.arrowUpRight,
               color: Colors.white,
               size: 32,
             ),
@@ -626,7 +688,9 @@ class _MapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final students = context.select<DashboardState, List<StudentData>>((s) => s.students);
+    final students = context.select<DashboardState, List<StudentData>>(
+      (s) => s.students,
+    );
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -673,7 +737,9 @@ class _MapCard extends StatelessWidget {
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(_C.controlHeight / 2),
+                        borderRadius: BorderRadius.circular(
+                          _C.controlHeight / 2,
+                        ),
                       ),
                     ),
                     child: const Text(
@@ -723,7 +789,11 @@ class _MapCard extends StatelessWidget {
                 bottomRight: Radius.circular(_C.cardRadius),
               ),
               child: isLoading
-                  ? const _Skeleton(width: double.infinity, height: double.infinity, borderRadius: 0)
+                  ? const _Skeleton(
+                      width: double.infinity,
+                      height: double.infinity,
+                      borderRadius: 0,
+                    )
                   : FlutterMap(
                       options: const MapOptions(
                         initialCenter: LatLng(-3.6305, 39.8499),
@@ -731,36 +801,53 @@ class _MapCard extends StatelessWidget {
                       ),
                       children: [
                         TileLayer(
-                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                           userAgentPackageName: 'com.example.app',
                         ),
                         MarkerLayer(
-                          markers: students.where((s) => s.currentSession != null && s.checkInStatus == 'Checked In').map((student) {
-                            return Marker(
-                              point: LatLng(student.currentSession!.latitude, student.currentSession!.longitude),
-                              width: 56,
-                              height: 56,
-                              child: Container(
-                                padding: const EdgeInsets.all(5),
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Container(
-                                  decoration: const BoxDecoration(
-                                    color: _C.green,
-                                    shape: BoxShape.circle,
+                          markers: students
+                              .where(
+                                (s) =>
+                                    s.currentSession != null &&
+                                    s.checkInStatus == 'Checked In',
+                              )
+                              .map((student) {
+                                return Marker(
+                                  point: LatLng(
+                                    student.currentSession!.latitude,
+                                    student.currentSession!.longitude,
                                   ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(50),
-                                    child: (student.avatarUrl != null && student.avatarUrl.isNotEmpty)
-                                        ? Image.network(student.avatarUrl, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.person, color: Colors.white, size: 18))
-                                        : const Icon(Icons.person, color: Colors.white, size: 18),
+                                  width: 56,
+                                  height: 56,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        color: _C.green,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: SizedBox(
+                                        width: 46,
+                                        height: 46,
+                                        child: AppAvatar(
+                                          imagePath:
+                                              student.avatarUrl.isNotEmpty
+                                              ? student.avatarUrl
+                                              : null,
+                                          size: 46,
+                                          shape: AvatarShape.circle,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                                );
+                              })
+                              .toList(),
                         ),
                       ],
                     ),
@@ -790,7 +877,7 @@ class _OverviewCardState extends State<_OverviewCard> {
     final checkedOut = context.select<DashboardState, int>((s) => s.checkedOut);
     // Make width larger as requested
     const double chartSize = 300.0;
-    
+
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
@@ -818,7 +905,11 @@ class _OverviewCardState extends State<_OverviewCard> {
               width: chartSize,
               height: chartSize,
               child: widget.isLoading
-                  ? const _Skeleton(width: chartSize, height: chartSize, borderRadius: chartSize / 2)
+                  ? const _Skeleton(
+                      width: chartSize,
+                      height: chartSize,
+                      borderRadius: chartSize / 2,
+                    )
                   : Stack(
                       alignment: Alignment.center,
                       children: [
@@ -828,17 +919,22 @@ class _OverviewCardState extends State<_OverviewCard> {
                           child: PieChart(
                             PieChartData(
                               pieTouchData: PieTouchData(
-                                touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                                  setState(() {
-                                    if (!event.isInterestedForInteractions ||
-                                        pieTouchResponse == null ||
-                                        pieTouchResponse.touchedSection == null) {
-                                      _touchedIndex = -1;
-                                      return;
-                                    }
-                                    _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
-                                  });
-                                },
+                                touchCallback:
+                                    (FlTouchEvent event, pieTouchResponse) {
+                                      setState(() {
+                                        if (!event
+                                                .isInterestedForInteractions ||
+                                            pieTouchResponse == null ||
+                                            pieTouchResponse.touchedSection ==
+                                                null) {
+                                          _touchedIndex = -1;
+                                          return;
+                                        }
+                                        _touchedIndex = pieTouchResponse
+                                            .touchedSection!
+                                            .touchedSectionIndex;
+                                      });
+                                    },
                               ),
                               borderData: FlBorderData(show: false),
                               sectionsSpace: 4,
@@ -871,9 +967,17 @@ class _OverviewCardState extends State<_OverviewCard> {
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _InlineLegendRow('$checkedOut', 'Checked out', _C.greenDark),
+                              _InlineLegendRow(
+                                '$checkedOut',
+                                'Checked out',
+                                _C.greenDark,
+                              ),
                               const SizedBox(height: 8),
-                              _InlineLegendRow('$checkIns', 'Checked in', _C.blueLight),
+                              _InlineLegendRow(
+                                '$checkIns',
+                                'Checked in',
+                                _C.blueLight,
+                              ),
                               const SizedBox(height: 8),
                               _InlineLegendRow('$inField', 'In field', _C.teal),
                             ],
@@ -1009,8 +1113,14 @@ class _BottomSectionStacked extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final sideBySide = constraints.maxWidth >= 760;
-        final mapHeight = (MediaQuery.of(context).size.height * 0.45).clamp(280.0, 460.0);
-        final map = SizedBox(height: mapHeight, child: _MapCard(isLoading: isLoading));
+        final mapHeight = (MediaQuery.of(context).size.height * 0.45).clamp(
+          280.0,
+          460.0,
+        );
+        final map = SizedBox(
+          height: mapHeight,
+          child: _MapCard(isLoading: isLoading),
+        );
         final overview = _OverviewCard(isLoading: isLoading);
 
         if (sideBySide) {
@@ -1040,7 +1150,10 @@ class _LocalFeedItem {
 class _RightSidebar extends StatefulWidget {
   final bool scrollableInternally;
   final bool isLoading;
-  const _RightSidebar({required this.scrollableInternally, required this.isLoading});
+  const _RightSidebar({
+    required this.scrollableInternally,
+    required this.isLoading,
+  });
 
   @override
   State<_RightSidebar> createState() => _RightSidebarState();
@@ -1057,181 +1170,243 @@ class _RightSidebarState extends State<_RightSidebar> {
     super.dispose();
   }
 
-
   Widget build(BuildContext context) {
-    final filteredActivities = context.select<DashboardState, List<RecentActivity>>((s) => s.filteredActivities);
-    final feedItems = context.select<DashboardState, List<FeedItem>>((s) => s.feedItems);
-        
+    final filteredActivities = context
+        .select<DashboardState, List<RecentActivity>>(
+          (s) => s.filteredActivities,
+        );
+    final feedItems = context.select<DashboardState, List<FeedItem>>(
+      (s) => s.feedItems,
+    );
+
     // Setup Activities List (Empty State, Skeleton, or Live Data)
-        Widget recentActivitiesList;
-        if (widget.isLoading) {
-          recentActivitiesList = ListView.builder(
-            shrinkWrap: !widget.scrollableInternally,
-            physics: widget.scrollableInternally ? null : const NeverScrollableScrollPhysics(),
-            itemCount: 4,
-            itemBuilder: (_, __) => const Padding(
-              padding: EdgeInsets.only(bottom: 12.0),
-              child: _Skeleton(width: double.infinity, height: 64, borderRadius: 32),
-            ),
-          );
-        } else if (filteredActivities.isEmpty) {
-          recentActivitiesList = Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(color: _C.greenLight, shape: BoxShape.circle),
-                    child: const Icon(PhosphorIconsRegular.clipboardText, size: 32, color: _C.greenDark),
+    Widget recentActivitiesList;
+    if (widget.isLoading) {
+      recentActivitiesList = ListView.builder(
+        shrinkWrap: !widget.scrollableInternally,
+        physics: widget.scrollableInternally
+            ? null
+            : const NeverScrollableScrollPhysics(),
+        itemCount: 4,
+        itemBuilder: (_, __) => const Padding(
+          padding: EdgeInsets.only(bottom: 12.0),
+          child: _Skeleton(
+            width: double.infinity,
+            height: 64,
+            borderRadius: 32,
+          ),
+        ),
+      );
+    } else if (filteredActivities.isEmpty) {
+      recentActivitiesList = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: _C.greenLight,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  PhosphorIconsRegular.clipboardText,
+                  size: 32,
+                  color: _C.greenDark,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'No recent activities',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                  color: _C.textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Students haven\'t submitted anything yet.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 13,
+                  color: _C.textMuted,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () => context.go('/supervisor/students'),
+                icon: const Icon(
+                  PhosphorIconsBold.plus,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                label: const Text(
+                  'Assign Activity',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
-                  const SizedBox(height: 16),
-                  const Text('No recent activities', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: _C.textDark)),
-                  const SizedBox(height: 8),
-                  const Text('Students haven\'t submitted anything yet.', textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Poppins', fontSize: 13, color: _C.textMuted)),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: () => context.go('/supervisor/students'),
-                    icon: const Icon(PhosphorIconsBold.plus, size: 16, color: Colors.white),
-                    label: const Text('Assign Activity', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _C.green,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    ),
-                  )
-                ],
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _C.green,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                ),
               ),
-            ),
-          );
-        } else {
-          recentActivitiesList = ListView.builder(
-            shrinkWrap: !widget.scrollableInternally,
-            physics: widget.scrollableInternally ? null : const NeverScrollableScrollPhysics(),
-            itemCount: filteredActivities.length,
-            itemBuilder: (context, index) {
-              final activity = filteredActivities[index];
-              return _RecentActivityItem(
-                title: activity.title,
-                subtitle: activity.location,
-                time: activity.time,
-                imgUrl: activity.imageUrl,
-                studentId: activity.studentId ?? '1',
-                activityId: activity.activityId,
-                studentName: activity.studentName ?? 'Student',
-              );
-            },
-          );
-        }
-
-        // Setup Feed Items
-        final combinedFeeds = feedItems.map((item) => _LocalFeedItem(item.time, item.content)).toList();
-
-        Widget feedList;
-        if (widget.isLoading) {
-          feedList = ListView.builder(
-            shrinkWrap: !widget.scrollableInternally,
-            physics: widget.scrollableInternally ? null : const NeverScrollableScrollPhysics(),
-            itemCount: 4,
-            itemBuilder: (_, __) => const Padding(
-              padding: EdgeInsets.only(bottom: 20.0),
-              child: Row(
-                children: [
-                  _Skeleton(width: 44, height: 16),
-                  SizedBox(width: 16),
-                  Expanded(child: _Skeleton(height: 16)),
-                ],
-              ),
-            ),
-          );
-        } else if (combinedFeeds.isEmpty) {
-          feedList = const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                'No activity feed yet.',
-                style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted),
-              ),
-            ),
-          );
-        } else {
-          feedList = ListView.builder(
-            shrinkWrap: !widget.scrollableInternally,
-            physics: widget.scrollableInternally ? null : const NeverScrollableScrollPhysics(),
-            itemCount: combinedFeeds.length,
-            itemBuilder: (context, index) {
-              final item = combinedFeeds[index];
-              return _FeedItem(time: item.time, content: item.content);
-            },
-          );
-        }
-
-        final viewAllButton = SizedBox(
-          width: double.infinity,
-          height: _C.controlHeight,
-          child: OutlinedButton(
-            onPressed: () => context.go('/supervisor/students'),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: _C.green.withOpacity(0.74), width: 1.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(_C.controlHeight / 2),
-              ),
-              padding: EdgeInsets.zero,
-            ),
-            child: const Text(
-              'View all Activities',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                color: _C.green,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
-            ),
+            ],
           ),
-        );
+        ),
+      );
+    } else {
+      recentActivitiesList = ListView.builder(
+        shrinkWrap: !widget.scrollableInternally,
+        physics: widget.scrollableInternally
+            ? null
+            : const NeverScrollableScrollPhysics(),
+        itemCount: filteredActivities.length,
+        itemBuilder: (context, index) {
+          final activity = filteredActivities[index];
+          return _RecentActivityItem(
+            title: activity.title,
+            subtitle: activity.location,
+            time: activity.time,
+            imgUrl: activity.imageUrl,
+            studentId: activity.studentId ?? '1',
+            activityId: activity.activityId,
+            studentName: activity.studentName ?? 'Student',
+          );
+        },
+      );
+    }
 
-        final innerContent = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: widget.scrollableInternally ? MainAxisSize.max : MainAxisSize.min,
-          children: [
-            const Text(
-              'Recent Activities',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: _C.textDark,
-              ),
-            ),
-            const SizedBox(height: 24),
-            widget.scrollableInternally ? Expanded(flex: 4, child: recentActivitiesList) : recentActivitiesList,
-            const SizedBox(height: 16),
-            if (filteredActivities.isNotEmpty && !widget.isLoading) viewAllButton,
-            const SizedBox(height: 40),
-            const Text(
-              "Today's Activity Feed",
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: _C.textDark,
-              ),
-            ),
-            const SizedBox(height: 24),
-            widget.scrollableInternally ? Expanded(flex: 3, child: feedList) : feedList,
-          ],
-        );
+    // Setup Feed Items
+    final combinedFeeds = feedItems
+        .map((item) => _LocalFeedItem(item.time, item.content))
+        .toList();
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(_C.cardRadius),
+    Widget feedList;
+    if (widget.isLoading) {
+      feedList = ListView.builder(
+        shrinkWrap: !widget.scrollableInternally,
+        physics: widget.scrollableInternally
+            ? null
+            : const NeverScrollableScrollPhysics(),
+        itemCount: 4,
+        itemBuilder: (_, __) => const Padding(
+          padding: EdgeInsets.only(bottom: 20.0),
+          child: Row(
+            children: [
+              _Skeleton(width: 44, height: 16),
+              SizedBox(width: 16),
+              Expanded(child: _Skeleton(height: 16)),
+            ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: innerContent,
-        );
+        ),
+      );
+    } else if (combinedFeeds.isEmpty) {
+      feedList = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text(
+            'No activity feed yet.',
+            style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted),
+          ),
+        ),
+      );
+    } else {
+      feedList = ListView.builder(
+        shrinkWrap: !widget.scrollableInternally,
+        physics: widget.scrollableInternally
+            ? null
+            : const NeverScrollableScrollPhysics(),
+        itemCount: combinedFeeds.length,
+        itemBuilder: (context, index) {
+          final item = combinedFeeds[index];
+          return _FeedItem(time: item.time, content: item.content);
+        },
+      );
+    }
+
+    final viewAllButton = SizedBox(
+      width: double.infinity,
+      height: _C.controlHeight,
+      child: OutlinedButton(
+        onPressed: () => context.go('/supervisor/students'),
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: _C.green.withOpacity(0.74), width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_C.controlHeight / 2),
+          ),
+          padding: EdgeInsets.zero,
+        ),
+        child: const Text(
+          'View all Activities',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            color: _C.green,
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
+        ),
+      ),
+    );
+
+    final innerContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: widget.scrollableInternally
+          ? MainAxisSize.max
+          : MainAxisSize.min,
+      children: [
+        const Text(
+          'Recent Activities',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: _C.textDark,
+          ),
+        ),
+        const SizedBox(height: 24),
+        widget.scrollableInternally
+            ? Expanded(flex: 4, child: recentActivitiesList)
+            : recentActivitiesList,
+        const SizedBox(height: 16),
+        if (filteredActivities.isNotEmpty && !widget.isLoading) viewAllButton,
+        const SizedBox(height: 40),
+        const Text(
+          "Today's Activity Feed",
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: _C.textDark,
+          ),
+        ),
+        const SizedBox(height: 24),
+        widget.scrollableInternally
+            ? Expanded(flex: 3, child: feedList)
+            : feedList,
+      ],
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_C.cardRadius),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: innerContent,
+    );
   }
 }
 
@@ -1274,27 +1449,21 @@ class _RecentActivityItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: Colors.black.withOpacity(0.08), width: 1.5),
+            border: Border.all(
+              color: Colors.black.withOpacity(0.08),
+              width: 1.5,
+            ),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
             children: [
-              ClipOval(
-                child: Image.network(
-                  imgUrl,
-                  width: 36,
-                  height: 36,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    width: 36,
-                    height: 36,
-                    color: _C.greenLight,
-                    child: const Icon(PhosphorIconsRegular.leaf, color: _C.green, size: 16),
-                  ),
-                  loadingBuilder: (context, child, progress) {
-                    if (progress == null) return child;
-                    return Container(width: 36, height: 36, color: _C.greenLight);
-                  },
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: AppAvatar(
+                  imagePath: imgUrl.isNotEmpty ? imgUrl : null,
+                  size: 36,
+                  shape: AvatarShape.circle,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1330,7 +1499,11 @@ class _RecentActivityItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              const Icon(PhosphorIconsRegular.caretRight, color: _C.textMuted, size: 16),
+              const Icon(
+                PhosphorIconsRegular.caretRight,
+                color: _C.textMuted,
+                size: 16,
+              ),
             ],
           ),
         ),

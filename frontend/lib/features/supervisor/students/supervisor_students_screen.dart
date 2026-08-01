@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 import 'dart:math';
 import 'package:fieldtrack/shared/models/student_data.dart';
 import 'package:provider/provider.dart';
+import 'package:fieldtrack/core/constants/app_constants.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import 'package:fieldtrack/features/supervisor/dashboard/dashboard_state.dart';
 import '../widgets/supervisor_top_header.dart';
 
@@ -51,12 +54,7 @@ class _SupervisorStudentsScreenState extends State<SupervisorStudentsScreen> {
   }
 
   List<String> get _statuses {
-    return const [
-      'Status',
-      'In Field',
-      'Checked Out',
-      'Not Checked in',
-    ];
+    return const ['Status', 'In Field', 'Checked Out', 'Not Checked in'];
   }
 
   List<StudentData> _filtered(List<StudentData> allStudents) {
@@ -139,14 +137,16 @@ class _SupervisorStudentsScreenState extends State<SupervisorStudentsScreen> {
               // Body takes remaining height
               Expanded(child: _buildBody(context)),
               const SizedBox(height: 24),
-              Builder(builder: (context) {
-                final state = context.watch<DashboardState>();
-                final list = _filtered(state.students);
-                if (list.isNotEmpty) {
-                  return _buildPagination(list.length);
-                }
-                return const SizedBox.shrink();
-              }),
+              Builder(
+                builder: (context) {
+                  final state = context.watch<DashboardState>();
+                  final list = _filtered(state.students);
+                  if (list.isNotEmpty) {
+                    return _buildPagination(list.length);
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ],
           ),
         ),
@@ -662,20 +662,15 @@ class _StudentTableRow extends StatelessWidget {
               flex: 3,
               child: Row(
                 children: [
-                  ClipOval(
-                    child: Image.network(
-                      student.avatarUrl,
-                      width: 36,
-                      height: 36,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 36,
-                          height: 36,
-                          color: _C.border,
-                          child: const Icon(Icons.person, color: _C.textMuted),
-                        );
-                      },
+                  SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: AppAvatar(
+                      imagePath: student.avatarUrl.isNotEmpty
+                          ? student.avatarUrl
+                          : null,
+                      size: 36,
+                      shape: AvatarShape.circle,
                     ),
                   ),
                   const SizedBox(width: 12),

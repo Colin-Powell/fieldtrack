@@ -5,9 +5,23 @@ import 'package:fieldtrack/core/providers/location_provider.dart';
 import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
 import 'package:fieldtrack/core/network/api_result.dart';
 
+class ActivityMarkerData {
+  final LatLng position;
+  final String title;
+  final String description;
+  final String? avatarUrl;
+  
+  const ActivityMarkerData({
+    required this.position,
+    required this.title,
+    required this.description,
+    this.avatarUrl,
+  });
+}
+
 class StudentMapState {
   final List<LatLng> visitedRoute;
-  final List<LatLng> activityLocations;
+  final List<ActivityMarkerData> activityLocations;
   final LatLng? supervisorLocation;
 
   const StudentMapState({
@@ -18,7 +32,7 @@ class StudentMapState {
 
   StudentMapState copyWith({
     List<LatLng>? visitedRoute,
-    List<LatLng>? activityLocations,
+    List<ActivityMarkerData>? activityLocations,
     LatLng? supervisorLocation,
   }) {
     return StudentMapState(
@@ -64,13 +78,20 @@ class StudentMapNotifier extends StateNotifier<StudentMapState> {
       next.whenData((activitiesResult) {
         if (activitiesResult is Success) {
           final activities = (activitiesResult as Success).data as List<dynamic>;
-          final List<LatLng> activityCoords = [];
+          final List<ActivityMarkerData> activityMarkers = [];
           for (final activity in activities) {
             if (activity['latitude'] != null && activity['longitude'] != null) {
-              activityCoords.add(LatLng((activity['latitude'] as num).toDouble(), (activity['longitude'] as num).toDouble()));
+              activityMarkers.add(
+                ActivityMarkerData(
+                  position: LatLng((activity['latitude'] as num).toDouble(), (activity['longitude'] as num).toDouble()),
+                  title: activity['title'] ?? 'Activity',
+                  description: activity['description'] ?? 'No description',
+                  avatarUrl: activity['user']?['avatarUrl'], // Assuming populated or accessible via authProvider
+                )
+              );
             }
           }
-          state = state.copyWith(activityLocations: activityCoords);
+          state = state.copyWith(activityLocations: activityMarkers);
         }
       });
     }, fireImmediately: true);

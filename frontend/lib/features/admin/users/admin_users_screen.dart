@@ -1,12 +1,15 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/utils/toast_service.dart';
+import 'package:fieldtrack/core/network/api_client.dart';
+import 'package:fieldtrack/core/utils/toast_service.dart';
 import 'dart:math';
+import 'package:fieldtrack/core/network/error_handler.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
 
 // ==========================================
 // DESIGN TOKENS
@@ -28,6 +31,7 @@ class _C {
 // MODELS
 // ==========================================
 enum UserRole { student, supervisor, admin }
+
 enum UserStatus { active, suspended, onLeave }
 
 class AppUser {
@@ -38,33 +42,46 @@ class AppUser {
   final String department;
   UserStatus status;
   final String avatarUrl;
-  
+
   // Student specific
   final String? regNo;
   String? supervisorName;
-  
+
   // Supervisor specific
   final int? assignedStudentsCount;
 
   AppUser({
-    required this.id, required this.name, required this.email,
-    required this.role, required this.department, required this.status,
-    required this.avatarUrl, this.regNo, this.supervisorName, this.assignedStudentsCount,
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.role,
+    required this.department,
+    required this.status,
+    required this.avatarUrl,
+    this.regNo,
+    this.supervisorName,
+    this.assignedStudentsCount,
   });
 
   Color get statusColor {
     switch (status) {
-      case UserStatus.active: return _C.green;
-      case UserStatus.suspended: return _C.red;
-      case UserStatus.onLeave: return _C.orange;
+      case UserStatus.active:
+        return _C.green;
+      case UserStatus.suspended:
+        return _C.red;
+      case UserStatus.onLeave:
+        return _C.orange;
     }
   }
 
   String get statusText {
     switch (status) {
-      case UserStatus.active: return 'Active';
-      case UserStatus.suspended: return 'Suspended';
-      case UserStatus.onLeave: return 'On Leave';
+      case UserStatus.active:
+        return 'Active';
+      case UserStatus.suspended:
+        return 'Suspended';
+      case UserStatus.onLeave:
+        return 'On Leave';
     }
   }
 }
@@ -79,12 +96,13 @@ class AdminUsersScreen extends StatefulWidget {
   State<AdminUsersScreen> createState() => _AdminUsersScreenState();
 }
 
-class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerProviderStateMixin {
+class _AdminUsersScreenState extends State<AdminUsersScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   bool _isLoading = true;
   String _searchQuery = '';
-  
+
   // Sub-screen State tracking (Simulated Pages without GoRouter)
   // 'list' -> Main listing
   // 'add' -> Add User Screen
@@ -120,22 +138,32 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
     try {
       final apiClient = ApiClient();
       final response = await apiClient.dio.get('/admin/users');
-      
+
       if (response.statusCode == 200) {
         final List<dynamic> usersData = response.data['users'];
         final fetchedUsers = usersData.map((u) {
           UserRole parsedRole;
           switch (u['role']) {
-            case 'STUDENT': parsedRole = UserRole.student; break;
-            case 'SUPERVISOR': parsedRole = UserRole.supervisor; break;
-            default: parsedRole = UserRole.admin;
+            case 'STUDENT':
+              parsedRole = UserRole.student;
+              break;
+            case 'SUPERVISOR':
+              parsedRole = UserRole.supervisor;
+              break;
+            default:
+              parsedRole = UserRole.admin;
           }
 
           UserStatus parsedStatus;
           switch (u['status']) {
-            case 'SUSPENDED': parsedStatus = UserStatus.suspended; break;
-            case 'ON_LEAVE': parsedStatus = UserStatus.onLeave; break;
-            default: parsedStatus = UserStatus.active;
+            case 'SUSPENDED':
+              parsedStatus = UserStatus.suspended;
+              break;
+            case 'ON_LEAVE':
+              parsedStatus = UserStatus.onLeave;
+              break;
+            default:
+              parsedStatus = UserStatus.active;
           }
 
           return AppUser(
@@ -145,7 +173,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
             role: parsedRole,
             department: u['department'] ?? '-',
             status: parsedStatus,
-            avatarUrl: '', 
+            avatarUrl: u['avatarUrl'] ?? '',
             regNo: u['regNo'],
             supervisorName: u['supervisorName'],
             assignedStudentsCount: u['assignedStudentsCount'],
@@ -177,19 +205,26 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
     // Global Search
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      list = list.where((u) => 
-        u.name.toLowerCase().contains(q) || 
-        u.email.toLowerCase().contains(q) || 
-        (u.regNo?.toLowerCase().contains(q) ?? false)
-      ).toList();
+      list = list
+          .where(
+            (u) =>
+                u.name.toLowerCase().contains(q) ||
+                u.email.toLowerCase().contains(q) ||
+                (u.regNo?.toLowerCase().contains(q) ?? false),
+          )
+          .toList();
     }
 
     // Pill Filters
     if (filter != 'All') {
-      if (filter == 'Active') list = list.where((u) => u.status == UserStatus.active).toList();
-      if (filter == 'Suspended') list = list.where((u) => u.status == UserStatus.suspended).toList();
-      if (filter == 'On Leave') list = list.where((u) => u.status == UserStatus.onLeave).toList();
-      if (filter == 'Unassigned' && role == UserRole.student) list = list.where((u) => u.supervisorName == null).toList();
+      if (filter == 'Active')
+        list = list.where((u) => u.status == UserStatus.active).toList();
+      if (filter == 'Suspended')
+        list = list.where((u) => u.status == UserStatus.suspended).toList();
+      if (filter == 'On Leave')
+        list = list.where((u) => u.status == UserStatus.onLeave).toList();
+      if (filter == 'Unassigned' && role == UserRole.student)
+        list = list.where((u) => u.supervisorName == null).toList();
     }
     return list;
   }
@@ -239,7 +274,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
             children: [
               _buildTopHeader(),
               const SizedBox(height: 32),
-              
+
               if (_isLoading)
                 Expanded(child: _buildMainContentSkeleton())
               else
@@ -278,64 +313,121 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
 
   // â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildTopHeader() {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isNarrow = constraints.maxWidth < 700;
-      
-      final titleBlock = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text('User Management', style: TextStyle(fontFamily: 'Poppins', fontSize: 28, fontWeight: FontWeight.w700, color: _C.textDark)),
-          SizedBox(height: 4),
-          Text('Manage students, supervisors, and administrators', style: TextStyle(fontFamily: 'Poppins', fontSize: 15, color: _C.textMuted)),
-        ],
-      );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 700;
 
-      final searchAndAdd = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: isNarrow ? double.infinity : 320, height: 48,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Icon(PhosphorIcons.magnifyingGlass(), color: _C.textFaint, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                    style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
-                    decoration: const InputDecoration(
-                      hintText: 'Search users...',
-                      hintStyle: TextStyle(fontFamily: 'Poppins', color: _C.textFaint, fontSize: 14),
-                      border: InputBorder.none, isDense: true,
+        final titleBlock = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'User Management',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: _C.textDark,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Manage students, supervisors, and administrators',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 15,
+                color: _C.textMuted,
+              ),
+            ),
+          ],
+        );
+
+        final searchAndAdd = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: isNarrow ? double.infinity : 320,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Icon(
+                    PhosphorIcons.magnifyingGlass(),
+                    color: _C.textFaint,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 14,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Search users...',
+                        hintStyle: TextStyle(
+                          fontFamily: 'Poppins',
+                          color: _C.textFaint,
+                          fontSize: 14,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
                     ),
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _currentView = 'add';
+                });
+              },
+              icon: const Icon(Icons.add, size: 20, color: Colors.white),
+              label: const Text(
+                'Add User',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
-              ],
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _C.green,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          ElevatedButton.icon(
-            onPressed: () {
-              setState(() {
-                _currentView = 'add';
-              });
-            },
-            icon: const Icon(Icons.add, size: 20, color: Colors.white),
-            label: const Text('Add User', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _C.green, elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            ),
-          ),
-        ],
-      );
+          ],
+        );
 
-      if (isNarrow) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [titleBlock, const SizedBox(height: 20), searchAndAdd]);
-      return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: titleBlock), searchAndAdd]);
-    });
+        if (isNarrow)
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [titleBlock, const SizedBox(height: 20), searchAndAdd],
+          );
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: titleBlock),
+            searchAndAdd,
+          ],
+        );
+      },
+    );
   }
 
   // â”€â”€ TAB HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -352,8 +444,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
             unselectedLabelColor: _C.textMuted,
             indicatorColor: _C.green,
             indicatorWeight: 3,
-            labelStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.w600),
-            unselectedLabelStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.w500),
+            labelStyle: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
             dividerColor: Colors.transparent,
             tabs: const [
               Tab(text: 'Students'),
@@ -363,12 +463,25 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
           ),
           OutlinedButton.icon(
             onPressed: () {},
-            icon: Icon(PhosphorIcons.downloadSimple(), size: 18, color: _C.textDark),
-            label: const Text('Export', style: TextStyle(fontFamily: 'Poppins', color: _C.textDark, fontWeight: FontWeight.w600)),
+            icon: Icon(
+              PhosphorIcons.downloadSimple(),
+              size: 18,
+              color: _C.textDark,
+            ),
+            label: const Text(
+              'Export',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                color: _C.textDark,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: _C.border),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
           ),
         ],
@@ -379,7 +492,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
   // â”€â”€ TAB: STUDENTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildStudentsTab() {
     final students = _getFilteredUsers(UserRole.student, _studentFilter);
-    final allSelected = students.isNotEmpty && _selectedStudentIds.length == students.length;
+    final allSelected =
+        students.isNotEmpty && _selectedStudentIds.length == students.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -392,157 +506,296 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
             children: [
               Row(
                 children: [
-                  _buildFilterPill('All', _studentFilter == 'All', () => setState(() => _studentFilter = 'All')),
+                  _buildFilterPill(
+                    'All',
+                    _studentFilter == 'All',
+                    () => setState(() => _studentFilter = 'All'),
+                  ),
                   const SizedBox(width: 8),
-                  _buildFilterPill('Active', _studentFilter == 'Active', () => setState(() => _studentFilter = 'Active')),
+                  _buildFilterPill(
+                    'Active',
+                    _studentFilter == 'Active',
+                    () => setState(() => _studentFilter = 'Active'),
+                  ),
                   const SizedBox(width: 8),
-                  _buildFilterPill('Unassigned', _studentFilter == 'Unassigned', () => setState(() => _studentFilter = 'Unassigned')),
+                  _buildFilterPill(
+                    'Unassigned',
+                    _studentFilter == 'Unassigned',
+                    () => setState(() => _studentFilter = 'Unassigned'),
+                  ),
                   const SizedBox(width: 8),
-                  _buildFilterPill('Suspended', _studentFilter == 'Suspended', () => setState(() => _studentFilter = 'Suspended')),
+                  _buildFilterPill(
+                    'Suspended',
+                    _studentFilter == 'Suspended',
+                    () => setState(() => _studentFilter = 'Suspended'),
+                  ),
                 ],
               ),
               if (_selectedStudentIds.isNotEmpty)
                 ElevatedButton.icon(
                   onPressed: () => _showAssignSupervisorModal(),
-                  icon: const Icon(Icons.group_add_outlined, size: 18, color: Colors.white),
-                  label: Text('Assign Supervisor (${_selectedStudentIds.length})', style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: Colors.white)),
+                  icon: const Icon(
+                    Icons.group_add_outlined,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    'Assign Supervisor (${_selectedStudentIds.length})',
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1D4ED8), elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    backgroundColor: const Color(0xFF1D4ED8),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
                 ),
             ],
           ),
         ),
         const Divider(height: 1, color: _C.border),
-        
+
         // Table Wrapper
         Expanded(
-          child: LayoutBuilder(builder: (context, constraints) {
-            final tableWidth = max(constraints.maxWidth, 1000.0);
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: tableWidth, maxWidth: tableWidth),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Header Row
-                    Container(
-                      color: _C.bg.withOpacity(0.5),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 40,
-                            child: Checkbox(
-                              value: allSelected,
-                              onChanged: (val) {
-                                setState(() {
-                                  if (val == true) {
-                                    _selectedStudentIds.addAll(students.map((e) => e.id));
-                                  } else {
-                                    _selectedStudentIds.clear();
-                                  }
-                                });
-                              },
-                              activeColor: _C.green,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                            ),
-                          ),
-                          Expanded(flex: 3, child: _tableHeader('Student Name')),
-                          Expanded(flex: 2, child: _tableHeader('Reg Number')),
-                          Expanded(flex: 2, child: _tableHeader('Department')),
-                          Expanded(flex: 2, child: _tableHeader('Supervisor')),
-                          Expanded(flex: 1, child: _tableHeader('Status')),
-                          const SizedBox(width: 48), 
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: _C.border),
-                    
-                    // Body
-                    if (students.isEmpty)
-                      const Expanded(child: Center(child: Text("No students found", style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted))))
-                    else
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: students.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1, color: _C.border),
-                          itemBuilder: (context, index) {
-                            final s = students[index];
-                            final isSelected = _selectedStudentIds.contains(s.id);
-                            return InkWell(
-                              onTap: () => _showRowActionsModal(s),
-                              child: Container(
-                                color: isSelected ? _C.greenLight.withOpacity(0.3) : Colors.transparent,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 40,
-                                      child: Checkbox(
-                                        value: isSelected,
-                                        onChanged: (val) {
-                                          setState(() {
-                                            if (val == true) _selectedStudentIds.add(s.id);
-                                            else _selectedStudentIds.remove(s.id);
-                                          });
-                                        },
-                                        activeColor: _C.green,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 3,
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 36,
-                                            height: 36,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: const Color(0xFF169B45).withValues(alpha: 0.1),
-                                            ),
-                                            child: const Icon(PhosphorIconsFill.userCircle, color: Color(0xFF169B45), size: 24),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Flexible(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(s.name, style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14, color: _C.textDark), overflow: TextOverflow.ellipsis),
-                                                Text(s.email, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, color: _C.textFaint), overflow: TextOverflow.ellipsis),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(flex: 2, child: Text(s.regNo ?? '', style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: _C.textMuted))),
-                                    Expanded(flex: 2, child: Text(s.department, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: _C.textMuted))),
-                                    Expanded(flex: 2, child: Text(s.supervisorName ?? 'Not Assigned', style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w500, color: s.supervisorName == null ? _C.orange : _C.textMuted))),
-                                    Expanded(flex: 1, child: Align(alignment: Alignment.centerLeft, child: _buildStatusBadge(s))),
-                                    SizedBox(
-                                      width: 48,
-                                      child: IconButton(
-                                        icon: Icon(PhosphorIcons.dotsThreeVertical(), color: _C.textMuted),
-                                        onPressed: () => _showRowActionsModal(s),
-                                      ),
-                                    ),
-                                  ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final tableWidth = max(constraints.maxWidth, 1000.0);
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: tableWidth,
+                    maxWidth: tableWidth,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Header Row
+                      Container(
+                        color: _C.bg.withOpacity(0.5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 40,
+                              child: Checkbox(
+                                value: allSelected,
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val == true) {
+                                      _selectedStudentIds.addAll(
+                                        students.map((e) => e.id),
+                                      );
+                                    } else {
+                                      _selectedStudentIds.clear();
+                                    }
+                                  });
+                                },
+                                activeColor: _C.green,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: _tableHeader('Student Name'),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: _tableHeader('Reg Number'),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: _tableHeader('Department'),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: _tableHeader('Supervisor'),
+                            ),
+                            Expanded(flex: 1, child: _tableHeader('Status')),
+                            const SizedBox(width: 48),
+                          ],
                         ),
                       ),
-                  ],
+                      const Divider(height: 1, color: _C.border),
+
+                      // Body
+                      if (students.isEmpty)
+                        const Expanded(
+                          child: Center(
+                            child: Text(
+                              "No students found",
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: _C.textMuted,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: students.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1, color: _C.border),
+                            itemBuilder: (context, index) {
+                              final s = students[index];
+                              final isSelected = _selectedStudentIds.contains(
+                                s.id,
+                              );
+                              return InkWell(
+                                onTap: () => _showRowActionsModal(s),
+                                child: Container(
+                                  color: isSelected
+                                      ? _C.greenLight.withOpacity(0.3)
+                                      : Colors.transparent,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 40,
+                                        child: Checkbox(
+                                          value: isSelected,
+                                          onChanged: (val) {
+                                            setState(() {
+                                              if (val == true)
+                                                _selectedStudentIds.add(s.id);
+                                              else
+                                                _selectedStudentIds.remove(
+                                                  s.id,
+                                                );
+                                            });
+                                          },
+                                          activeColor: _C.green,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Row(
+                                          children: [
+                                            _buildAvatarCircle(s.avatarUrl, 36),
+                                            const SizedBox(width: 12),
+                                            Flexible(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    s.name,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Poppins',
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 14,
+                                                      color: _C.textDark,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    s.email,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Poppins',
+                                                      fontSize: 12,
+                                                      color: _C.textFaint,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          s.regNo ?? '',
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 13,
+                                            color: _C.textMuted,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          s.department,
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 13,
+                                            color: _C.textMuted,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          s.supervisorName ?? 'Not Assigned',
+                                          style: TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: s.supervisorName == null
+                                                ? _C.orange
+                                                : _C.textMuted,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: _buildStatusBadge(s),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 48,
+                                        child: IconButton(
+                                          icon: Icon(
+                                            PhosphorIcons.dotsThreeVertical(),
+                                            color: _C.textMuted,
+                                          ),
+                                          onPressed: () =>
+                                              _showRowActionsModal(s),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -550,7 +803,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
 
   // â”€â”€ TAB: SUPERVISORS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildSupervisorsTab() {
-    final supervisors = _getFilteredUsers(UserRole.supervisor, _supervisorFilter);
+    final supervisors = _getFilteredUsers(
+      UserRole.supervisor,
+      _supervisorFilter,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -558,98 +814,188 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
           padding: const EdgeInsets.all(24.0),
           child: Row(
             children: [
-              _buildFilterPill('All', _supervisorFilter == 'All', () => setState(() => _supervisorFilter = 'All')),
+              _buildFilterPill(
+                'All',
+                _supervisorFilter == 'All',
+                () => setState(() => _supervisorFilter = 'All'),
+              ),
               const SizedBox(width: 8),
-              _buildFilterPill('Active', _supervisorFilter == 'Active', () => setState(() => _supervisorFilter = 'Active')),
+              _buildFilterPill(
+                'Active',
+                _supervisorFilter == 'Active',
+                () => setState(() => _supervisorFilter = 'Active'),
+              ),
               const SizedBox(width: 8),
-              _buildFilterPill('On Leave', _supervisorFilter == 'On Leave', () => setState(() => _supervisorFilter = 'On Leave')),
+              _buildFilterPill(
+                'On Leave',
+                _supervisorFilter == 'On Leave',
+                () => setState(() => _supervisorFilter = 'On Leave'),
+              ),
             ],
           ),
         ),
         const Divider(height: 1, color: _C.border),
         Expanded(
-          child: LayoutBuilder(builder: (context, constraints) {
-            final tableWidth = max(constraints.maxWidth, 900.0);
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: tableWidth, maxWidth: tableWidth),
-                child: Column(
-                  children: [
-                    Container(
-                      color: _C.bg.withOpacity(0.5),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      child: Row(
-                        children: [
-                          Expanded(flex: 3, child: _tableHeader('Supervisor Name')),
-                          Expanded(flex: 2, child: _tableHeader('Department')),
-                          Expanded(flex: 2, child: _tableHeader('Assigned Students')),
-                          Expanded(flex: 1, child: _tableHeader('Status')),
-                          const SizedBox(width: 48),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: _C.border),
-                    if (supervisors.isEmpty)
-                      const Expanded(child: Center(child: Text("No supervisors found", style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted))))
-                    else
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: supervisors.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1, color: _C.border),
-                          itemBuilder: (context, index) {
-                            final s = supervisors[index];
-                            return InkWell(
-                              onTap: () => _showRowActionsModal(s),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 36,
-                                            height: 36,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: const Color(0xFF169B45).withValues(alpha: 0.1),
-                                            ),
-                                            child: const Icon(PhosphorIconsFill.userCircle, color: Color(0xFF169B45), size: 24),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Flexible(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(s.name, style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14, color: _C.textDark), overflow: TextOverflow.ellipsis),
-                                                Text(s.email, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, color: _C.textFaint), overflow: TextOverflow.ellipsis),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(flex: 2, child: Text(s.department, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: _C.textMuted))),
-                                    Expanded(flex: 2, child: Text('${s.assignedStudentsCount ?? 0}', style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w600, color: _C.textDark))),
-                                    Expanded(flex: 1, child: Align(alignment: Alignment.centerLeft, child: _buildStatusBadge(s))),
-                                    SizedBox(
-                                      width: 48,
-                                      child: IconButton(icon: Icon(PhosphorIcons.dotsThreeVertical(), color: _C.textMuted), onPressed: () => _showRowActionsModal(s)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final tableWidth = max(constraints.maxWidth, 900.0);
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: tableWidth,
+                    maxWidth: tableWidth,
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        color: _C.bg.withOpacity(0.5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: _tableHeader('Supervisor Name'),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: _tableHeader('Department'),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: _tableHeader('Assigned Students'),
+                            ),
+                            Expanded(flex: 1, child: _tableHeader('Status')),
+                            const SizedBox(width: 48),
+                          ],
                         ),
                       ),
-                  ],
+                      const Divider(height: 1, color: _C.border),
+                      if (supervisors.isEmpty)
+                        const Expanded(
+                          child: Center(
+                            child: Text(
+                              "No supervisors found",
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: _C.textMuted,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: supervisors.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1, color: _C.border),
+                            itemBuilder: (context, index) {
+                              final s = supervisors[index];
+                              return InkWell(
+                                onTap: () => _showRowActionsModal(s),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 3,
+                                        child: Row(
+                                          children: [
+                                            _buildAvatarCircle(s.avatarUrl, 36),
+                                            const SizedBox(width: 12),
+                                            Flexible(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    s.name,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Poppins',
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 14,
+                                                      color: _C.textDark,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    s.email,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Poppins',
+                                                      fontSize: 12,
+                                                      color: _C.textFaint,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          s.department,
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 13,
+                                            color: _C.textMuted,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          '${s.assignedStudentsCount ?? 0}',
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: _C.textDark,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: _buildStatusBadge(s),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 48,
+                                        child: IconButton(
+                                          icon: Icon(
+                                            PhosphorIcons.dotsThreeVertical(),
+                                            color: _C.textMuted,
+                                          ),
+                                          onPressed: () =>
+                                              _showRowActionsModal(s),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -665,94 +1011,166 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
           padding: const EdgeInsets.all(24.0),
           child: Row(
             children: [
-              _buildFilterPill('All', _adminFilter == 'All', () => setState(() => _adminFilter = 'All')),
+              _buildFilterPill(
+                'All',
+                _adminFilter == 'All',
+                () => setState(() => _adminFilter = 'All'),
+              ),
               const SizedBox(width: 8),
-              _buildFilterPill('Active', _adminFilter == 'Active', () => setState(() => _adminFilter = 'Active')),
+              _buildFilterPill(
+                'Active',
+                _adminFilter == 'Active',
+                () => setState(() => _adminFilter = 'Active'),
+              ),
             ],
           ),
         ),
         const Divider(height: 1, color: _C.border),
         Expanded(
-          child: LayoutBuilder(builder: (context, constraints) {
-            final tableWidth = max(constraints.maxWidth, 800.0);
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: tableWidth, maxWidth: tableWidth),
-                child: Column(
-                  children: [
-                    Container(
-                      color: _C.bg.withOpacity(0.5),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      child: Row(
-                        children: [
-                          Expanded(flex: 3, child: _tableHeader('Administrator')),
-                          Expanded(flex: 2, child: _tableHeader('Department')),
-                          Expanded(flex: 1, child: _tableHeader('Status')),
-                          const SizedBox(width: 48),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: _C.border),
-                    if (admins.isEmpty)
-                      const Expanded(child: Center(child: Text("No admins found", style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted))))
-                    else
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: admins.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1, color: _C.border),
-                          itemBuilder: (context, index) {
-                            final s = admins[index];
-                            return InkWell(
-                              onTap: () => _showRowActionsModal(s),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 36,
-                                            height: 36,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: const Color(0xFF169B45).withValues(alpha: 0.1),
-                                            ),
-                                            child: const Icon(PhosphorIconsFill.userCircle, color: Color(0xFF169B45), size: 24),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Flexible(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(s.name, style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14, color: _C.textDark), overflow: TextOverflow.ellipsis),
-                                                Text(s.email, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, color: _C.textFaint), overflow: TextOverflow.ellipsis),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(flex: 2, child: Text(s.department, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: _C.textMuted))),
-                                    Expanded(flex: 1, child: Align(alignment: Alignment.centerLeft, child: _buildStatusBadge(s))),
-                                    SizedBox(
-                                      width: 48,
-                                      child: IconButton(icon: Icon(PhosphorIcons.dotsThreeVertical(), color: _C.textMuted), onPressed: () => _showRowActionsModal(s)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final tableWidth = max(constraints.maxWidth, 800.0);
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: tableWidth,
+                    maxWidth: tableWidth,
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        color: _C.bg.withOpacity(0.5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: _tableHeader('Administrator'),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: _tableHeader('Department'),
+                            ),
+                            Expanded(flex: 1, child: _tableHeader('Status')),
+                            const SizedBox(width: 48),
+                          ],
                         ),
                       ),
-                  ],
+                      const Divider(height: 1, color: _C.border),
+                      if (admins.isEmpty)
+                        const Expanded(
+                          child: Center(
+                            child: Text(
+                              "No admins found",
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: _C.textMuted,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: admins.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1, color: _C.border),
+                            itemBuilder: (context, index) {
+                              final s = admins[index];
+                              return InkWell(
+                                onTap: () => _showRowActionsModal(s),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 3,
+                                        child: Row(
+                                          children: [
+                                            _buildAvatarCircle(s.avatarUrl, 36),
+                                            const SizedBox(width: 12),
+                                            Flexible(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    s.name,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Poppins',
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 14,
+                                                      color: _C.textDark,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    s.email,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Poppins',
+                                                      fontSize: 12,
+                                                      color: _C.textFaint,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          s.department,
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 13,
+                                            color: _C.textMuted,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: _buildStatusBadge(s),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 48,
+                                        child: IconButton(
+                                          icon: Icon(
+                                            PhosphorIcons.dotsThreeVertical(),
+                                            color: _C.textMuted,
+                                          ),
+                                          onPressed: () =>
+                                              _showRowActionsModal(s),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -786,17 +1204,44 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
   Widget _tableHeader(String title) {
     return Text(
       title.toUpperCase(),
-      style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w600, color: _C.textFaint, letterSpacing: 0.5),
+      style: const TextStyle(
+        fontFamily: 'Poppins',
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: _C.textFaint,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  Widget _buildAvatarCircle(String avatarUrl, double size) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: AppAvatar(
+        imagePath: avatarUrl,
+        size: size,
+        shape: AvatarShape.circle,
+        initials: null,
+      ),
     );
   }
 
   Widget _buildStatusBadge(AppUser user) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(color: user.statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: user.statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Text(
         user.statusText,
-        style: TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w600, color: user.statusColor),
+        style: TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: user.statusColor,
+        ),
       ),
     );
   }
@@ -804,12 +1249,22 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
   // â”€â”€ SKELETON LOADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildMainContentSkeleton() {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(_C.cardRadius), border: Border.all(color: _C.border)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_C.cardRadius),
+        border: Border.all(color: _C.border),
+      ),
       child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(24),
-            child: Row(children: const [_SkeletonBox(width: 100, height: 32, borderRadius: 20), SizedBox(width: 8), _SkeletonBox(width: 100, height: 32, borderRadius: 20)]),
+            child: Row(
+              children: const [
+                _SkeletonBox(width: 100, height: 32, borderRadius: 20),
+                SizedBox(width: 8),
+                _SkeletonBox(width: 100, height: 32, borderRadius: 20),
+              ],
+            ),
           ),
           const Divider(height: 1, color: _C.border),
           Expanded(
@@ -821,16 +1276,34 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
                   children: const [
                     _SkeletonBox(width: 36, height: 36, borderRadius: 18),
                     SizedBox(width: 16),
-                    Expanded(child: _SkeletonBox(width: double.infinity, height: 20, borderRadius: 4)),
+                    Expanded(
+                      child: _SkeletonBox(
+                        width: double.infinity,
+                        height: 20,
+                        borderRadius: 4,
+                      ),
+                    ),
                     SizedBox(width: 24),
-                    Expanded(child: _SkeletonBox(width: double.infinity, height: 20, borderRadius: 4)),
+                    Expanded(
+                      child: _SkeletonBox(
+                        width: double.infinity,
+                        height: 20,
+                        borderRadius: 4,
+                      ),
+                    ),
                     SizedBox(width: 24),
-                    Expanded(child: _SkeletonBox(width: double.infinity, height: 20, borderRadius: 4)),
+                    Expanded(
+                      child: _SkeletonBox(
+                        width: double.infinity,
+                        height: 20,
+                        borderRadius: 4,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -842,17 +1315,23 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
   bool _isAssigning = false;
 
   void _showAssignSupervisorModal({String? singleStudentId}) {
-    final supervisors = _users.where((u) => u.role == UserRole.supervisor).toList();
+    final supervisors = _users
+        .where((u) => u.role == UserRole.supervisor)
+        .toList();
     _assignSupervisorSelectedId = null;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          final count = singleStudentId != null ? 1 : _selectedStudentIds.length;
+          final count = singleStudentId != null
+              ? 1
+              : _selectedStudentIds.length;
 
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(32),
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: Padding(
@@ -866,16 +1345,38 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
                       children: [
                         Container(
                           padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(color: _C.greenLight, borderRadius: BorderRadius.circular(12)),
-                          child: Icon(PhosphorIcons.userSwitch(), color: _C.green, size: 22),
+                          decoration: BoxDecoration(
+                            color: _C.greenLight,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            PhosphorIcons.userSwitch(),
+                            color: _C.green,
+                            size: 22,
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Assign Supervisor', style: TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w700, color: _C.textDark)),
-                              Text('Assigning $count student(s) to a supervisor.', style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: _C.textMuted)),
+                              const Text(
+                                'Assign Supervisor',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: _C.textDark,
+                                ),
+                              ),
+                              Text(
+                                'Assigning $count student(s) to a supervisor.',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13,
+                                  color: _C.textMuted,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -886,43 +1387,111 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
                     const SizedBox(height: 20),
 
                     // Supervisor Dropdown
-                    const Text('Select Supervisor', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: _C.textDark)),
+                    const Text(
+                      'Select Supervisor',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: _C.textDark,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Container(
-                      decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+                      decoration: BoxDecoration(
+                        color: _C.bg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _C.border),
+                      ),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: _assignSupervisorSelectedId,
-                          hint: const Text('Choose a supervisor...', style: TextStyle(fontFamily: 'Poppins', color: _C.textFaint, fontSize: 14)),
+                          hint: const Text(
+                            'Choose a supervisor...',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              color: _C.textFaint,
+                              fontSize: 14,
+                            ),
+                          ),
                           isExpanded: true,
-                          icon: Icon(PhosphorIcons.caretDown(), color: _C.textMuted, size: 16),
+                          icon: Icon(
+                            PhosphorIcons.caretDown(),
+                            color: _C.textMuted,
+                            size: 16,
+                          ),
                           items: supervisors.isEmpty
-                            ? [const DropdownMenuItem(value: null, child: Text('No supervisors available', style: TextStyle(color: _C.textMuted)))]
-                            : supervisors.map((sup) => DropdownMenuItem(
-                                value: sup.id,
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 28, height: 28,
-                                      decoration: BoxDecoration(shape: BoxShape.circle, color: _C.greenLight),
-                                      child: Center(child: Text(sup.name[0], style: const TextStyle(fontFamily: 'Poppins', color: _C.green, fontWeight: FontWeight.bold, fontSize: 12))),
+                              ? [
+                                  const DropdownMenuItem(
+                                    value: null,
+                                    child: Text(
+                                      'No supervisors available',
+                                      style: TextStyle(color: _C.textMuted),
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(sup.name, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w600, color: _C.textDark)),
-                                          Text(sup.department, style: const TextStyle(fontFamily: 'Poppins', fontSize: 11, color: _C.textMuted)),
-                                        ],
+                                  ),
+                                ]
+                              : supervisors
+                                    .map(
+                                      (sup) => DropdownMenuItem(
+                                        value: sup.id,
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 28,
+                                              height: 28,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: _C.greenLight,
+                                              ),
+                                              child: Center(
+                                                child: Text(
+                                                  sup.name[0],
+                                                  style: const TextStyle(
+                                                    fontFamily: 'Poppins',
+                                                    color: _C.green,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    sup.name,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Poppins',
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: _C.textDark,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    sup.department,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Poppins',
+                                                      fontSize: 11,
+                                                      color: _C.textMuted,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              )).toList(),
-                          onChanged: (v) => setModalState(() => _assignSupervisorSelectedId = v),
+                                    )
+                                    .toList(),
+                          onChanged: (v) => setModalState(
+                            () => _assignSupervisorSelectedId = v,
+                          ),
                         ),
                       ),
                     ),
@@ -932,51 +1501,100 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         OutlinedButton(
-                          onPressed: _isAssigning ? null : () => Navigator.pop(ctx),
+                          onPressed: _isAssigning
+                              ? null
+                              : () => Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                             side: const BorderSide(color: _C.border),
                           ),
-                          child: const Text('Cancel', style: TextStyle(fontFamily: 'Poppins', color: _C.textDark)),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              color: _C.textDark,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 12),
                         ElevatedButton(
-                          onPressed: (_isAssigning || _assignSupervisorSelectedId == null)
-                            ? null
-                            : () async {
-                                setModalState(() => _isAssigning = true);
-                                try {
-                                  final apiClient = ApiClient();
-                                  final targets = singleStudentId != null ? [singleStudentId] : _selectedStudentIds.toList();
-                                  bool allOk = true;
-                                  for (final studentUserId in targets) {
-                                    final resp = await apiClient.dio.patch(
-                                      '/admin/users/$studentUserId/supervisor',
-                                      data: {'supervisorId': _assignSupervisorSelectedId},
-                                    );
-                                    if (resp.statusCode != 200) allOk = false;
+                          onPressed:
+                              (_isAssigning ||
+                                  _assignSupervisorSelectedId == null)
+                              ? null
+                              : () async {
+                                  setModalState(() => _isAssigning = true);
+                                  try {
+                                    final apiClient = ApiClient();
+                                    final targets = singleStudentId != null
+                                        ? [singleStudentId]
+                                        : _selectedStudentIds.toList();
+                                    bool allOk = true;
+                                    for (final studentUserId in targets) {
+                                      final resp = await apiClient.dio.patch(
+                                        '/admin/users/$studentUserId/supervisor',
+                                        data: {
+                                          'supervisorId':
+                                              _assignSupervisorSelectedId,
+                                        },
+                                      );
+                                      if (resp.statusCode != 200) allOk = false;
+                                    }
+                                    if (mounted) {
+                                      Navigator.pop(ctx);
+                                      setState(
+                                        () => _selectedStudentIds.clear(),
+                                      );
+                                      _fetchUsers(); // Refresh list
+                                      ToastService.showSuccess(
+                                        allOk
+                                            ? 'Supervisor assigned successfully'
+                                            : 'Some assignments failed',
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted)
+                                      ToastService.showError(
+                                        'Failed to assign supervisor',
+                                      );
+                                  } finally {
+                                    if (mounted)
+                                      setModalState(() => _isAssigning = false);
                                   }
-                                  if (mounted) {
-                                    Navigator.pop(ctx);
-                                    setState(() => _selectedStudentIds.clear());
-                                    _fetchUsers(); // Refresh list
-                                    ToastService.showSuccess(allOk ? 'Supervisor assigned successfully' : 'Some assignments failed');
-                                  }
-                                } catch (e) {
-                                  if (mounted) ToastService.showError('Failed to assign supervisor');
-                                } finally {
-                                  if (mounted) setModalState(() => _isAssigning = false);
-                                }
-                              },
+                                },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _C.green,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
                           child: _isAssigning
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Text('Assign', style: TextStyle(fontFamily: 'Poppins', color: Colors.white, fontWeight: FontWeight.w600)),
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Assign',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                         ),
                       ],
                     ),
@@ -1007,15 +1625,23 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
                 Row(
                   children: [
                     Container(
-                      width: 52, height: 52,
+                      width: 52,
+                      height: 52,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: _C.green.withValues(alpha: 0.1),
                       ),
                       child: Center(
                         child: Text(
-                          user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                          style: const TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.bold, color: _C.green),
+                          user.name.isNotEmpty
+                              ? user.name[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: _C.green,
+                          ),
                         ),
                       ),
                     ),
@@ -1024,8 +1650,25 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user.name, style: const TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: _C.textDark), overflow: TextOverflow.ellipsis),
-                          Text(user.email, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, color: _C.textMuted), overflow: TextOverflow.ellipsis),
+                          Text(
+                            user.name,
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: _C.textDark,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            user.email,
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 12,
+                              color: _C.textMuted,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
                       ),
                     ),
@@ -1044,19 +1687,25 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
                     _currentView = 'profile';
                   });
                 }),
-                _buildActionTile(PhosphorIcons.pencilSimple(), 'Edit Details', () {
-                  Navigator.pop(ctx);
-                  setState(() {
-                    _targetUserId = user.id;
-                    _currentView = 'edit';
-                  });
-                }),
+                _buildActionTile(
+                  PhosphorIcons.pencilSimple(),
+                  'Edit Details',
+                  () {
+                    Navigator.pop(ctx);
+                    setState(() {
+                      _targetUserId = user.id;
+                      _currentView = 'edit';
+                    });
+                  },
+                ),
 
                 // Show Assign Supervisor for students only
                 if (user.role == UserRole.student)
                   _buildActionTile(
                     PhosphorIcons.userSwitch(),
-                    user.supervisorName == null ? 'Assign Supervisor' : 'Reassign Supervisor',
+                    user.supervisorName == null
+                        ? 'Assign Supervisor'
+                        : 'Reassign Supervisor',
                     () {
                       Navigator.pop(ctx);
                       _showAssignSupervisorModal(singleStudentId: user.id);
@@ -1064,38 +1713,70 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
                   ),
 
                 if (user.status == UserStatus.active)
-                  _buildActionTile(PhosphorIcons.pauseCircle(), 'Suspend User', () async {
-                    Navigator.pop(ctx);
-                    try {
-                      await ApiClient().dio.patch('/admin/users/${user.id}/status', data: {'status': 'SUSPENDED'});
-                      _fetchUsers();
-                      if (mounted) ToastService.showSuccess('${user.name} has been suspended');
-                    } catch (_) {
-                      if (mounted) ToastService.showError('Failed to suspend user');
-                    }
-                  }, isDanger: true)
+                  _buildActionTile(
+                    PhosphorIcons.pauseCircle(),
+                    'Suspend User',
+                    () async {
+                      Navigator.pop(ctx);
+                      try {
+                        await ApiClient().dio.patch(
+                          '/admin/users/${user.id}/status',
+                          data: {'status': 'SUSPENDED'},
+                        );
+                        _fetchUsers();
+                        if (mounted)
+                          ToastService.showSuccess(
+                            '${user.name} has been suspended',
+                          );
+                      } catch (_) {
+                        if (mounted)
+                          ToastService.showError('Failed to suspend user');
+                      }
+                    },
+                    isDanger: true,
+                  )
                 else
-                  _buildActionTile(PhosphorIcons.playCircle(), 'Activate User', () async {
+                  _buildActionTile(
+                    PhosphorIcons.playCircle(),
+                    'Activate User',
+                    () async {
+                      Navigator.pop(ctx);
+                      try {
+                        await ApiClient().dio.patch(
+                          '/admin/users/${user.id}/status',
+                          data: {'status': 'ACTIVE'},
+                        );
+                        _fetchUsers();
+                        if (mounted)
+                          ToastService.showSuccess(
+                            '${user.name} has been reactivated',
+                          );
+                      } catch (_) {
+                        if (mounted)
+                          ToastService.showError('Failed to activate user');
+                      }
+                    },
+                  ),
+
+                _buildActionTile(
+                  PhosphorIcons.trash(),
+                  'Archive User',
+                  () async {
                     Navigator.pop(ctx);
                     try {
-                      await ApiClient().dio.patch('/admin/users/${user.id}/status', data: {'status': 'ACTIVE'});
+                      await ApiClient().dio.delete('/admin/users/${user.id}');
                       _fetchUsers();
-                      if (mounted) ToastService.showSuccess('${user.name} has been reactivated');
+                      if (mounted)
+                        ToastService.showSuccess(
+                          '${user.name} has been archived',
+                        );
                     } catch (_) {
-                      if (mounted) ToastService.showError('Failed to activate user');
+                      if (mounted)
+                        ToastService.showError('Failed to archive user');
                     }
-                  }),
-
-                _buildActionTile(PhosphorIcons.trash(), 'Archive User', () async {
-                  Navigator.pop(ctx);
-                  try {
-                    await ApiClient().dio.delete('/admin/users/${user.id}');
-                    _fetchUsers();
-                    if (mounted) ToastService.showSuccess('${user.name} has been archived');
-                  } catch (_) {
-                    if (mounted) ToastService.showError('Failed to archive user');
-                  }
-                }, isDanger: true),
+                  },
+                  isDanger: true,
+                ),
               ],
             ),
           ),
@@ -1104,10 +1785,22 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildActionTile(IconData icon, String title, VoidCallback onTap, {bool isDanger = false}) {
+  Widget _buildActionTile(
+    IconData icon,
+    String title,
+    VoidCallback onTap, {
+    bool isDanger = false,
+  }) {
     return ListTile(
       leading: Icon(icon, color: isDanger ? _C.red : _C.textDark),
-      title: Text(title, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: isDanger ? _C.red : _C.textDark)),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w600,
+          color: isDanger ? _C.red : _C.textDark,
+        ),
+      ),
       onTap: onTap,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     );
@@ -1122,25 +1815,27 @@ class _EmbeddedAddUserWidget extends ConsumerStatefulWidget {
   const _EmbeddedAddUserWidget({required this.onBack});
 
   @override
-  ConsumerState<_EmbeddedAddUserWidget> createState() => _EmbeddedAddUserWidgetState();
+  ConsumerState<_EmbeddedAddUserWidget> createState() =>
+      _EmbeddedAddUserWidgetState();
 }
 
-class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> {
+class _EmbeddedAddUserWidgetState
+    extends ConsumerState<_EmbeddedAddUserWidget> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _regStaffController = TextEditingController();
-  
+
   // Extra fields
   final _phoneController = TextEditingController();
   final _departmentController = TextEditingController();
   final _facultyController = TextEditingController();
   final _programmeController = TextEditingController();
   final _topicController = TextEditingController();
-  
+
   final _officeController = TextEditingController();
   final _specializationController = TextEditingController();
   final _capacityController = TextEditingController();
-  
+
   List<Map<String, dynamic>> _availableSupervisors = [];
   String? _selectedSupervisorId;
   String _selectedRole = 'Student';
@@ -1157,13 +1852,14 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
       final response = await ApiClient().dio.get('/admin/users');
       if (response.statusCode == 200) {
         final users = response.data['users'] as List<dynamic>;
-        final supervisors = users.where((u) => u['role'] == 'SUPERVISOR').toList();
+        final supervisors = users
+            .where((u) => u['role'] == 'SUPERVISOR')
+            .toList();
         if (mounted) {
           setState(() {
-            _availableSupervisors = supervisors.map((s) => {
-              'id': s['id'],
-              'name': s['name'],
-            }).toList();
+            _availableSupervisors = supervisors
+                .map((s) => {'id': s['id'], 'name': s['name']})
+                .toList();
           });
         }
       }
@@ -1194,7 +1890,9 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
     final regStaff = _regStaffController.text.trim();
 
     if (name.isEmpty || email.isEmpty || regStaff.isEmpty) {
-      ToastService.showError('Please fill required fields (Name, Email, Number)');
+      ToastService.showError(
+        'Please fill required fields (Name, Email, Number)',
+      );
       return;
     }
 
@@ -1210,32 +1908,36 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
       final firstName = parts.first;
       final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : 'User';
 
-      final endpoint = _selectedRole == 'Student' 
-          ? '/admin/users/students' 
+      final endpoint = _selectedRole == 'Student'
+          ? '/admin/users/students'
           : '/admin/users/supervisors';
 
-      final body = _selectedRole == 'Student' ? {
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'registrationNo': regStaff,
-        'phone': _phoneController.text.trim(),
-        'programme': _programmeController.text.trim(),
-        'department': _departmentController.text.trim(),
-        'faculty': _facultyController.text.trim(),
-        'researchTopic': _topicController.text.trim(),
-        if (_selectedSupervisorId != null) 'supervisorId': _selectedSupervisorId,
-      } : {
-        'fullName': name,
-        'email': email,
-        'staffNumber': regStaff,
-        'phone': _phoneController.text.trim(),
-        'department': _departmentController.text.trim(),
-        'faculty': _facultyController.text.trim(),
-        'office': _officeController.text.trim(),
-        'specialization': _specializationController.text.trim(),
-        'studentCapacity': int.tryParse(_capacityController.text.trim()) ?? 20,
-      };
+      final body = _selectedRole == 'Student'
+          ? {
+              'firstName': firstName,
+              'lastName': lastName,
+              'email': email,
+              'registrationNo': regStaff,
+              'phone': _phoneController.text.trim(),
+              'programme': _programmeController.text.trim(),
+              'department': _departmentController.text.trim(),
+              'faculty': _facultyController.text.trim(),
+              'researchTopic': _topicController.text.trim(),
+              if (_selectedSupervisorId != null)
+                'supervisorId': _selectedSupervisorId,
+            }
+          : {
+              'fullName': name,
+              'email': email,
+              'staffNumber': regStaff,
+              'phone': _phoneController.text.trim(),
+              'department': _departmentController.text.trim(),
+              'faculty': _facultyController.text.trim(),
+              'office': _officeController.text.trim(),
+              'specialization': _specializationController.text.trim(),
+              'studentCapacity':
+                  int.tryParse(_capacityController.text.trim()) ?? 20,
+            };
 
       final apiClient = ApiClient();
       final response = await apiClient.dio.post(endpoint, data: body);
@@ -1243,14 +1945,22 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
       if (response.statusCode == 201) {
         ToastService.showSuccess('$_selectedRole created successfully');
         final tempPassword = response.data['tempPassword'] as String;
-        
+
         if (mounted) {
           await showDialog(
             context: context,
             barrierDismissible: false,
             builder: (context) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: const Text('User Created', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              title: const Text(
+                'User Created',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               content: SelectableText(
                 'The user was created successfully.\n\nTemporary Password:\n$tempPassword\n\nPlease copy this password and share it with the user securely. They will be forced to change it on their first login.',
                 style: const TextStyle(fontFamily: 'Poppins'),
@@ -1258,37 +1968,61 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('I copied it, Done', style: TextStyle(color: _C.green, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'I copied it, Done',
+                    style: TextStyle(
+                      color: _C.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
           );
-          
+
           widget.onBack();
         }
       } else {
-        ToastService.showError(response.data?['error'] ?? 'Failed to create user');
+        ToastService.showError(
+          response.data?['error'] ?? 'Failed to create user',
+        );
       }
     } on DioException catch (e) {
-      final errorMsg = e.response?.data?['error'] ?? 'Failed to create user (Status ${e.response?.statusCode})';
+      final errorMsg =
+          e.response?.data?['error'] ??
+          'Failed to create user (Status ${e.response?.statusCode})';
       ToastService.showError(errorMsg);
     } catch (e) {
-      ToastService.showError(e.toString());
+      ToastService.showError(ErrorHandler.getFriendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Widget _buildTextField(String label, String hint, TextEditingController controller, {bool isRequired = false}) {
+  Widget _buildTextField(
+    String label,
+    String hint,
+    TextEditingController controller, {
+    bool isRequired = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
           text: TextSpan(
             text: label,
-            style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: _C.textDark),
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: _C.textDark,
+            ),
             children: [
-              if (isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -1297,13 +2031,29 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
           controller: controller,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(fontFamily: 'Poppins', color: _C.textFaint, fontSize: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _C.border)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _C.border)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _C.green)),
+            hintStyle: const TextStyle(
+              fontFamily: 'Poppins',
+              color: _C.textFaint,
+              fontSize: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: _C.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: _C.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: _C.green),
+            ),
             filled: true,
             fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
         ),
       ],
@@ -1314,18 +2064,40 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: _C.textDark)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: _C.textDark,
+          ),
+        ),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _C.border),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedRole,
               isExpanded: true,
-              icon: Icon(PhosphorIcons.caretDown(), color: _C.textMuted, size: 16),
-              style: const TextStyle(fontFamily: 'Poppins', color: _C.textDark, fontSize: 14),
-              items: options.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
+              icon: Icon(
+                PhosphorIcons.caretDown(),
+                color: _C.textMuted,
+                size: 16,
+              ),
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                color: _C.textDark,
+                fontSize: 14,
+              ),
+              items: options
+                  .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+                  .toList(),
               onChanged: (v) {
                 if (v != null) setState(() => _selectedRole = v);
               },
@@ -1340,21 +2112,56 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Assign Supervisor', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: _C.textDark)),
+        const Text(
+          'Assign Supervisor',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: _C.textDark,
+          ),
+        ),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _C.border),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedSupervisorId,
-              hint: const Text('Select a supervisor (Optional)', style: TextStyle(fontFamily: 'Poppins', color: _C.textFaint, fontSize: 14)),
+              hint: const Text(
+                'Select a supervisor (Optional)',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  color: _C.textFaint,
+                  fontSize: 14,
+                ),
+              ),
               isExpanded: true,
-              icon: const Icon(PhosphorIconsRegular.caretDown, color: _C.textMuted, size: 16),
-              style: const TextStyle(fontFamily: 'Poppins', color: _C.textDark, fontSize: 14),
+              icon: const Icon(
+                PhosphorIconsRegular.caretDown,
+                color: _C.textMuted,
+                size: 16,
+              ),
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                color: _C.textDark,
+                fontSize: 14,
+              ),
               items: [
-                const DropdownMenuItem<String>(value: null, child: Text('None')),
-                ..._availableSupervisors.map((s) => DropdownMenuItem<String>(value: s['id'], child: Text(s['name']))),
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('None'),
+                ),
+                ..._availableSupervisors.map(
+                  (s) => DropdownMenuItem<String>(
+                    value: s['id'],
+                    child: Text(s['name']),
+                  ),
+                ),
               ],
               onChanged: (v) {
                 setState(() => _selectedSupervisorId = v);
@@ -1388,21 +2195,33 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
-                          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 18, offset: const Offset(0, 6)),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
                         ],
                       ),
-                      child: const Icon(PhosphorIconsRegular.arrowLeft, color: _C.textDark),
+                      child: const Icon(
+                        PhosphorIconsRegular.arrowLeft,
+                        color: _C.textDark,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 24),
                   const Text(
                     'Add New User',
-                    style: TextStyle(fontFamily: 'Poppins', fontSize: 28, fontWeight: FontWeight.bold, color: _C.textDark),
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: _C.textDark,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 32),
-              
+
               // Main Content
               Expanded(
                 child: Container(
@@ -1410,7 +2229,11 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(40),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 18, offset: const Offset(0, 6)),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
                     ],
                   ),
                   padding: const EdgeInsets.all(40),
@@ -1418,66 +2241,155 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Account Information', style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, color: _C.textDark)),
+                        const Text(
+                          'Account Information',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: _C.textDark,
+                          ),
+                        ),
                         const SizedBox(height: 24),
                         Row(
                           children: [
-                            Expanded(child: _buildTextField('Full Name', 'e.g. John Doe', _nameController, isRequired: true)),
+                            Expanded(
+                              child: _buildTextField(
+                                'Full Name',
+                                'e.g. John Doe',
+                                _nameController,
+                                isRequired: true,
+                              ),
+                            ),
                             const SizedBox(width: 24),
-                            Expanded(child: _buildTextField('Email Address', 'e.g. john@fieldtrack.edu', _emailController, isRequired: true)),
+                            Expanded(
+                              child: _buildTextField(
+                                'Email Address',
+                                'e.g. john@fieldtrack.edu',
+                                _emailController,
+                                isRequired: true,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 24),
                         Row(
                           children: [
-                            Expanded(child: _buildDropdownField('Role', ['Student', 'Supervisor', 'Admin'])),
+                            Expanded(
+                              child: _buildDropdownField('Role', [
+                                'Student',
+                                'Supervisor',
+                                'Admin',
+                              ]),
+                            ),
                             const SizedBox(width: 24),
-                            Expanded(child: _buildTextField(_selectedRole == 'Student' ? 'Reg Number' : 'Employee Number', 'Required', _regStaffController, isRequired: true)),
+                            Expanded(
+                              child: _buildTextField(
+                                _selectedRole == 'Student'
+                                    ? 'Reg Number'
+                                    : 'Employee Number',
+                                'Required',
+                                _regStaffController,
+                                isRequired: true,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 24),
-                        _buildTextField('Phone Number', 'e.g. +254 700 000000', _phoneController),
-                        
+                        _buildTextField(
+                          'Phone Number',
+                          'e.g. +254 700 000000',
+                          _phoneController,
+                        ),
+
                         const SizedBox(height: 48),
                         const Divider(color: _C.border),
                         const SizedBox(height: 32),
-                        
-                        Text('${_selectedRole} Details', style: const TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, color: _C.textDark)),
+
+                        Text(
+                          '${_selectedRole} Details',
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: _C.textDark,
+                          ),
+                        ),
                         const SizedBox(height: 24),
                         Row(
                           children: [
-                            Expanded(child: _buildTextField('Faculty', 'e.g. Science', _facultyController)),
+                            Expanded(
+                              child: _buildTextField(
+                                'Faculty',
+                                'e.g. Science',
+                                _facultyController,
+                              ),
+                            ),
                             const SizedBox(width: 24),
-                            Expanded(child: _buildTextField('Department', 'e.g. Computer Science', _departmentController)),
+                            Expanded(
+                              child: _buildTextField(
+                                'Department',
+                                'e.g. Computer Science',
+                                _departmentController,
+                              ),
+                            ),
                           ],
                         ),
-                        
+
                         if (_selectedRole == 'Student') ...[
                           const SizedBox(height: 24),
                           Row(
                             children: [
-                              Expanded(child: _buildTextField('Programme', 'e.g. BSc Computer Science', _programmeController)),
+                              Expanded(
+                                child: _buildTextField(
+                                  'Programme',
+                                  'e.g. BSc Computer Science',
+                                  _programmeController,
+                                ),
+                              ),
                               const SizedBox(width: 24),
-                              Expanded(child: _buildTextField('Research Topic', 'Optional', _topicController)),
+                              Expanded(
+                                child: _buildTextField(
+                                  'Research Topic',
+                                  'Optional',
+                                  _topicController,
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 24),
                           _buildSupervisorDropdown(),
                         ],
-                        
+
                         if (_selectedRole == 'Supervisor') ...[
                           const SizedBox(height: 24),
                           Row(
                             children: [
-                              Expanded(child: _buildTextField('Office', 'e.g. Room 402', _officeController)),
+                              Expanded(
+                                child: _buildTextField(
+                                  'Office',
+                                  'e.g. Room 402',
+                                  _officeController,
+                                ),
+                              ),
                               const SizedBox(width: 24),
-                              Expanded(child: _buildTextField('Max Student Capacity', 'e.g. 20', _capacityController)),
+                              Expanded(
+                                child: _buildTextField(
+                                  'Max Student Capacity',
+                                  'e.g. 20',
+                                  _capacityController,
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 24),
-                          _buildTextField('Specialization', 'e.g. AI, Machine Learning', _specializationController),
+                          _buildTextField(
+                            'Specialization',
+                            'e.g. AI, Machine Learning',
+                            _specializationController,
+                          ),
                         ],
-                        
+
                         const SizedBox(height: 48),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
@@ -1485,26 +2397,58 @@ class _EmbeddedAddUserWidgetState extends ConsumerState<_EmbeddedAddUserWidget> 
                             OutlinedButton(
                               onPressed: _isLoading ? null : widget.onBack,
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                  vertical: 20,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
                                 side: const BorderSide(color: _C.border),
                               ),
-                              child: const Text('Cancel', style: TextStyle(fontFamily: 'Poppins', fontSize: 16, color: _C.textDark)),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 16,
+                                  color: _C.textDark,
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 16),
                             ElevatedButton(
                               onPressed: _isLoading ? null : _submit,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _C.green,
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                  vertical: 20,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
                               ),
-                              child: _isLoading 
-                                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                  : const Text('Create Account', style: TextStyle(fontFamily: 'Poppins', fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Create Account',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 16,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                           ],
-                        )
+                        ),
                       ],
                     ),
                   ),
@@ -1527,30 +2471,32 @@ class _EmbeddedEditUserWidget extends ConsumerStatefulWidget {
   const _EmbeddedEditUserWidget({required this.userId, required this.onBack});
 
   @override
-  ConsumerState<_EmbeddedEditUserWidget> createState() => _EmbeddedEditUserWidgetState();
+  ConsumerState<_EmbeddedEditUserWidget> createState() =>
+      _EmbeddedEditUserWidgetState();
 }
 
-class _EmbeddedEditUserWidgetState extends ConsumerState<_EmbeddedEditUserWidget> {
+class _EmbeddedEditUserWidgetState
+    extends ConsumerState<_EmbeddedEditUserWidget> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _regStaffController = TextEditingController();
-  
+
   // Extra fields
   final _phoneController = TextEditingController();
   final _departmentController = TextEditingController();
   final _facultyController = TextEditingController();
   final _programmeController = TextEditingController();
   final _topicController = TextEditingController();
-  
+
   final _officeController = TextEditingController();
   final _specializationController = TextEditingController();
   final _capacityController = TextEditingController();
-  
+
   List<Map<String, dynamic>> _availableSupervisors = [];
   String? _selectedSupervisorId;
   String _selectedRole = 'Student';
   String _selectedStatus = 'ACTIVE';
-  
+
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -1563,25 +2509,30 @@ class _EmbeddedEditUserWidgetState extends ConsumerState<_EmbeddedEditUserWidget
   Future<void> _fetchData() async {
     try {
       final apiClient = ApiClient();
-      
+
       final usersResponse = await apiClient.dio.get('/admin/users');
       if (usersResponse.statusCode == 200) {
         final users = usersResponse.data['users'] as List<dynamic>;
-        final supervisors = users.where((u) => u['role'] == 'SUPERVISOR').toList();
-        _availableSupervisors = supervisors.map((s) => {
-          'id': s['id'],
-          'name': s['name'],
-        }).toList();
+        final supervisors = users
+            .where((u) => u['role'] == 'SUPERVISOR')
+            .toList();
+        _availableSupervisors = supervisors
+            .map((s) => {'id': s['id'], 'name': s['name']})
+            .toList();
       }
 
-      final userResponse = await apiClient.dio.get('/admin/users/${widget.userId}');
+      final userResponse = await apiClient.dio.get(
+        '/admin/users/${widget.userId}',
+      );
       if (userResponse.statusCode == 200) {
         final user = userResponse.data['user'];
-        _selectedRole = user['role'] == 'STUDENT' ? 'Student' : (user['role'] == 'SUPERVISOR' ? 'Supervisor' : 'Admin');
+        _selectedRole = user['role'] == 'STUDENT'
+            ? 'Student'
+            : (user['role'] == 'SUPERVISOR' ? 'Supervisor' : 'Admin');
         _selectedStatus = user['status'];
         _nameController.text = user['name'] ?? '';
         _emailController.text = user['email'] ?? '';
-        
+
         if (user['role'] == 'STUDENT' && user['studentProfile'] != null) {
           final p = user['studentProfile'];
           _regStaffController.text = p['registrationNo'] ?? '';
@@ -1591,7 +2542,8 @@ class _EmbeddedEditUserWidgetState extends ConsumerState<_EmbeddedEditUserWidget
           _programmeController.text = p['programme'] ?? '';
           _topicController.text = p['topic'] ?? '';
           _selectedSupervisorId = p['supervisorId'];
-        } else if (user['role'] == 'SUPERVISOR' && user['supervisorProfile'] != null) {
+        } else if (user['role'] == 'SUPERVISOR' &&
+            user['supervisorProfile'] != null) {
           final p = user['supervisorProfile'];
           _regStaffController.text = p['staffNumber'] ?? '';
           _phoneController.text = p['phone'] ?? '';
@@ -1602,7 +2554,7 @@ class _EmbeddedEditUserWidgetState extends ConsumerState<_EmbeddedEditUserWidget
           _capacityController.text = p['studentCapacity']?.toString() ?? '20';
         }
       }
-      
+
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -1654,35 +2606,65 @@ class _EmbeddedEditUserWidgetState extends ConsumerState<_EmbeddedEditUserWidget
       };
 
       final apiClient = ApiClient();
-      final response = await apiClient.dio.put('/admin/users/${widget.userId}', data: body);
+      final response = await apiClient.dio.put(
+        '/admin/users/${widget.userId}',
+        data: body,
+      );
 
       if (response.statusCode == 200) {
         ToastService.showSuccess('User updated successfully');
         widget.onBack();
       } else {
-        ToastService.showError(response.data?['error'] ?? 'Failed to update user');
+        ToastService.showError(
+          response.data?['error'] ?? 'Failed to update user',
+        );
       }
     } on DioException catch (e) {
-      final errorMsg = e.response?.data?['error'] ?? 'Failed to update user (Status ${e.response?.statusCode})';
+      final errorMsg =
+          e.response?.data?['error'] ??
+          'Failed to update user (Status ${e.response?.statusCode})';
       ToastService.showError(errorMsg);
     } catch (e) {
-      ToastService.showError(e.toString());
+      ToastService.showError(ErrorHandler.getFriendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  Widget _buildTextField(String label, String hint, TextEditingController controller, {bool isRequired = false, bool readOnly = false}) {
+  Widget _buildTextField(
+    String label,
+    String hint,
+    TextEditingController controller, {
+    bool isRequired = false,
+    bool readOnly = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
           text: TextSpan(
             text: label,
-            style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: _C.textDark),
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: _C.textDark,
+            ),
             children: [
-              if (isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-              if (readOnly) const TextSpan(text: ' (Restricted)', style: TextStyle(color: _C.textMuted, fontSize: 11, fontWeight: FontWeight.normal)),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
+              if (readOnly)
+                const TextSpan(
+                  text: ' (Restricted)',
+                  style: TextStyle(
+                    color: _C.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
             ],
           ),
         ),
@@ -1690,53 +2672,103 @@ class _EmbeddedEditUserWidgetState extends ConsumerState<_EmbeddedEditUserWidget
         TextField(
           controller: controller,
           readOnly: readOnly,
-          style: TextStyle(fontFamily: 'Poppins', color: readOnly ? _C.textMuted : _C.textDark),
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            color: readOnly ? _C.textMuted : _C.textDark,
+          ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(fontFamily: 'Poppins', color: _C.textFaint, fontSize: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _C.border)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _C.border)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: readOnly ? _C.border : _C.green)),
+            hintStyle: const TextStyle(
+              fontFamily: 'Poppins',
+              color: _C.textFaint,
+              fontSize: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: _C.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: _C.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: readOnly ? _C.border : _C.green),
+            ),
             filled: true,
             fillColor: readOnly ? _C.border.withOpacity(0.3) : Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDropdownField(String label, List<String> options, String currentValue, Function(String) onChanged, {bool readOnly = false}) {
+  Widget _buildDropdownField(
+    String label,
+    List<String> options,
+    String currentValue,
+    Function(String) onChanged, {
+    bool readOnly = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
           text: TextSpan(
             text: label,
-            style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: _C.textDark),
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: _C.textDark,
+            ),
             children: [
-              if (readOnly) const TextSpan(text: ' (Restricted)', style: TextStyle(color: _C.textMuted, fontSize: 11, fontWeight: FontWeight.normal)),
+              if (readOnly)
+                const TextSpan(
+                  text: ' (Restricted)',
+                  style: TextStyle(
+                    color: _C.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
             ],
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: readOnly ? _C.border.withOpacity(0.3) : Colors.white, 
-            borderRadius: BorderRadius.circular(16), 
-            border: Border.all(color: _C.border)
+            color: readOnly ? _C.border.withOpacity(0.3) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _C.border),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: currentValue,
               isExpanded: true,
-              icon: Icon(PhosphorIcons.caretDown(), color: readOnly ? Colors.transparent : _C.textMuted, size: 16),
-              style: TextStyle(fontFamily: 'Poppins', color: readOnly ? _C.textMuted : _C.textDark, fontSize: 14),
-              items: options.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
-              onChanged: readOnly ? null : (v) {
-                if (v != null) onChanged(v);
-              },
+              icon: Icon(
+                PhosphorIcons.caretDown(),
+                color: readOnly ? Colors.transparent : _C.textMuted,
+                size: 16,
+              ),
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                color: readOnly ? _C.textMuted : _C.textDark,
+                fontSize: 14,
+              ),
+              items: options
+                  .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+                  .toList(),
+              onChanged: readOnly
+                  ? null
+                  : (v) {
+                      if (v != null) onChanged(v);
+                    },
             ),
           ),
         ),
@@ -1747,32 +2779,68 @@ class _EmbeddedEditUserWidgetState extends ConsumerState<_EmbeddedEditUserWidget
   Widget _buildSupervisorDropdown() {
     // If the currently selected supervisor ID is not in the available list and is not null,
     // we need to dynamically add a fallback option to prevent DropdownButton from throwing an assertion error.
-    final hasSelected = _selectedSupervisorId == null || 
+    final hasSelected =
+        _selectedSupervisorId == null ||
         _availableSupervisors.any((s) => s['id'] == _selectedSupervisorId);
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Assign Supervisor', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: _C.textDark)),
+        const Text(
+          'Assign Supervisor',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: _C.textDark,
+          ),
+        ),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _C.border)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _C.border),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedSupervisorId,
-              hint: const Text('Select a supervisor (Optional)', style: TextStyle(fontFamily: 'Poppins', color: _C.textFaint, fontSize: 14)),
+              hint: const Text(
+                'Select a supervisor (Optional)',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  color: _C.textFaint,
+                  fontSize: 14,
+                ),
+              ),
               isExpanded: true,
-              icon: Icon(PhosphorIcons.caretDown(), color: _C.textMuted, size: 16),
-              style: const TextStyle(fontFamily: 'Poppins', color: _C.textDark, fontSize: 14),
+              icon: Icon(
+                PhosphorIcons.caretDown(),
+                color: _C.textMuted,
+                size: 16,
+              ),
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                color: _C.textDark,
+                fontSize: 14,
+              ),
               items: [
-                const DropdownMenuItem<String>(value: null, child: Text('None')),
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('None'),
+                ),
                 if (!hasSelected && _selectedSupervisorId != null)
                   DropdownMenuItem<String>(
                     value: _selectedSupervisorId,
                     child: Text('Assigned Supervisor ($_selectedSupervisorId)'),
                   ),
-                ..._availableSupervisors.map((s) => DropdownMenuItem<String>(value: s['id'], child: Text(s['name']))),
+                ..._availableSupervisors.map(
+                  (s) => DropdownMenuItem<String>(
+                    value: s['id'],
+                    child: Text(s['name']),
+                  ),
+                ),
               ],
               onChanged: (v) {
                 setState(() => _selectedSupervisorId = v);
@@ -1789,156 +2857,312 @@ class _EmbeddedEditUserWidgetState extends ConsumerState<_EmbeddedEditUserWidget
     return Container(
       color: _C.bg,
       child: SafeArea(
-        child: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: _C.green))
-        : Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: _C.green))
+            : Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    InkWell(
-                      onTap: widget.onBack,
-                      borderRadius: BorderRadius.circular(24),
+                    // Header
+                    Row(
+                      children: [
+                        InkWell(
+                          onTap: widget.onBack,
+                          borderRadius: BorderRadius.circular(24),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              PhosphorIconsRegular.arrowLeft,
+                              color: _C.textDark,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        const Text(
+                          'Edit User',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: _C.textDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Main Content
+                    Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(40),
                           boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 18, offset: const Offset(0, 6)),
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 18,
+                              offset: const Offset(0, 6),
+                            ),
                           ],
                         ),
-                        child: const Icon(PhosphorIconsRegular.arrowLeft, color: _C.textDark),
+                        padding: const EdgeInsets.all(40),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Account Information',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: _C.textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Full Name',
+                                      'e.g. John Doe',
+                                      _nameController,
+                                      isRequired: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Email Address',
+                                      'e.g. john@fieldtrack.edu',
+                                      _emailController,
+                                      readOnly: true,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildDropdownField(
+                                      'Role',
+                                      ['Student', 'Supervisor', 'Admin'],
+                                      _selectedRole,
+                                      (v) {},
+                                      readOnly: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      _selectedRole == 'Student'
+                                          ? 'Reg Number'
+                                          : 'Employee Number',
+                                      'Required',
+                                      _regStaffController,
+                                      readOnly: true,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Phone Number',
+                                      'e.g. +254 700 000000',
+                                      _phoneController,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  Expanded(
+                                    child: _buildDropdownField(
+                                      'Status',
+                                      [
+                                        'ACTIVE',
+                                        'PENDING',
+                                        'DISABLED',
+                                        'SUSPENDED',
+                                        'LOCKED',
+                                        'ARCHIVED',
+                                      ],
+                                      _selectedStatus,
+                                      (v) =>
+                                          setState(() => _selectedStatus = v),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 48),
+                              const Divider(color: _C.border),
+                              const SizedBox(height: 32),
+
+                              Text(
+                                '${_selectedRole} Details',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: _C.textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Faculty',
+                                      'e.g. Science',
+                                      _facultyController,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Department',
+                                      'e.g. Computer Science',
+                                      _departmentController,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              if (_selectedRole == 'Student') ...[
+                                const SizedBox(height: 24),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildTextField(
+                                        'Programme',
+                                        'e.g. BSc Computer Science',
+                                        _programmeController,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 24),
+                                    Expanded(
+                                      child: _buildTextField(
+                                        'Research Topic',
+                                        'Optional',
+                                        _topicController,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 24),
+                                _buildSupervisorDropdown(),
+                              ],
+
+                              if (_selectedRole == 'Supervisor') ...[
+                                const SizedBox(height: 24),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildTextField(
+                                        'Office',
+                                        'e.g. Room 402',
+                                        _officeController,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 24),
+                                    Expanded(
+                                      child: _buildTextField(
+                                        'Max Student Capacity',
+                                        'e.g. 20',
+                                        _capacityController,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 24),
+                                _buildTextField(
+                                  'Specialization',
+                                  'e.g. AI, Machine Learning',
+                                  _specializationController,
+                                ),
+                              ],
+
+                              const SizedBox(height: 48),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  OutlinedButton(
+                                    onPressed: _isSaving ? null : widget.onBack,
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 32,
+                                        vertical: 20,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      side: const BorderSide(color: _C.border),
+                                    ),
+                                    child: const Text(
+                                      'Cancel',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 16,
+                                        color: _C.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  ElevatedButton(
+                                    onPressed: _isSaving ? null : _submit,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _C.green,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 32,
+                                        vertical: 20,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: _isSaving
+                                        ? const SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text(
+                                            'Save Changes',
+                                            style: TextStyle(
+                                              fontFamily: 'Poppins',
+                                              fontSize: 16,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 24),
-                    const Text(
-                      'Edit User',
-                      style: TextStyle(fontFamily: 'Poppins', fontSize: 28, fontWeight: FontWeight.bold, color: _C.textDark),
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
-                
-                // Main Content
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(40),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 18, offset: const Offset(0, 6)),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(40),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Account Information', style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, color: _C.textDark)),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(child: _buildTextField('Full Name', 'e.g. John Doe', _nameController, isRequired: true)),
-                              const SizedBox(width: 24),
-                              Expanded(child: _buildTextField('Email Address', 'e.g. john@fieldtrack.edu', _emailController, readOnly: true)),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(child: _buildDropdownField('Role', ['Student', 'Supervisor', 'Admin'], _selectedRole, (v) {}, readOnly: true)),
-                              const SizedBox(width: 24),
-                              Expanded(child: _buildTextField(_selectedRole == 'Student' ? 'Reg Number' : 'Employee Number', 'Required', _regStaffController, readOnly: true)),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(child: _buildTextField('Phone Number', 'e.g. +254 700 000000', _phoneController)),
-                              const SizedBox(width: 24),
-                              Expanded(child: _buildDropdownField('Status', ['ACTIVE', 'PENDING', 'DISABLED', 'SUSPENDED', 'LOCKED', 'ARCHIVED'], _selectedStatus, (v) => setState(() => _selectedStatus = v))),
-                            ],
-                          ),
-                          
-                          const SizedBox(height: 48),
-                          const Divider(color: _C.border),
-                          const SizedBox(height: 32),
-                          
-                          Text('${_selectedRole} Details', style: const TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, color: _C.textDark)),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(child: _buildTextField('Faculty', 'e.g. Science', _facultyController)),
-                              const SizedBox(width: 24),
-                              Expanded(child: _buildTextField('Department', 'e.g. Computer Science', _departmentController)),
-                            ],
-                          ),
-                          
-                          if (_selectedRole == 'Student') ...[
-                            const SizedBox(height: 24),
-                            Row(
-                              children: [
-                                Expanded(child: _buildTextField('Programme', 'e.g. BSc Computer Science', _programmeController)),
-                                const SizedBox(width: 24),
-                                Expanded(child: _buildTextField('Research Topic', 'Optional', _topicController)),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            _buildSupervisorDropdown(),
-                          ],
-                          
-                          if (_selectedRole == 'Supervisor') ...[
-                            const SizedBox(height: 24),
-                            Row(
-                              children: [
-                                Expanded(child: _buildTextField('Office', 'e.g. Room 402', _officeController)),
-                                const SizedBox(width: 24),
-                                Expanded(child: _buildTextField('Max Student Capacity', 'e.g. 20', _capacityController)),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            _buildTextField('Specialization', 'e.g. AI, Machine Learning', _specializationController),
-                          ],
-                          
-                          const SizedBox(height: 48),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              OutlinedButton(
-                                onPressed: _isSaving ? null : widget.onBack,
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  side: const BorderSide(color: _C.border),
-                                ),
-                                child: const Text('Cancel', style: TextStyle(fontFamily: 'Poppins', fontSize: 16, color: _C.textDark)),
-                              ),
-                              const SizedBox(width: 16),
-                              ElevatedButton(
-                                onPressed: _isSaving ? null : _submit,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _C.green,
-                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                ),
-                                child: _isSaving 
-                                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                    : const Text('Save Changes', style: TextStyle(fontFamily: 'Poppins', fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
       ),
     );
   }
@@ -1951,13 +3175,19 @@ class _EmbeddedUserProfileWidget extends ConsumerStatefulWidget {
   final String userId;
   final VoidCallback onBack;
   final Function(String) onEdit;
-  const _EmbeddedUserProfileWidget({required this.userId, required this.onBack, required this.onEdit});
+  const _EmbeddedUserProfileWidget({
+    required this.userId,
+    required this.onBack,
+    required this.onEdit,
+  });
 
   @override
-  ConsumerState<_EmbeddedUserProfileWidget> createState() => _EmbeddedUserProfileWidgetState();
+  ConsumerState<_EmbeddedUserProfileWidget> createState() =>
+      _EmbeddedUserProfileWidgetState();
 }
 
-class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfileWidget> {
+class _EmbeddedUserProfileWidgetState
+    extends ConsumerState<_EmbeddedUserProfileWidget> {
   bool _isLoading = true;
   Map<String, dynamic>? _user;
   List<dynamic> _auditLogs = [];
@@ -1993,12 +3223,27 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Password', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to reset this user\'s password?', style: TextStyle(fontFamily: 'Poppins')),
+        title: const Text(
+          'Reset Password',
+          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Are you sure you want to reset this user\'s password?',
+          style: TextStyle(fontFamily: 'Poppins'),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel', style: TextStyle(color: _C.textMuted))),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reset', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: _C.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Reset',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
       ),
     );
@@ -2007,32 +3252,66 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
 
     try {
       final apiClient = ApiClient();
-      final response = await apiClient.dio.post('/admin/users/${widget.userId}/reset-password');
+      final response = await apiClient.dio.post(
+        '/admin/users/${widget.userId}/reset-password',
+      );
       if (response.statusCode == 200) {
         final tempPassword = response.data['tempPassword'];
         if (mounted) {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Password Reset Successful', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
+              title: const Text(
+                'Password Reset Successful',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('The user\'s password has been reset. Please share this temporary password with them securely:', style: TextStyle(fontFamily: 'Poppins')),
+                  const Text(
+                    'The user\'s password has been reset. Please share this temporary password with them securely:',
+                    style: TextStyle(fontFamily: 'Poppins'),
+                  ),
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)),
-                    child: Center(
-                      child: SelectableText(tempPassword, style: const TextStyle(fontFamily: 'Courier', fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                    decoration: BoxDecoration(
+                      color: _C.bg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _C.border),
                     ),
-                  )
+                    child: Center(
+                      child: SelectableText(
+                        tempPassword,
+                        style: const TextStyle(
+                          fontFamily: 'Courier',
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done', style: TextStyle(color: _C.green, fontWeight: FontWeight.bold))),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(
+                      color: _C.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ],
             ),
           );
@@ -2047,7 +3326,10 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
   Future<void> _updateStatus(String newStatus) async {
     try {
       final apiClient = ApiClient();
-      final response = await apiClient.dio.patch('/admin/users/${widget.userId}/status', data: {'status': newStatus});
+      final response = await apiClient.dio.patch(
+        '/admin/users/${widget.userId}/status',
+        data: {'status': newStatus},
+      );
       if (response.statusCode == 200) {
         ToastService.showSuccess('Status updated to $newStatus');
         _fetchData();
@@ -2061,12 +3343,27 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Archive User', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to archive this user? They will no longer be able to log in, but their data will be preserved.', style: TextStyle(fontFamily: 'Poppins')),
+        title: const Text(
+          'Archive User',
+          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Are you sure you want to archive this user? They will no longer be able to log in, but their data will be preserved.',
+          style: TextStyle(fontFamily: 'Poppins'),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel', style: TextStyle(color: _C.textMuted))),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Archive', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: _C.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Archive',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
       ),
     );
@@ -2075,7 +3372,9 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
 
     try {
       final apiClient = ApiClient();
-      final response = await apiClient.dio.delete('/admin/users/${widget.userId}');
+      final response = await apiClient.dio.delete(
+        '/admin/users/${widget.userId}',
+      );
       if (response.statusCode == 200) {
         ToastService.showSuccess('User archived successfully');
         widget.onBack();
@@ -2087,13 +3386,20 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
 
   Color _getStatusColor(String status) {
     switch (status.toUpperCase()) {
-      case 'ACTIVE': return Colors.green;
-      case 'PENDING': return Colors.orange;
-      case 'SUSPENDED': return Colors.red;
-      case 'DISABLED': return Colors.grey;
-      case 'LOCKED': return Colors.deepPurple;
-      case 'ARCHIVED': return Colors.black54;
-      default: return Colors.grey;
+      case 'ACTIVE':
+        return Colors.green;
+      case 'PENDING':
+        return Colors.orange;
+      case 'SUSPENDED':
+        return Colors.red;
+      case 'DISABLED':
+        return Colors.grey;
+      case 'LOCKED':
+        return Colors.deepPurple;
+      case 'ARCHIVED':
+        return Colors.black54;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -2110,7 +3416,15 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, color: _C.textDark)),
+          Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: _C.textDark,
+            ),
+          ),
           const SizedBox(height: 24),
           ...children,
         ],
@@ -2124,8 +3438,28 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 140, child: Text(label, style: const TextStyle(fontFamily: 'Poppins', color: _C.textMuted, fontSize: 14))),
-          Expanded(child: Text(value, style: const TextStyle(fontFamily: 'Poppins', color: _C.textDark, fontSize: 14, fontWeight: FontWeight.w500))),
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                color: _C.textMuted,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                color: _C.textDark,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -2136,11 +3470,14 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32.0),
-          child: Text('No audit logs available for this user.', style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted)),
+          child: Text(
+            'No audit logs available for this user.',
+            style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted),
+          ),
         ),
       );
     }
-    
+
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -2156,23 +3493,49 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(8)),
-                child: Icon(PhosphorIcons.listBullets(), color: _C.textMuted, size: 16),
+                decoration: BoxDecoration(
+                  color: _C.bg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  PhosphorIcons.listBullets(),
+                  color: _C.textMuted,
+                  size: 16,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(log['action'], style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: _C.textDark, fontSize: 14)),
+                    Text(
+                      log['action'],
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w600,
+                        color: _C.textDark,
+                        fontSize: 14,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(log['details']?.toString() ?? '', style: const TextStyle(fontFamily: 'Poppins', color: _C.textMuted, fontSize: 12)),
+                    Text(
+                      log['details']?.toString() ?? '',
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        color: _C.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
               Text(
                 DateFormat('MMM d, yyyy HH:mm').format(date),
-                style: const TextStyle(fontFamily: 'Poppins', color: _C.textFaint, fontSize: 12),
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  color: _C.textFaint,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -2184,19 +3547,29 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Container(color: _C.bg, child: const Center(child: CircularProgressIndicator(color: _C.green)));
+      return Container(
+        color: _C.bg,
+        child: const Center(child: CircularProgressIndicator(color: _C.green)),
+      );
     }
 
     if (_user == null) {
-      return Container(color: _C.bg, child: const Center(child: Text('User not found')));
+      return Container(
+        color: _C.bg,
+        child: const Center(child: Text('User not found')),
+      );
     }
 
     final String role = _user!['role'];
-    final Map<String, dynamic>? profile = role == 'STUDENT' ? _user!['studentProfile'] : (role == 'SUPERVISOR' ? _user!['supervisorProfile'] : null);
-    
+    final Map<String, dynamic>? profile = role == 'STUDENT'
+        ? _user!['studentProfile']
+        : (role == 'SUPERVISOR' ? _user!['supervisorProfile'] : null);
+
     String regOrStaffNo = '-';
-    if (role == 'STUDENT' && profile != null) regOrStaffNo = profile['registrationNo'] ?? '-';
-    if (role == 'SUPERVISOR' && profile != null) regOrStaffNo = profile['staffNumber'] ?? '-';
+    if (role == 'STUDENT' && profile != null)
+      regOrStaffNo = profile['registrationNo'] ?? '-';
+    if (role == 'SUPERVISOR' && profile != null)
+      regOrStaffNo = profile['staffNumber'] ?? '-';
 
     return Container(
       color: _C.bg,
@@ -2221,16 +3594,28 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 18, offset: const Offset(0, 6)),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 18,
+                                offset: const Offset(0, 6),
+                              ),
                             ],
                           ),
-                          child: const Icon(PhosphorIconsRegular.arrowLeft, color: _C.textDark),
+                          child: const Icon(
+                            PhosphorIconsRegular.arrowLeft,
+                            color: _C.textDark,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 24),
                       const Text(
                         'User Profile',
-                        style: TextStyle(fontFamily: 'Poppins', fontSize: 28, fontWeight: FontWeight.bold, color: _C.textDark),
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: _C.textDark,
+                        ),
                       ),
                     ],
                   ),
@@ -2243,25 +3628,54 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
                         style: OutlinedButton.styleFrom(
                           foregroundColor: _C.textDark,
                           side: const BorderSide(color: _C.border),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       PopupMenuButton<String>(
                         onSelected: (value) {
-                          if (value == 'reset') _resetPassword();
-                          else if (value == 'delete') _deleteUser();
-                          else _updateStatus(value);
+                          if (value == 'reset')
+                            _resetPassword();
+                          else if (value == 'delete')
+                            _deleteUser();
+                          else
+                            _updateStatus(value);
                         },
                         itemBuilder: (context) => [
                           if (_user!['status'] != 'SUSPENDED')
-                            const PopupMenuItem(value: 'SUSPENDED', child: Text('Suspend User', style: TextStyle(color: Colors.red))),
+                            const PopupMenuItem(
+                              value: 'SUSPENDED',
+                              child: Text(
+                                'Suspend User',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
                           if (_user!['status'] == 'SUSPENDED')
-                            const PopupMenuItem(value: 'ACTIVE', child: Text('Reactivate User', style: TextStyle(color: _C.green))),
-                          const PopupMenuItem(value: 'reset', child: Text('Reset Password')),
+                            const PopupMenuItem(
+                              value: 'ACTIVE',
+                              child: Text(
+                                'Reactivate User',
+                                style: TextStyle(color: _C.green),
+                              ),
+                            ),
+                          const PopupMenuItem(
+                            value: 'reset',
+                            child: Text('Reset Password'),
+                          ),
                           const PopupMenuDivider(),
-                          const PopupMenuItem(value: 'delete', child: Text('Archive User', style: TextStyle(color: Colors.red))),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text(
+                              'Archive User',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
                         ],
                         child: Container(
                           padding: const EdgeInsets.all(12),
@@ -2270,15 +3684,18 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: _C.border),
                           ),
-                          child: Icon(PhosphorIcons.dotsThreeVertical(), color: _C.textDark),
+                          child: Icon(
+                            PhosphorIcons.dotsThreeVertical(),
+                            color: _C.textDark,
+                          ),
                         ),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
               const SizedBox(height: 32),
-              
+
               // Main Content
               Expanded(
                 child: Row(
@@ -2304,65 +3721,137 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
                                 children: [
                                   CircleAvatar(
                                     radius: 40,
-                                    backgroundColor: _C.green.withValues(alpha: 0.1),
+                                    backgroundColor: _C.green.withValues(
+                                      alpha: 0.1,
+                                    ),
                                     child: Text(
                                       _user!['name'][0].toUpperCase(),
-                                      style: const TextStyle(fontFamily: 'Poppins', fontSize: 32, fontWeight: FontWeight.bold, color: _C.green),
+                                      style: const TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.bold,
+                                        color: _C.green,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 24),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text(_user!['name'], style: const TextStyle(fontFamily: 'Poppins', fontSize: 24, fontWeight: FontWeight.bold, color: _C.textDark)),
+                                        Text(
+                                          _user!['name'],
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: _C.textDark,
+                                          ),
+                                        ),
                                         const SizedBox(height: 4),
-                                        Text(_user!['email'], style: const TextStyle(fontFamily: 'Poppins', fontSize: 14, color: _C.textMuted)),
+                                        Text(
+                                          _user!['email'],
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 14,
+                                            color: _C.textMuted,
+                                          ),
+                                        ),
                                         const SizedBox(height: 12),
                                         Row(
                                           children: [
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 4,
+                                                  ),
                                               decoration: BoxDecoration(
                                                 color: _C.bg,
-                                                borderRadius: BorderRadius.circular(20),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
                                               ),
                                               child: Text(
                                                 role,
-                                                style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w600, color: _C.textDark),
+                                                style: const TextStyle(
+                                                  fontFamily: 'Poppins',
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: _C.textDark,
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 4,
+                                                  ),
                                               decoration: BoxDecoration(
-                                                color: _getStatusColor(_user!['status']).withValues(alpha: 0.1),
-                                                borderRadius: BorderRadius.circular(20),
+                                                color: _getStatusColor(
+                                                  _user!['status'],
+                                                ).withValues(alpha: 0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
                                               ),
                                               child: Text(
                                                 _user!['status'],
-                                                style: TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.bold, color: _getStatusColor(_user!['status'])),
+                                                style: TextStyle(
+                                                  fontFamily: 'Poppins',
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: _getStatusColor(
+                                                    _user!['status'],
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ],
-                                        )
+                                        ),
                                       ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            
+
                             // Specific Details
                             _buildInfoCard('Account Information', [
                               _buildInfoRow('Identifier', regOrStaffNo),
-                              _buildInfoRow('Phone Number', profile?['phone'] ?? '-'),
-                              _buildInfoRow('Department', profile?['department'] ?? '-'),
-                              _buildInfoRow('Faculty', profile?['faculty'] ?? '-'),
-                              if (role == 'STUDENT') _buildInfoRow('Programme', profile?['programme'] ?? '-'),
-                              if (role == 'STUDENT') _buildInfoRow('Research Topic', profile?['topic'] ?? '-'),
-                              if (role == 'SUPERVISOR') _buildInfoRow('Office', profile?['office'] ?? '-'),
-                              if (role == 'SUPERVISOR') _buildInfoRow('Specialization', profile?['specialization'] ?? '-'),
+                              _buildInfoRow(
+                                'Phone Number',
+                                profile?['phone'] ?? '-',
+                              ),
+                              _buildInfoRow(
+                                'Department',
+                                profile?['department'] ?? '-',
+                              ),
+                              _buildInfoRow(
+                                'Faculty',
+                                profile?['faculty'] ?? '-',
+                              ),
+                              if (role == 'STUDENT')
+                                _buildInfoRow(
+                                  'Programme',
+                                  profile?['programme'] ?? '-',
+                                ),
+                              if (role == 'STUDENT')
+                                _buildInfoRow(
+                                  'Research Topic',
+                                  profile?['topic'] ?? '-',
+                                ),
+                              if (role == 'SUPERVISOR')
+                                _buildInfoRow(
+                                  'Office',
+                                  profile?['office'] ?? '-',
+                                ),
+                              if (role == 'SUPERVISOR')
+                                _buildInfoRow(
+                                  'Specialization',
+                                  profile?['specialization'] ?? '-',
+                                ),
                             ]),
                           ],
                         ),
@@ -2383,12 +3872,22 @@ class _EmbeddedUserProfileWidgetState extends ConsumerState<_EmbeddedUserProfile
                           children: [
                             const Padding(
                               padding: EdgeInsets.all(24.0),
-                              child: Text('Audit & Activity Log', style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, color: _C.textDark)),
+                              child: Text(
+                                'Audit & Activity Log',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: _C.textDark,
+                                ),
+                              ),
                             ),
                             const Divider(color: _C.border, height: 1),
                             Expanded(
                               child: SingleChildScrollView(
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
                                 child: _buildAuditLogList(),
                               ),
                             ),
@@ -2412,21 +3911,32 @@ class _SkeletonBox extends StatefulWidget {
   final double height;
   final double borderRadius;
 
-  const _SkeletonBox({required this.width, required this.height, required this.borderRadius});
+  const _SkeletonBox({
+    required this.width,
+    required this.height,
+    required this.borderRadius,
+  });
 
   @override
   State<_SkeletonBox> createState() => _SkeletonBoxState();
 }
 
-class _SkeletonBoxState extends State<_SkeletonBox> with SingleTickerProviderStateMixin {
+class _SkeletonBoxState extends State<_SkeletonBox>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))..repeat(reverse: true);
-    _animation = Tween<double>(begin: 0.3, end: 0.7).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(
+      begin: 0.3,
+      end: 0.7,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -2444,7 +3954,7 @@ class _SkeletonBoxState extends State<_SkeletonBox> with SingleTickerProviderSta
           width: widget.width,
           height: widget.height,
           decoration: BoxDecoration(
-            color: const Color(0xFFE5E7EB).withValues(alpha: _animation.value), 
+            color: const Color(0xFFE5E7EB).withValues(alpha: _animation.value),
             borderRadius: BorderRadius.circular(widget.borderRadius),
           ),
         );

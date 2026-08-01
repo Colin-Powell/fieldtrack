@@ -43,7 +43,7 @@ class _SupervisorForgotPasswordScreenState extends ConsumerState<SupervisorForgo
         ),
       );
       // Navigate to OTP screen and pass the email
-      context.push('/supervisor/verify-otp', extra: email);
+      context.go('/supervisor/verify-otp', extra: email);
     } else {
       final error = ref.read(authProvider).error ?? 'Failed to send OTP';
       rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();

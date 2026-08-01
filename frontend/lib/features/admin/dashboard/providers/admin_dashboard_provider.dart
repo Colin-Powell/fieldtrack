@@ -162,9 +162,9 @@ class AdminDashboardStats {
   }
 }
 
-final adminDashboardProvider = FutureProvider<AdminDashboardStats>((ref) async {
+final adminDashboardProvider = FutureProvider.autoDispose.family<AdminDashboardStats, String>((ref, timeFilter) async {
   final api = ApiClient();
-  final response = await api.dio.get('/dashboard/admin');
+  final response = await api.dio.get('/dashboard/admin', queryParameters: {'period': timeFilter});
   return AdminDashboardStats.fromJson(response.data);
 });
 

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:fieldtrack/core/network/api_result.dart';
 import 'dart:io';
+import 'package:fieldtrack/core/network/error_handler.dart';
 
 class ActivityService {
   final ApiClient _apiClient = ApiClient();
@@ -35,7 +36,7 @@ class ActivityService {
         exception: e,
       );
     } catch (e) {
-      return Failure(message: e.toString());
+      return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
     }
   }
 
@@ -80,7 +81,7 @@ class ActivityService {
         exception: e,
       );
     } catch (e) {
-      return Failure(message: e.toString());
+      return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
     }
   }
 
@@ -102,7 +103,7 @@ class ActivityService {
         exception: e,
       );
     } catch (e) {
-      return Failure(message: e.toString());
+      return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
     }
   }
 
@@ -119,7 +120,7 @@ class ActivityService {
         exception: e,
       );
     } catch (e) {
-      return Failure(message: e.toString());
+      return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
     }
   }
 
@@ -133,7 +134,7 @@ class ActivityService {
         exception: e,
       );
     } catch (e) {
-      return Failure(message: e.toString());
+      return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
     }
   }
 }

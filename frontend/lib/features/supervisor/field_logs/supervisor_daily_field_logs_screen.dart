@@ -9,6 +9,7 @@ import 'package:fieldtrack/core/network/api_result_builder.dart';
 import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
 import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
 import 'package:fieldtrack/core/constants/app_constants.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
 import '../widgets/supervisor_top_header.dart';
 // ==========================================
 // DESIGN TOKENS
@@ -110,7 +111,7 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
             if (mimeType.startsWith('image/')) {
               final path = ev['storagePath'];
               if (path != null) {
-                imageUrl = '${AppConstants.apiUrl}/$path';
+                imageUrl = path;
                 break;
               }
             }
@@ -123,7 +124,7 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
               title: 'Activity Submitted',
               subtitle: title,
               evidenceCount: evidenceList.length,
-              imgUrl: imageUrl ?? 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
+              imgUrl: imageUrl != null ? ImageUtils.getFullImageUrl(imageUrl) : 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
               isLast: false,
               activityId: activity['id'] ?? '',
             )
@@ -137,7 +138,7 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
               statusLabel: status == 'APPROVED' ? 'Reviewed' : (status == 'DRAFT' ? 'In Progress' : 'Submitted'),
               statusColor: status == 'APPROVED' ? _C.green : _C.textDark,
               statusBg: status == 'APPROVED' ? _C.greenLight : _C.bg,
-              imgUrl: imageUrl ?? 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
+              imgUrl: imageUrl != null ? ImageUtils.getFullImageUrl(imageUrl) : 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
               imagesCount: '${evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('image/')).length}',
               filesCount: '${evidenceList.where((e) => !(e['mimeType'] as String? ?? '').startsWith('image/')).length}',
               activityId: activity['id'] ?? '',
@@ -604,7 +605,7 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Image.network(
-            imgUrl,
+            ImageUtils.getFullImageUrl(imgUrl),
             width: 80,
             height: 80,
             fit: BoxFit.cover,

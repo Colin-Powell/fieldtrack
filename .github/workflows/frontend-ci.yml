@@ -1,0 +1,69 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'frontend/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java (Required for Android build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Dart Formatting Check
+        run: dart format --set-exit-if-changed .
+
+      - name: Static Analysis
+        run: flutter analyze
+
+      # Optional Step for Widget/Unit Tests
+      # Uncomment when flutter tests are added
+      # - name: Run Tests
+      #   run: flutter test
+
+      - name: Build Web Bundle
+        run: flutter build web
+
+      - name: Build Android Debug APK
+        run: flutter build apk --debug
+
+      - name: Archive Web Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fieldtrack-web
+          path: frontend/build/web/
+          retention-days: 7
+
+      - name: Archive Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: fieldtrack-android-debug
+          path: frontend/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
