@@ -1,0 +1,40 @@
+# Root-level Git ignore for generated files and build artifacts
+
+# Flutter / Dart build outputs
+/frontend/build/
+/frontend/.dart_tool/
+/frontend/.pub/
+/frontend/.pub-cache/
+/frontend/.flutter-plugins-dependencies
+/frontend/coverage/
+/frontend/ios/Flutter/.last_build_id
+/frontend/android/app/debug/
+/frontend/android/app/profile/
+/frontend/android/app/release/
+/frontend/temp_node/
+
+# Backend generated and dependency artifacts
+/backend/node_modules/
+/backend/generated/prisma/
+/backend/backend/storage/
+/backend/.env
+
+# IDE and editor files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+
+# Miscellaneous
+*.lock
+*.tmp
+*.temp
+
+# Ignore patch files and local workspace dumps that shouldn't be committed
+*.patch
