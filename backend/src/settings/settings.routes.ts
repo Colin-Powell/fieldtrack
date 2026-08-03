@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import {
+  getSettingsInfo,
   getProfileSettings,
   updateProfileSettings,
   updatePassword,
@@ -31,6 +32,7 @@ const upload = multer({ storage });
 // All settings routes require authentication
 router.use(authenticate);
 
+router.get('/info', getSettingsInfo);
 router.get('/profile', getProfileSettings);
 router.put('/profile', updateProfileSettings);
 router.put('/password', updatePassword);

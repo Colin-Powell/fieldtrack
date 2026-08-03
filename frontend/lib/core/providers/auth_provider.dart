@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
 import '../network/error_handler.dart';
+import '../services/notification_service.dart';
 
 // Represents the authenticated user
 class AuthUser {
@@ -21,7 +23,7 @@ class AuthUser {
   final String? phone;
   final String? topic;
   final String? supervisorName;
-  
+
   // Supervisor specific
   final String? staffNumber;
   final String? supervisorDepartment;
@@ -29,6 +31,24 @@ class AuthUser {
   final String? office;
   final int? studentCapacity;
   final String? avatarUrl;
+
+  static String? _extractAvatarUrl(Map<String, dynamic>? payload) {
+    if (payload == null) return null;
+
+    for (final key in [
+      'avatar',
+      'avatarUrl',
+      'profileImage',
+      'profileImageUrl',
+    ]) {
+      final value = payload[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    }
+
+    return null;
+  }
 
   AuthUser({
     required this.id,
@@ -53,9 +73,14 @@ class AuthUser {
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     final studentProf = json['studentProfile'] as Map<String, dynamic>?;
-    final supervisorUser = studentProf?['supervisor']?['user'] as Map<String, dynamic>?;
+    final supervisorUser =
+        studentProf?['supervisor']?['user'] as Map<String, dynamic>?;
     final supervisorProf = json['supervisorProfile'] as Map<String, dynamic>?;
-    
+    final avatarUrl =
+        _extractAvatarUrl(json) ??
+        _extractAvatarUrl(studentProf) ??
+        _extractAvatarUrl(supervisorProf);
+
     return AuthUser(
       id: json['id'],
       name: json['name'],
@@ -74,7 +99,7 @@ class AuthUser {
       specialization: supervisorProf?['specialization'],
       office: supervisorProf?['office'],
       studentCapacity: supervisorProf?['studentCapacity'],
-      avatarUrl: studentProf?['avatar'] ?? supervisorProf?['avatar'],
+      avatarUrl: avatarUrl,
     );
   }
 }
@@ -154,6 +179,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isAuthenticated: true,
         user: user,
       );
+
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        await NotificationService().syncTokenWithBackend(
+          fcmToken,
+          force: true,
+          auth: true,
+        );
+      }
+
       if (!isPolling) {
         _startProfilePolling();
       }
@@ -169,21 +204,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   // Login handler
-  Future<bool> login({String? email, String? registrationNo, required String password}) async {
+  Future<bool> login({
+    String? email,
+    String? registrationNo,
+    required String password,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
-      final response = await _apiClient.dio.post('/auth/login', data: {
-        if (email != null) 'email': email,
-        if (registrationNo != null) 'registrationNo': registrationNo,
-        'password': password,
-      });
+      final response = await _apiClient.dio.post(
+        '/auth/login',
+        data: {
+          ?'email': email,
+          ?'registrationNo': registrationNo,
+          'password': password,
+        },
+      );
 
       if (response.data['success'] == true) {
         final token = response.data['token'];
         final refreshToken = response.data['refreshToken'];
         final userJson = response.data['user'];
-        
+
         final user = AuthUser.fromJson(userJson);
 
         await _secureStorage.write(key: 'jwt_token', value: token);
@@ -196,6 +238,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isAuthenticated: true,
           user: user,
         );
+
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null && fcmToken.isNotEmpty) {
+          await NotificationService().syncTokenWithBackend(
+            fcmToken,
+            force: true,
+            auth: true,
+          );
+        }
+
+        await checkAuthStatus(isPolling: false);
         _startProfilePolling();
         return true;
       } else {
@@ -207,14 +260,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     } on DioException catch (e) {
       final errorData = e.response?.data;
-      String errorMsg = e.message != null ? 'Login failed: ${e.message}' : 'Login failed: Network or Server Error';
+      String errorMsg = e.message != null
+          ? 'Login failed: ${e.message}'
+          : 'Login failed: Network or Server Error';
       if (errorData is Map<String, dynamic> && errorData['error'] != null) {
         errorMsg = errorData['error'];
       }
-      state = state.copyWith(
-        isLoading: false,
-        error: errorMsg,
-      );
+      state = state.copyWith(isLoading: false, error: errorMsg);
       return false;
     } catch (e) {
       state = state.copyWith(
@@ -231,7 +283,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final fileName = imageFile.path.split('/').last;
       final formData = FormData.fromMap({
-        'avatar': await MultipartFile.fromFile(imageFile.path, filename: fileName),
+        'avatar': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: fileName,
+        ),
       });
 
       final response = await _apiClient.dio.post(
@@ -244,7 +299,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await checkAuthStatus(isPolling: false);
         return true;
       }
-      state = state.copyWith(isLoading: false, error: 'Failed to upload avatar');
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to upload avatar',
+      );
       return false;
     } catch (e) {
       state = state.copyWith(
@@ -255,27 +313,58 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  // Update profile (email + phone)
+  Future<bool> updateProfile({
+    required String email,
+    required String phone,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _apiClient.dio.patch(
+        '/settings/profile',
+        data: {'email': email, 'phone': phone},
+      );
+      // Refresh the auth state so the UI reflects new data
+      await checkAuthStatus(isPolling: false);
+      return true;
+    } on DioException catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.response?.data?['error'] ?? 'Failed to update profile',
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: ErrorHandler.getFriendlyErrorMessage(e),
+      );
+      return false;
+    }
+  }
+
   // Logout handler
   Future<void> logout() async {
     _stopProfilePolling();
     await _secureStorage.delete(key: 'jwt_token');
     await _secureStorage.delete(key: 'refresh_token');
-    state = state.copyWith(
-      isAuthenticated: false,
-      user: null,
-      error: null,
-    );
+    state = state.copyWith(isAuthenticated: false, user: null, error: null);
   }
 
   // Forgot Password API Calls
   Future<bool> forgotPassword(String email) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _apiClient.dio.post('/auth/forgot-password', data: {'email': email});
+      final response = await _apiClient.dio.post(
+        '/auth/forgot-password',
+        data: {'email': email},
+      );
       state = state.copyWith(isLoading: false);
       return response.data['success'] == true;
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.response?.data?['error'] ?? 'Request failed');
+      state = state.copyWith(
+        isLoading: false,
+        error: e.response?.data?['error'] ?? 'Request failed',
+      );
       return false;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'Request failed');
@@ -286,16 +375,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> verifyOtp(String email, String otp) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _apiClient.dio.post('/auth/verify-otp', data: {'email': email, 'otp': otp});
+      final response = await _apiClient.dio.post(
+        '/auth/verify-otp',
+        data: {'email': email, 'otp': otp},
+      );
       if (response.data['success'] == true) {
         final token = response.data['token'];
-        await _secureStorage.write(key: 'jwt_token', value: token); // Store temp token for reset
+        await _secureStorage.write(
+          key: 'jwt_token',
+          value: token,
+        ); // Store temp token for reset
         state = state.copyWith(isLoading: false);
         return true;
       }
       return false;
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.response?.data?['error'] ?? 'Invalid OTP');
+      state = state.copyWith(
+        isLoading: false,
+        error: e.response?.data?['error'] ?? 'Invalid OTP',
+      );
       return false;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'Verification failed');
@@ -306,7 +404,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> resetPassword(String newPassword) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _apiClient.dio.post('/auth/reset-password', data: {'newPassword': newPassword});
+      final response = await _apiClient.dio.post(
+        '/auth/reset-password',
+        data: {'newPassword': newPassword},
+      );
       if (response.data['success'] == true) {
         state = state.copyWith(isLoading: false);
         // Clear temp token so they have to log in normally
@@ -315,7 +416,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       return false;
     } on DioException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.response?.data?['error'] ?? 'Reset failed');
+      state = state.copyWith(
+        isLoading: false,
+        error: e.response?.data?['error'] ?? 'Reset failed',
+      );
       return false;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'Reset failed');

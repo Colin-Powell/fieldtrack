@@ -7,35 +7,26 @@ class ErrorHandler {
         case DioExceptionType.connectionTimeout:
         case DioExceptionType.sendTimeout:
         case DioExceptionType.receiveTimeout:
-          return 'The server took too long to respond. Please check your connection and try again.';
+          return 'Connection timed out. Please try again.';
         case DioExceptionType.badResponse:
           final statusCode = error.response?.statusCode;
-          if (statusCode == 400) {
-            return 'There was an issue with your request. Please check your input.';
-          } else if (statusCode == 401) {
-            return 'Your session has expired. Please log in again.';
-          } else if (statusCode == 403) {
-            return 'You do not have permission to access this resource.';
-          } else if (statusCode == 404) {
-            return 'The requested resource could not be found.';
-          } else if (statusCode == 409) {
-            return 'There was a conflict with the server state. Please try again.';
-          } else if (statusCode == 422) {
-            return 'The submitted data is invalid.';
-          } else if (statusCode == 429) {
-            return 'You are making requests too quickly. Please slow down.';
-          } else if (statusCode != null && statusCode >= 500) {
-            return 'Our servers are currently experiencing issues. Please try again later.';
-          }
-          return 'An error occurred while communicating with the server.';
+          if (statusCode == 400) return 'Invalid request.';
+          if (statusCode == 401) return 'Session expired. Please log in.';
+          if (statusCode == 403) return 'Access denied.';
+          if (statusCode == 404) return 'Resource not found.';
+          if (statusCode == 409) return 'Conflict error. Please try again.';
+          if (statusCode == 422) return 'Invalid data submitted.';
+          if (statusCode == 429) return 'Too many requests. Slow down.';
+          if (statusCode != null && statusCode >= 500) return 'Server error. Try again later.';
+          return 'Network error.';
         case DioExceptionType.cancel:
-          return 'The operation was cancelled.';
+          return 'Request cancelled.';
         case DioExceptionType.connectionError:
-          return 'It seems you do not have an active internet connection. Please reconnect and try again.';
+          return 'No internet connection.';
         case DioExceptionType.unknown:
-          return 'An unexpected error occurred. Please try again.';
+          return 'Unexpected error occurred.';
         default:
-          return 'An unknown network error occurred.';
+          return 'Unknown network error.';
       }
     } else if (error is String) {
       return error;

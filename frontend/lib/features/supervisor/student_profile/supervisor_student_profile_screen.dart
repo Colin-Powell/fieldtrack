@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/features/supervisor/field_logs/supervisor_daily_field_logs_screen.dart';
@@ -26,10 +25,7 @@ class _C {
 
 class SupervisorStudentProfileScreen extends StatefulWidget {
   final String studentId;
-  const SupervisorStudentProfileScreen({
-    super.key,
-    required this.studentId,
-  });
+  const SupervisorStudentProfileScreen({super.key, required this.studentId});
 
   @override
   State<SupervisorStudentProfileScreen> createState() =>
@@ -69,7 +65,18 @@ class _SupervisorStudentProfileScreenState
     }
   }
 
-  String get _studentStatus => _student?.fieldStatus.name ?? 'Offline';
+  String get _studentStatus {
+    final raw = _student?.fieldStatus.name ?? '';
+    if (raw.isEmpty) return 'Offline';
+
+    final formatted = raw
+        .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(0)}')
+        .trim();
+
+    return formatted.isEmpty
+        ? 'Offline'
+        : '${formatted[0].toUpperCase()}${formatted.substring(1)}';
+  }
 
   Color get _studentStatusColor {
     switch (_student?.fieldStatus) {
@@ -85,17 +92,17 @@ class _SupervisorStudentProfileScreenState
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: _C.bg,
-        body: Center(
-          child: CircularProgressIndicator(color: _C.green),
-        ),
+        body: Center(child: CircularProgressIndicator(color: _C.green)),
       );
     }
     if (_error != null) {
       return Scaffold(
         backgroundColor: _C.bg,
         body: Center(
-          child: Text('Failed to load student: $_error',
-            style: const TextStyle(color: _C.textMuted, fontFamily: 'Poppins')),
+          child: Text(
+            'Failed to load student: $_error',
+            style: const TextStyle(color: _C.textMuted, fontFamily: 'Poppins'),
+          ),
         ),
       );
     }
@@ -243,7 +250,8 @@ class _SupervisorStudentProfileScreenState
           children: [
             // Avatar with error builder
             ClipOval(
-              child: _student?.avatarUrl != null && _student!.avatarUrl.isNotEmpty
+              child:
+                  _student?.avatarUrl != null && _student!.avatarUrl.isNotEmpty
                   ? Image.network(
                       ImageUtils.getFullImageUrl(_student!.avatarUrl),
                       width: 140,
@@ -307,7 +315,9 @@ class _SupervisorStudentProfileScreenState
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: _studentStatusColor.withOpacity(0.15),
+                          color: _studentStatusColor.withAlpha(
+                            (0.15 * 255).round(),
+                          ),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -323,7 +333,9 @@ class _SupervisorStudentProfileScreenState
                     ],
                   ),
                   Text(
-                    _student?.reg ?? 'MB21/PU/41332/22',
+                    _student != null && _student!.reg.isNotEmpty
+                        ? _student!.reg
+                        : 'Registration number not available',
                     style: const TextStyle(
                       fontFamily: 'Poppins',
                       fontSize: 13,
@@ -341,7 +353,9 @@ class _SupervisorStudentProfileScreenState
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _student?.programme ?? 'MSc Geography',
+                          _student != null && _student!.programme.isNotEmpty
+                              ? _student!.programme
+                              : 'Programme not provided',
                           style: const TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 13,
@@ -363,7 +377,10 @@ class _SupervisorStudentProfileScreenState
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _student?.academicInfo.department ?? 'Department of Geography & Planning',
+                          _student != null &&
+                                  _student!.academicInfo.department.isNotEmpty
+                              ? _student!.academicInfo.department
+                              : 'Department not provided',
                           style: const TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 13,
@@ -385,7 +402,10 @@ class _SupervisorStudentProfileScreenState
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _student?.academicInfo.university ?? 'Pwani University',
+                          _student != null &&
+                                  _student!.academicInfo.university.isNotEmpty
+                              ? _student!.academicInfo.university
+                              : 'Institution not provided',
                           style: const TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 13,
@@ -413,15 +433,39 @@ class _SupervisorStudentProfileScreenState
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildDetailRow('Email', _student?.personalInfo.email ?? 'jane.akinyi@pwani.ac.ke'),
+                  _buildDetailRow(
+                    'Email',
+                    _student != null && _student!.personalInfo.email.isNotEmpty
+                        ? _student!.personalInfo.email
+                        : 'Email not provided',
+                  ),
                   const SizedBox(height: 12),
-                  _buildDetailRow('Phone', _student?.personalInfo.phone ?? '+254 712 345 678'),
+                  _buildDetailRow(
+                    'Phone',
+                    _student != null && _student!.personalInfo.phone.isNotEmpty
+                        ? _student!.personalInfo.phone
+                        : 'Phone not provided',
+                  ),
                   const SizedBox(height: 12),
-                  _buildDetailRow('Supervisor', _student?.academicInfo.supervisorName ?? 'Prof. Okeyo Benards'),
+                  _buildDetailRow(
+                    'Supervisor',
+                    _student != null &&
+                            _student!.academicInfo.supervisorName.isNotEmpty
+                        ? _student!.academicInfo.supervisorName
+                        : 'Supervisor not assigned',
+                  ),
                   const SizedBox(height: 12),
                   _buildDetailRow(
                     'Research Topic',
-                    _student?.topic ?? 'No topic assigned',
+                    _student != null && _student!.topic.isNotEmpty
+                        ? _student!.topic
+                        : (_student != null &&
+                                  _student!
+                                      .academicInfo
+                                      .researchTopic
+                                      .isNotEmpty
+                              ? _student!.academicInfo.researchTopic
+                              : 'No research topic provided'),
                     maxLines: 2,
                   ),
                 ],
@@ -502,7 +546,20 @@ class _SupervisorStudentProfileScreenState
 
   String _formatDate(DateTime? dt) {
     if (dt == null) return 'N/A';
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
 
@@ -542,20 +599,46 @@ class _SupervisorStudentProfileScreenState
                     color: _C.textDark,
                   ),
                 ),
-                Expanded(child: _buildStatPill('Field Days', '${_student?.statistics.totalFieldDays ?? 0}')),
-                const SizedBox(height: 12),
-                Expanded(child: _buildStatPill('Activities Submitted', '${_student?.statistics.totalActivities ?? 0}')),
-                const SizedBox(height: 12),
-                Expanded(child: _buildStatPill('Evidence Files', '${_student?.statistics.totalEvidence ?? 0}')),
-                const SizedBox(height: 12),
-                Expanded(child: _buildStatPill('Reports', '${_student?.statistics.totalReports ?? 0}')),
-                const SizedBox(height: 12),
                 Expanded(
-                  child: _buildStatPill('First Check in', _formatDate(_student?.statistics.firstCheckIn)),
+                  child: _buildStatPill(
+                    'Field Days',
+                    '${_student?.statistics.totalFieldDays ?? 0}',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Expanded(
-                  child: _buildStatPill('Last Check Out', _formatDate(_student?.statistics.lastCheckOut)),
+                  child: _buildStatPill(
+                    'Activities Submitted',
+                    '${_student?.statistics.totalActivities ?? 0}',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _buildStatPill(
+                    'Evidence Files',
+                    '${_student?.statistics.totalEvidence ?? 0}',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _buildStatPill(
+                    'Reports',
+                    '${_student?.statistics.totalReports ?? 0}',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _buildStatPill(
+                    'First Check in',
+                    _formatDate(_student?.statistics.firstCheckIn),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _buildStatPill(
+                    'Last Check Out',
+                    _formatDate(_student?.statistics.lastCheckOut),
+                  ),
                 ),
               ],
             ),
@@ -600,26 +683,40 @@ class _SupervisorStudentProfileScreenState
                             children: [
                               _buildFieldStatusItem(
                                 PhosphorIconsRegular.target,
-                                _student?.currentSession != null ? 'Checked in' : 'Offline',
-                                _student?.currentSession != null ? _formatDateTime(_student!.currentSession!.checkInTime) : 'Not in field',
-                                _student?.currentSession != null ? _C.green : _C.textMuted,
+                                _student?.currentSession != null
+                                    ? 'Checked in'
+                                    : 'Offline',
+                                _student?.currentSession != null
+                                    ? _formatDateTime(
+                                        _student!.currentSession!.checkInTime,
+                                      )
+                                    : 'Not in field',
+                                _student?.currentSession != null
+                                    ? _C.green
+                                    : _C.textMuted,
                               ),
                               _buildFieldStatusItem(
                                 PhosphorIconsRegular.mapPin,
                                 'Location',
-                                _student?.currentSession != null ? 'Lat: ${_student!.currentSession!.latitude.toStringAsFixed(4)}, Lng: ${_student!.currentSession!.longitude.toStringAsFixed(4)}' : 'N/A',
+                                _student?.currentSession != null
+                                    ? 'Lat: ${_student!.currentSession!.latitude.toStringAsFixed(4)}, Lng: ${_student!.currentSession!.longitude.toStringAsFixed(4)}'
+                                    : 'N/A',
                                 _C.textDark,
                               ),
                               _buildFieldStatusItem(
                                 PhosphorIconsRegular.crosshair,
                                 'Accuracy',
-                                _student?.currentSession != null ? '${_student!.currentSession!.accuracy.toStringAsFixed(1)} m' : 'N/A',
+                                _student?.currentSession != null
+                                    ? '${_student!.currentSession!.accuracy.toStringAsFixed(1)} m'
+                                    : 'N/A',
                                 _C.textDark,
                               ),
                               _buildFieldStatusItem(
                                 PhosphorIconsRegular.clock,
                                 'Time in Field',
-                                _student?.currentSession != null ? '${DateTime.now().difference(_student!.currentSession!.checkInTime).inHours}h ${DateTime.now().difference(_student!.currentSession!.checkInTime).inMinutes % 60}m' : 'N/A',
+                                _student?.currentSession != null
+                                    ? '${DateTime.now().difference(_student!.currentSession!.checkInTime).inHours}h ${DateTime.now().difference(_student!.currentSession!.checkInTime).inMinutes % 60}m'
+                                    : 'N/A',
                                 _C.textDark,
                               ),
                               const SizedBox(
@@ -700,7 +797,10 @@ class _SupervisorStudentProfileScreenState
                   child: Center(
                     child: Text(
                       'No recent activities',
-                      style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted),
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        color: _C.textMuted,
+                      ),
                     ),
                   ),
                 )
@@ -715,10 +815,16 @@ class _SupervisorStudentProfileScreenState
                           title: event.title,
                           time: _formatTime(event.time),
                           status: event.type.name,
-                          statusColor: event.type.name == 'activitySubmit' ? _C.green : _C.textMuted,
-                          imgUrl: event.imageUrl != null ? ImageUtils.getFullImageUrl(event.imageUrl!) : 'https://images.unsplash.com/photo-1544257124-741165bc6f23?auto=format&fit=crop&w=150&q=80',
+                          statusColor: event.type.name == 'activitySubmit'
+                              ? _C.green
+                              : _C.textMuted,
+                          imgUrl: event.imageUrl != null
+                              ? ImageUtils.getFullImageUrl(event.imageUrl!)
+                              : 'https://images.unsplash.com/photo-1544257124-741165bc6f23?auto=format&fit=crop&w=150&q=80',
                           isLast: isLast,
-                          activityId: event.type.name == 'activitySubmit' ? 'act-id' : null,
+                          activityId: event.type.name == 'activitySubmit'
+                              ? 'act-id'
+                              : null,
                         ),
                       );
                     }).toList(),

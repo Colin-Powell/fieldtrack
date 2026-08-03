@@ -123,6 +123,12 @@ class _AdminNotificationsScreenState
   int _selectedCategory = 0;
   final _titleController = TextEditingController();
   final _messageController = TextEditingController();
+  final _typeOptions = const [
+    {'label': 'System Alert', 'value': 'SYSTEM_ALERT'},
+    {'label': 'Announcement', 'value': 'ANNOUNCEMENT'},
+    {'label': 'Supervisor Message', 'value': 'SUPERVISOR_MESSAGE'},
+  ];
+  String _selectedType = 'SYSTEM_ALERT';
   bool _isSending = false;
 
   @override
@@ -162,6 +168,48 @@ class _AdminNotificationsScreenState
                     decoration: InputDecoration(
                       labelText: 'Title',
                       hintText: 'e.g. System Update',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _titleController,
+                    decoration: InputDecoration(
+                      labelText: 'Title',
+                      hintText: 'e.g. System Update',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedType,
+                    items: () {
+                      final seen = <String>{};
+                      final items = <DropdownMenuItem<String>>[];
+                      for (final option in _typeOptions) {
+                        final value = option['value'] as String?;
+                        if (value == null || seen.contains(value)) continue;
+                        seen.add(value);
+                        items.add(
+                          DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(option['label'] as String),
+                          ),
+                        );
+                      }
+                      return items;
+                    }(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setModalState(() => _selectedType = value);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Notification Type',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -210,7 +258,7 @@ class _AdminNotificationsScreenState
                                     data: {
                                       'title': _titleController.text.trim(),
                                       'message': _messageController.text.trim(),
-                                      'type': 'SYSTEM_ALERT',
+                                      'type': _selectedType,
                                     },
                                   );
                                   ToastService.showSuccess(

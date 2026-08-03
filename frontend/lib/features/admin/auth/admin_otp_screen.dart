@@ -26,26 +26,25 @@ class _AdminOtpScreenState extends ConsumerState<AdminOtpScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _loading = true);
-    
+
     final otp = _otpController.text.trim();
-    final success = await ref.read(authProvider.notifier).verifyOtp(widget.email, otp);
+    final success = await ref
+        .read(authProvider.notifier)
+        .verifyOtp(widget.email, otp);
 
     if (!mounted) return;
     setState(() => _loading = false);
 
     if (success) {
       // Navigate to Reset Password screen
-      context.go('/Admin/reset-password');
+      context.go('/admin/reset-password');
     } else {
       final error = ref.read(authProvider).error ?? 'Invalid OTP';
       rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
       rootScaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(error), backgroundColor: Colors.red),
       );
     }
   }
@@ -162,10 +161,7 @@ class _AdminOtpScreenState extends ConsumerState<AdminOtpScreen> {
                 children: [
                   IconButton(
                     onPressed: () => context.pop(),
-                    icon: Icon(
-                      PhosphorIcons.arrowLeft(),
-                      color: Colors.black,
-                    ),
+                    icon: Icon(PhosphorIcons.arrowLeft(), color: Colors.black),
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -306,6 +302,7 @@ class _BottomWavePainter extends CustomPainter {
     path.close();
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

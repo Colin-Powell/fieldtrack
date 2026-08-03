@@ -1,13 +1,14 @@
 import bcrypt from 'bcrypt';
 import { generateToken, generateRefreshToken, verifyToken } from './jwt.js';
 import { AuditLogService } from '../services/audit-log.service.js';
+import { authLogger } from '../utils/logger.js';
 import { prisma } from '../db.js';
 export async function login(req, res) {
     try {
         const { email, registrationNo, password } = req.body;
         const ipAddress = req.ip;
         const userAgent = req.headers['user-agent'];
-        console.log(`[Auth] Login attempt from IP: ${ipAddress} - Email: ${email || 'N/A'}, RegNo: ${registrationNo || 'N/A'}`);
+        authLogger.info(`Login attempt from IP: ${ipAddress} - Email: ${email || 'N/A'}, RegNo: ${registrationNo || 'N/A'}`);
         if (!password) {
             return res.status(400).json({ error: 'Password is required' });
         }
@@ -28,7 +29,7 @@ export async function login(req, res) {
             }
         }
         if (!user) {
-            console.warn(`[Auth] Login failed: User not found for email/registrationNo`);
+            authLogger.warn(`Login failed: User not found for email/registrationNo: ${email || registrationNo}`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         // Check if account is locked
@@ -54,7 +55,7 @@ export async function login(req, res) {
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            console.warn(`[Auth] Login failed: Incorrect password for user ${user.id} (${user.email})`);
+            authLogger.warn(`Login failed: Incorrect password for user ${user.id} (${user.email})`);
             // Increment failed attempts
             const attempts = user.failedLoginAttempts + 1;
             const updates = { failedLoginAttempts: attempts };
@@ -108,7 +109,7 @@ export async function login(req, res) {
             ipAddress,
             userAgent,
         });
-        console.log(`[Auth] Login successful for user ${user.id} (${user.email})`);
+        authLogger.info(`Login successful for user ${user.id} (${user.email})`);
         return res.json({
             success: true,
             token,
@@ -123,7 +124,7 @@ export async function login(req, res) {
         });
     }
     catch (error) {
-        console.error('Login error:', error);
+        authLogger.error('Login error:', { error });
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
@@ -175,7 +176,7 @@ export async function refresh(req, res) {
         return res.json({ success: true, token, refreshToken: newRefreshToken });
     }
     catch (error) {
-        console.error('Refresh token error:', error);
+        authLogger.error('Refresh token error:', { error });
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
@@ -199,7 +200,7 @@ export async function logout(req, res) {
         return res.json({ success: true, message: 'Logged out successfully' });
     }
     catch (error) {
-        console.error('Logout error:', error);
+        authLogger.error('Logout error:', { error });
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
@@ -260,6 +261,7 @@ export async function me(req, res) {
                 mustChangePassword: true,
                 studentProfile: {
                     select: {
+                        avatar: true,
                         registrationNo: true,
                         phone: true,
                         topic: true,
@@ -279,6 +281,7 @@ export async function me(req, res) {
                 },
                 supervisorProfile: {
                     select: {
+                        avatar: true,
                         staffNumber: true,
                         department: true,
                         faculty: true,
@@ -306,7 +309,7 @@ export async function forgotPassword(req, res) {
         if (!email)
             return res.status(400).json({ error: 'Email is required' });
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user || user.role !== 'SUPERVISOR') {
+        if (!user) {
             // Return success even if user not found to prevent email enumeration
             return res.json({ success: true, message: 'If the email exists, an OTP has been sent.' });
         }

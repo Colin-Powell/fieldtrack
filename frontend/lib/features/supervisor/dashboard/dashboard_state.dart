@@ -10,6 +10,7 @@ class RecentActivity {
   final String location;
   final String time;
   final String imageUrl;
+  final String? activityImageUrl;
   final String? activityId;
   final String? studentId;
   final String? studentName;
@@ -19,6 +20,7 @@ class RecentActivity {
     required this.location,
     required this.time,
     required this.imageUrl,
+    this.activityImageUrl,
     this.activityId,
     this.studentId,
     this.studentName,
@@ -158,11 +160,19 @@ class DashboardState extends ChangeNotifier {
         _allActivities = recent.map((e) {
           final map = e as Map<String, dynamic>;
           final user = map['user'] as Map<String, dynamic>?;
+          // Extract the first evidence image (thumbnail preferred, fallback to storagePath)
+          String? activityImageUrl;
+          final evidence = map['evidence'] as List<dynamic>?;
+          if (evidence != null && evidence.isNotEmpty) {
+            final ev = evidence[0] as Map<String, dynamic>;
+            activityImageUrl = ev['thumbnailPath'] as String? ?? ev['storagePath'] as String?;
+          }
           return RecentActivity(
             title: map['title'] as String? ?? 'Activity',
             location: 'Location Captured',
             time: map['timestamp'] != null ? _formatTime(DateTime.parse(map['timestamp'])) : '',
             imageUrl: user?['avatarUrl'] as String? ?? '',
+            activityImageUrl: activityImageUrl,
             activityId: map['id'] as String?,
             studentId: map['studentId'] as String?,
             studentName: user?['name'] as String?,

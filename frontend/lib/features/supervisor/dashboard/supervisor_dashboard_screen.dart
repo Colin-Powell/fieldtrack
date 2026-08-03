@@ -5,12 +5,13 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'dart:math' show pi;
+import 'dart:ui' as ui;
+import 'dart:math' as math;
 import 'dart:async';
 import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 
 import 'package:fieldtrack/shared/models/student_data.dart';
 import 'dashboard_state.dart';
@@ -25,14 +26,13 @@ class _C {
   static const green = Color(0xFF16A34A);
   static const greenLight = Color(0xFFC5E8D2);
   static const greenDark = Color(0xFF115E2E);
-  static const blueLight = Color(0xFF90C2F9);
   static const teal = Color(0xFF42B3B0);
   static const orange = Color(0xFFF97316);
   static const orangeLight = Color(0xFFFDD3BF);
   static const textDark = Color(0xFF111827);
   static const textMuted = Color(0xFF6B7280);
   static const textFaint = Color(0xFF9CA3AF);
-  static const cardRadius = 40.0; // Updated for bubbly look
+  static const cardRadius = 40.0;
   static const controlHeight = 52.0;
 }
 
@@ -52,7 +52,6 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Simulate initial network fetch loading delay
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) setState(() => _isLoading = false);
     });
@@ -682,15 +681,61 @@ class _PendingReviews extends StatelessWidget {
 }
 
 // ── Map + Overview ────────────────────────────────────────────────────────
-class _MapCard extends StatelessWidget {
+class _MapCard extends StatefulWidget {
   final bool isLoading;
   const _MapCard({required this.isLoading});
+
+  @override
+  State<_MapCard> createState() => _MapCardState();
+}
+
+class _MapCardState extends State<_MapCard> {
+  final MapController _mapController = MapController();
+  String? _lastPannedStudentId;
+
+  List<StudentData> _getAllStudents(List<StudentData> students) {
+    return students
+        .where(
+          (s) => s.currentSession != null && s.checkInStatus == 'Checked In',
+        )
+        .toList();
+  }
+
+  void _panToLatestStudent(List<StudentData> students) {
+    if (students.isEmpty) return;
+
+    final latest = students.reduce((current, next) {
+      final currentTime = current.currentSession!.checkInTime;
+      final nextTime = next.currentSession!.checkInTime;
+      return nextTime.isAfter(currentTime) ? next : current;
+    });
+
+    if (_lastPannedStudentId == latest.id) return;
+    _lastPannedStudentId = latest.id;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(
+        LatLng(
+          latest.currentSession!.latitude,
+          latest.currentSession!.longitude,
+        ),
+        13.5,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final students = context.select<DashboardState, List<StudentData>>(
       (s) => s.students,
     );
+    final allStudents = _getAllStudents(students);
+
+    if (!widget.isLoading && allStudents.isNotEmpty) {
+      _panToLatestStudent(allStudents);
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -788,7 +833,7 @@ class _MapCard extends StatelessWidget {
                 bottomLeft: Radius.circular(_C.cardRadius),
                 bottomRight: Radius.circular(_C.cardRadius),
               ),
-              child: isLoading
+              child: widget.isLoading
                   ? const _Skeleton(
                       width: double.infinity,
                       height: double.infinity,
@@ -859,24 +904,181 @@ class _MapCard extends StatelessWidget {
   }
 }
 
-class _OverviewCard extends StatefulWidget {
-  final bool isLoading;
-  const _OverviewCard({required this.isLoading});
+class _DonutMetric {
+  final String title;
+  final int value;
+  final Color color;
+  final String subtitle;
 
-  @override
-  State<_OverviewCard> createState() => _OverviewCardState();
+  const _DonutMetric({
+    required this.title,
+    required this.value,
+    required this.color,
+    required this.subtitle,
+  });
 }
 
-class _OverviewCardState extends State<_OverviewCard> {
-  int _touchedIndex = -1;
+class _SegmentedDonutPainter extends CustomPainter {
+  final List<_DonutMetric> metrics;
+  final double total;
+
+  _SegmentedDonutPainter(this.metrics, this.total);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final strokeWidth = 32.0;
+    // Leaving ample room for outer labels
+    final radius = (math.min(size.width, size.height) - 90) / 2;
+
+    if (total == 0) {
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..color = _C.greenLight.withOpacity(0.18)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth,
+      );
+      return;
+    }
+
+    final capAngle = (strokeWidth / 2) / radius;
+    double visualGap = 0.12; // Gap in radians
+    int activeSegments = metrics.where((m) => m.value > 0).length;
+
+    double totalReserved = activeSegments * (visualGap + 2 * capAngle);
+    if (totalReserved > 2 * math.pi) {
+      visualGap = 0.02; // shrink gap if segments can't fit
+      totalReserved = activeSegments * (visualGap + 2 * capAngle);
+    }
+
+    final availableSweep = math.max(0.0, 2 * math.pi - totalReserved);
+    double startAngle = -math.pi / 2; // start from top
+
+    final textPainter = TextPainter(textDirection: ui.TextDirection.ltr);
+
+    for (var metric in metrics) {
+      if (metric.value == 0) continue;
+
+      final proportion = metric.value / total;
+      final sweep = proportion * availableSweep;
+      final drawStart = startAngle + capAngle;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        drawStart,
+        sweep,
+        false,
+        Paint()
+          ..color = metric.color
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = strokeWidth,
+      );
+
+      final mid = drawStart + sweep / 2;
+
+      // Draw Inner Value Label
+      textPainter.text = TextSpan(
+        text: '${metric.value}',
+        style: TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: metric.color,
+        ),
+      );
+      textPainter.layout();
+      final innerR = radius - strokeWidth / 2 - 20;
+      final valOffset = Offset(
+        center.dx + innerR * math.cos(mid) - textPainter.width / 2,
+        center.dy + innerR * math.sin(mid) - textPainter.height / 2,
+      );
+      textPainter.paint(canvas, valOffset);
+
+      // Draw Outer Label and connecting line
+      final outR = radius + strokeWidth / 2 + 6;
+      final p1 = Offset(
+        center.dx + outR * math.cos(mid),
+        center.dy + outR * math.sin(mid),
+      );
+      final p2 = Offset(
+        center.dx + (outR + 12) * math.cos(mid),
+        center.dy + (outR + 12) * math.sin(mid),
+      );
+      final isRight = math.cos(mid) >= 0;
+      final p3 = Offset(p2.dx + (isRight ? 20 : -20), p2.dy);
+
+      final linePaint = Paint()
+        ..color = _C.textMuted.withOpacity(0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+
+      canvas.drawLine(p1, p2, linePaint);
+      canvas.drawLine(p2, p3, linePaint);
+
+      textPainter.text = TextSpan(
+        text: metric.title,
+        style: const TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          fontStyle: FontStyle.italic,
+          color: _C.textDark,
+        ),
+      );
+      textPainter.layout();
+      final labelOffset = Offset(
+        isRight ? p3.dx + 6 : p3.dx - 6 - textPainter.width,
+        p3.dy - textPainter.height / 2,
+      );
+      textPainter.paint(canvas, labelOffset);
+
+      // Advance angle for next segment
+      startAngle += sweep + 2 * capAngle + visualGap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SegmentedDonutPainter oldDelegate) {
+    return oldDelegate.total != total || oldDelegate.metrics != metrics;
+  }
+}
+
+class _OverviewCard extends StatelessWidget {
+  final bool isLoading;
+  const _OverviewCard({required this.isLoading});
 
   @override
   Widget build(BuildContext context) {
     final checkIns = context.select<DashboardState, int>((s) => s.checkedIn);
     final inField = context.select<DashboardState, int>((s) => s.inField);
     final checkedOut = context.select<DashboardState, int>((s) => s.checkedOut);
-    // Make width larger as requested
-    const double chartSize = 300.0;
+
+    final total = (checkIns + inField + checkedOut).toDouble();
+    final actualTotal = checkIns + inField + checkedOut;
+
+    final metrics = [
+      _DonutMetric(
+        title: 'Checked Out',
+        value: checkedOut,
+        color: _C.greenDark,
+        subtitle: 'Checked out students',
+      ),
+      _DonutMetric(
+        title: 'Checked In',
+        value: checkIns,
+        color: _C.green,
+        subtitle: 'Students checked in',
+      ),
+      _DonutMetric(
+        title: 'In Field',
+        value: inField,
+        color: _C.greenLight,
+        subtitle: 'Students currently in field',
+      ),
+    ];
 
     return Container(
       padding: const EdgeInsets.all(28),
@@ -885,186 +1087,67 @@ class _OverviewCardState extends State<_OverviewCard> {
         borderRadius: BorderRadius.circular(_C.cardRadius),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Align(
-            alignment: Alignment.center,
-            child: Text(
-              "Today's Overview",
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w700,
-                fontSize: 20,
-                color: _C.textDark,
-              ),
+          const Text(
+            "Today's Overview",
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              color: _C.textDark,
             ),
           ),
-          const SizedBox(height: 32),
-          Center(
-            child: SizedBox(
-              width: chartSize,
-              height: chartSize,
-              child: widget.isLoading
-                  ? const _Skeleton(
-                      width: chartSize,
-                      height: chartSize,
-                      borderRadius: chartSize / 2,
-                    )
-                  : Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: chartSize,
-                          height: chartSize,
-                          child: PieChart(
-                            PieChartData(
-                              pieTouchData: PieTouchData(
-                                touchCallback:
-                                    (FlTouchEvent event, pieTouchResponse) {
-                                      setState(() {
-                                        if (!event
-                                                .isInterestedForInteractions ||
-                                            pieTouchResponse == null ||
-                                            pieTouchResponse.touchedSection ==
-                                                null) {
-                                          _touchedIndex = -1;
-                                          return;
-                                        }
-                                        _touchedIndex = pieTouchResponse
-                                            .touchedSection!
-                                            .touchedSectionIndex;
-                                      });
-                                    },
-                              ),
-                              borderData: FlBorderData(show: false),
-                              sectionsSpace: 4,
-                              centerSpaceRadius: chartSize / 2.8,
-                              sections: [
-                                _buildPieSection(
-                                  value: checkedOut.toDouble(),
-                                  color: _C.greenDark,
-                                  title: 'Checked Out\n$checkedOut',
-                                  isTouched: _touchedIndex == 0,
-                                ),
-                                _buildPieSection(
-                                  value: checkIns.toDouble(),
-                                  color: _C.blueLight,
-                                  title: 'Checked In\n$checkIns',
-                                  isTouched: _touchedIndex == 1,
-                                ),
-                                _buildPieSection(
-                                  value: inField.toDouble(),
-                                  color: _C.teal,
-                                  title: 'In Field\n$inField',
-                                  isTouched: _touchedIndex == 2,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // Inner text only shows when nothing is hovered
-                        if (_touchedIndex == -1)
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _InlineLegendRow(
-                                '$checkedOut',
-                                'Checked out',
-                                _C.greenDark,
-                              ),
-                              const SizedBox(height: 8),
-                              _InlineLegendRow(
-                                '$checkIns',
-                                'Checked in',
-                                _C.blueLight,
-                              ),
-                              const SizedBox(height: 8),
-                              _InlineLegendRow('$inField', 'In field', _C.teal),
-                            ],
-                          ),
-                      ],
-                    ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-
-  PieChartSectionData _buildPieSection({
-    required double value,
-    required Color color,
-    required String title,
-    required bool isTouched,
-  }) {
-    final double radius = isTouched ? 35.0 : 25.0;
-    return PieChartSectionData(
-      color: color,
-      value: value,
-      title: title,
-      radius: radius,
-      titleStyle: TextStyle(
-        fontSize: isTouched ? 14.0 : 0.0,
-        fontWeight: FontWeight.bold,
-        color: const Color(0xffffffff),
-        fontFamily: 'Poppins',
-      ),
-      badgeWidget: isTouched
-          ? Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontFamily: 'Poppins',
-                  fontWeight: FontWeight.w600,
-                ),
+          const SizedBox(height: 28),
+          if (isLoading)
+            const SizedBox(
+              height: 280,
+              child: Center(
+                child: _Skeleton(width: 240, height: 240, borderRadius: 120),
               ),
             )
-          : null,
-      badgePositionPercentageOffset: 1.4,
-    );
-  }
-}
-
-class _InlineLegendRow extends StatelessWidget {
-  final String value;
-  final String label;
-  final Color color;
-  const _InlineLegendRow(this.value, this.label, this.color);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            color: color,
-            fontWeight: FontWeight.w800,
-            fontSize: 15,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: _C.textDark,
-          ),
-        ),
-      ],
+          else
+            SizedBox(
+              height: 300,
+              width: double.infinity,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _SegmentedDonutPainter(metrics, total),
+                    ),
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$actualTotal',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 36,
+                          fontWeight: FontWeight.w800,
+                          color: _C.textDark,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Total Active',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _C.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1281,6 +1364,7 @@ class _RightSidebarState extends State<_RightSidebar> {
             subtitle: activity.location,
             time: activity.time,
             imgUrl: activity.imageUrl,
+            activityImageUrl: activity.activityImageUrl,
             studentId: activity.studentId ?? '1',
             activityId: activity.activityId,
             studentName: activity.studentName ?? 'Student',
@@ -1415,6 +1499,7 @@ class _RecentActivityItem extends StatelessWidget {
   final String subtitle;
   final String time;
   final String imgUrl;
+  final String? activityImageUrl;
   final String? studentId;
   final String? activityId;
   final String? studentName;
@@ -1424,6 +1509,7 @@ class _RecentActivityItem extends StatelessWidget {
     required this.subtitle,
     required this.time,
     required this.imgUrl,
+    this.activityImageUrl,
     this.studentId,
     this.activityId,
     this.studentName,
@@ -1431,6 +1517,13 @@ class _RecentActivityItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use activity evidence image if available, otherwise fall back to avatar
+    final hasActivityImage =
+        activityImageUrl != null && activityImageUrl!.isNotEmpty;
+    final displayImageUrl = hasActivityImage
+        ? ImageUtils.getFullImageUrl(activityImageUrl)
+        : (imgUrl.isNotEmpty ? ImageUtils.getFullImageUrl(imgUrl) : null);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: GestureDetector(
@@ -1457,14 +1550,44 @@ class _RecentActivityItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              SizedBox(
-                width: 36,
-                height: 36,
-                child: AppAvatar(
-                  imagePath: imgUrl.isNotEmpty ? imgUrl : null,
-                  size: 36,
-                  shape: AvatarShape.circle,
-                ),
+              // Activity thumbnail (rounded square) or avatar fallback
+              ClipRRect(
+                borderRadius: hasActivityImage
+                    ? BorderRadius.circular(12)
+                    : BorderRadius.circular(18),
+                child: displayImageUrl != null
+                    ? Image.network(
+                        displayImageUrl,
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: _C.greenLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            PhosphorIconsRegular.image,
+                            color: _C.green,
+                            size: 18,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 36,
+                        height: 36,
+                        decoration: const BoxDecoration(
+                          color: _C.greenLight,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          PhosphorIconsRegular.image,
+                          color: _C.green,
+                          size: 18,
+                        ),
+                      ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1550,5 +1673,3 @@ class _FeedItem extends StatelessWidget {
     );
   }
 }
-
-// ── Removed CustomPainter Donut chart in favor of fl_chart ──

@@ -5,6 +5,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/core/providers/auth_provider.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class SupervisorScaffold extends ConsumerStatefulWidget {
   final Widget child;
@@ -73,14 +74,11 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
                         : MainAxisAlignment.center,
                     children: [
                       if (_isExpanded) const SizedBox(width: 8),
-                      const Text(
-                        'F',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'Poppins',
-                        ),
+                      Image.asset(
+                        'lib/assets/Images/logo.png',
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.contain,
                       ),
                       if (_isExpanded) ...[
                         const SizedBox(width: 12),

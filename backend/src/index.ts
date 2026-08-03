@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import { appLogger } from './utils/logger.js';
 import { prisma } from './db.js';
+import { verifyToken } from './auth/jwt.js';
 
 import authRoutes from './auth/auth.routes.js';
 import adminRoutes from './admins/admins.routes.js';
@@ -16,10 +17,20 @@ import notificationRoutes from './notifications/notification.routes.js';
 import reviewRoutes from './reviews/review.routes.js';
 import reportRoutes from './reports/reports.routes.js';
 import settingsRoutes from './settings/settings.routes.js';
+import { startScheduler } from './background/scheduler.js';
+import { initFirebaseAdmin } from './firebase_admin.js';
 
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (Nginx) for accurate client IP
 const port = process.env.PORT || 3000;
+
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET must be configured before starting the backend.');
+}
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL must be configured before starting the backend.');
+}
 
 app.use(helmet());
 app.use(cors());
@@ -38,6 +49,56 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
+// Public FCM token endpoint (no authentication required)
+app.put('/api/v1/fcm-token', async (req: Request, res: Response) => {
+  try {
+    console.log('[FCM] Received FCM token sync request from', req.ip);
+    const { fcmToken } = req.body;
+    
+    if (!fcmToken) {
+      console.log('[FCM] No FCM token provided in request');
+      return res.status(400).json({ error: 'FCM token is required' });
+    }
+    
+    console.log('[FCM] FCM token received:', fcmToken.substring(0, 20) + '...');
+
+    // Check if user is authenticated via JWT token
+    const authHeader = req.headers.authorization as string | undefined;
+    let linked = false;
+
+    if (authHeader) {
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      if (token) {
+        try {
+          const decoded = verifyToken(token);
+
+          // Update user's FCM token in database
+          await prisma.user.update({
+            where: { id: decoded.userId },
+            data: { fcmToken },
+          });
+          linked = true;
+          appLogger.info(`FCM token updated for user ${decoded.userId}`);
+        } catch (jwtErr) {
+          // Invalid/expired JWT - token cannot be linked to a user
+          appLogger.warn('Invalid JWT for FCM token registration, token NOT linked to user', {
+            error: (jwtErr as Error).message,
+          });
+        }
+      } else {
+        appLogger.warn('Empty Bearer token received for FCM token registration');
+      }
+    } else {
+      appLogger.info('FCM token received without auth header - token NOT linked to any user');
+    }
+
+    res.json({ success: true, linked, message: linked ? 'FCM token linked to user' : 'FCM token received but not linked to user (no valid auth)' });
+  } catch (error) {
+    appLogger.error('Error updating FCM token:', error);
+    res.status(500).json({ error: 'Failed to register FCM token' });
+  }
+});
+
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
@@ -50,6 +111,7 @@ app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 
 import { BASE_STORAGE_DIR } from './media/storage.service.js';
+import { ensureEnvAdminAccount } from './admin-sync.js';
 
 // Serve the storage folder statically with caching and media streaming support
 app.use('/storage', express.static(BASE_STORAGE_DIR, {
@@ -255,7 +317,9 @@ app.get('/api/v1/supervisor/students/:id', async (req: Request, res: Response) =
       programme: sp?.programme ?? '',
       department: sp?.department ?? '',
       faculty: sp?.faculty ?? '',
+      phone: sp?.phone ?? '',
       topic: sp?.topic ?? '',
+      university: sp?.faculty ?? '',
       checkInStatus: isCheckedIn ? 'Checked In' : 'Checked Out',
       fieldStatus: isCheckedIn ? 'In Field' : 'Offline',
       lastActivity: logs[0]?.timestamp ?? null,
@@ -366,6 +430,15 @@ app.get('/api/v1/admin/users', async (req: Request, res: Response) => {
   }
 });
 
-app.listen(Number(port), '0.0.0.0', () => {
-  console.log(`[server]: Unified Server is running at http://0.0.0.0:${port}`);
-});
+ensureEnvAdminAccount()
+  .then(async () => {
+    await initFirebaseAdmin();
+    startScheduler();
+    app.listen(Number(port), '0.0.0.0', () => {
+      console.log(`[server]: Unified Server is running at http://0.0.0.0:${port}`);
+    });
+  })
+  .catch((error) => {
+    console.error('Failed to ensure admin account from env:', error);
+    process.exit(1);
+  });

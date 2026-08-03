@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { StorageService } from './storage.service.js';
+import { uploadsLogger } from '../utils/logger.js';
 const router = Router();
 const storageService = new StorageService();
 // Set up multer for temporary file storage with MIME type checking
@@ -35,7 +36,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         res.status(201).json(evidence);
     }
     catch (error) {
-        console.error('[uploadMedia]', error);
+        uploadsLogger.error('Upload media failed:', { error, body: req.body });
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });

@@ -4,16 +4,11 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart' as pkg_provider;
-import 'package:fieldtrack/core/constants/app_constants.dart';
-import 'package:fieldtrack/core/utils/image_utils.dart';
-import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import '../dashboard/dashboard_state.dart';
 import '../widgets/supervisor_top_header.dart';
 import 'package:fieldtrack/shared/models/student_data.dart';
-import 'package:fieldtrack/features/supervisor/repositories/student_repository.dart';
 import 'package:intl/intl.dart';
-import 'dart:math';
 
 // ==========================================
 // DESIGN TOKENS
@@ -51,6 +46,7 @@ class MapStudent {
   final StudentStatus status;
   final String time;
   final LatLng location;
+  final String locationName;
   final List<LatLng> routeHistory;
 
   const MapStudent({
@@ -62,6 +58,7 @@ class MapStudent {
     required this.status,
     required this.time,
     required this.location,
+    required this.locationName,
     required this.routeHistory,
   });
 
@@ -93,6 +90,14 @@ class MapStudent {
       case StudentStatus.pendingReview:
         return 'Pending Review';
     }
+  }
+
+  String get locationLabel {
+    if (locationName.isNotEmpty) {
+      return locationName;
+    }
+
+    return 'Lat: ${location.latitude.toStringAsFixed(4)}, Lng: ${location.longitude.toStringAsFixed(4)}';
   }
 }
 
@@ -137,6 +142,27 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
     ),
   ];
 
+  String _buildStudentLocationName(StudentData student) {
+    if (student.gpsHistory.isNotEmpty) {
+      final lastAddress = student.gpsHistory.last.address;
+      if (lastAddress.isNotEmpty) {
+        return lastAddress;
+      }
+    }
+
+    final session = student.currentSession;
+    if (session == null) return '';
+
+    final parts = [
+      session.village,
+      session.ward,
+      session.subCounty,
+      session.county,
+    ].where((part) => part.isNotEmpty).toList();
+
+    return parts.isNotEmpty ? parts.join(', ') : '';
+  }
+
   List<MapStudent> _getAllStudents(List<StudentData> students) {
     // Only include students who are checked in and have a valid GPS session captured
     return students
@@ -144,18 +170,28 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
           (s) => s.currentSession != null && s.checkInStatus == 'Checked In',
         )
         .map((s) {
-          final isOnline = s.fieldStatus == FieldStatus.inField;
+          final status = s.fieldStatus == FieldStatus.inField
+              ? StudentStatus.inField
+              : s.fieldStatus == FieldStatus.checkedOut
+              ? StudentStatus.checkedOut
+              : s.fieldStatus == FieldStatus.offline
+              ? StudentStatus.offline
+              : (s.fieldStatus == FieldStatus.awaitingReview ||
+                    s.fieldStatus == FieldStatus.revisionRequested)
+              ? StudentStatus.pendingReview
+              : StudentStatus.idle;
           return MapStudent(
             id: s.id,
             name: s.name,
             regNo: s.reg,
             topic: s.topic,
-            status: isOnline ? StudentStatus.inField : StudentStatus.offline,
+            status: status,
             time: DateFormat('hh:mm a').format(s.currentSession!.checkInTime),
             location: LatLng(
               s.currentSession!.latitude,
               s.currentSession!.longitude,
             ),
+            locationName: _buildStudentLocationName(s),
             routeHistory: s.gpsHistory
                 .map((g) => LatLng(g.latitude, g.longitude))
                 .toList(),
@@ -213,7 +249,7 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
             children: [
               _buildTopHeader(),
               const SizedBox(height: 32),
-              _buildMainContent(allStudents, filteredStudents),
+              _buildMainContent(allStudents, filteredStudents, rawStudents),
             ],
           ),
         ),
@@ -222,74 +258,6 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   }
 
   // ── Skeletons ─────────────────────────────────────────────────────────
-  Widget _buildHeaderSkeleton() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            _SkeletonBox(width: 200, height: 32, borderRadius: 8),
-            SizedBox(height: 8),
-            _SkeletonBox(width: 300, height: 16, borderRadius: 4),
-          ],
-        ),
-        Row(
-          children: const [
-            _SkeletonBox(width: 320, height: 52, borderRadius: 26),
-            SizedBox(width: 16),
-            _SkeletonBox(width: 52, height: 52, borderRadius: 26),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMainContentSkeleton() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 70,
-          child: Column(
-            children: const [
-              _SkeletonBox(
-                width: double.infinity,
-                height: 120,
-                borderRadius: _C.cardRadius,
-              ),
-              SizedBox(height: 24),
-              _SkeletonBox(
-                width: double.infinity,
-                height: 650,
-                borderRadius: _C.cardRadius,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 24),
-        Expanded(
-          flex: 30,
-          child: Column(
-            children: const [
-              _SkeletonBox(
-                width: double.infinity,
-                height: 500,
-                borderRadius: _C.cardRadius,
-              ),
-              SizedBox(height: 24),
-              _SkeletonBox(
-                width: double.infinity,
-                height: 200,
-                borderRadius: _C.cardRadius,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   // ── 1. Top Header ─────────────────────────────────────────────────────
   Widget _buildTopHeader() {
     return SupervisorTopHeader(
@@ -304,6 +272,7 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   Widget _buildMainContent(
     List<MapStudent> allStudents,
     List<MapStudent> filteredStudents,
+    List<StudentData> rawStudents,
   ) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -311,7 +280,7 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
 
         final leftCol = Column(
           children: [
-            _buildTopStatsCard(allStudents),
+            _buildTopStatsCard(allStudents, rawStudents),
             const SizedBox(height: 24),
             _buildMapCard(filteredStudents),
           ],
@@ -344,7 +313,10 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   }
 
   // ── 3. Top Stats Card ─────────────────────────────────────────────────
-  Widget _buildTopStatsCard(List<MapStudent> allStudents) {
+  Widget _buildTopStatsCard(
+    List<MapStudent> allStudents,
+    List<StudentData> rawStudents,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 32),
@@ -356,16 +328,32 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
         builder: (context, constraints) {
           final isNarrow = constraints.maxWidth < 600;
 
-          final inFieldCount = allStudents
-              .where((s) => s.status == StudentStatus.inField)
+          final inFieldCount = rawStudents
+              .where(
+                (s) => s.checkInStatus.toLowerCase().trim() == 'checked in',
+              )
               .length;
-          final checkedOutCount = allStudents
-              .where((s) => s.status == StudentStatus.checkedOut)
+          final checkedOutCount = rawStudents
+              .where(
+                (s) => s.checkInStatus.toLowerCase().trim() == 'checked out',
+              )
+              .length;
+          final pendingReviewCount = rawStudents
+              .where(
+                (s) =>
+                    s.fieldStatus == FieldStatus.awaitingReview ||
+                    s.fieldStatus == FieldStatus.revisionRequested,
+              )
+              .length;
+          final notCheckedInCount = rawStudents
+              .where(
+                (s) => s.checkInStatus.toLowerCase().trim() != 'checked in',
+              )
               .length;
 
           final stats = [
             _buildStatItem(
-              'Student in Field',
+              'Students in Field',
               '$inFieldCount',
               'Live now',
               PhosphorIcons.graduationCap(PhosphorIconsStyle.fill),
@@ -382,15 +370,15 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
             ),
             _buildStatItem(
               'Pending Review',
-              '11',
-              'Activities',
+              '$pendingReviewCount',
+              'Review queue',
               PhosphorIcons.hourglass(PhosphorIconsStyle.fill),
               _C.orangeLight,
               _C.orange,
             ),
             _buildStatItem(
-              'Not checked In',
-              '3',
+              'Not checked in',
+              '$notCheckedInCount',
               'Today',
               PhosphorIcons.userMinus(PhosphorIconsStyle.fill),
               _C.redLight,
@@ -482,6 +470,12 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
 
   // ── 4. Map Card ───────────────────────────────────────────────────────
   Widget _buildMapCard(List<MapStudent> filteredStudents) {
+    final initialCenter =
+        _selectedStudent?.location ??
+        (filteredStudents.isNotEmpty
+            ? filteredStudents.first.location
+            : const LatLng(-1.2921, 36.8219));
+
     return Container(
       height: 650,
       decoration: BoxDecoration(
@@ -496,10 +490,7 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
             FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: const LatLng(
-                  -1.2921,
-                  36.8219,
-                ), // Nairobi Default
+                initialCenter: initialCenter,
                 initialZoom: 13.0,
                 onTap: (_, __) => setState(() => _selectedStudent = null),
               ),
@@ -734,14 +725,16 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  student.topic,
+                  student.locationName.isNotEmpty
+                      ? student.locationName
+                      : 'Lat: ${student.location.latitude.toStringAsFixed(4)}, Lng: ${student.location.longitude.toStringAsFixed(4)}',
                   style: const TextStyle(
                     fontFamily: 'Poppins',
                     color: _C.textMuted,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),

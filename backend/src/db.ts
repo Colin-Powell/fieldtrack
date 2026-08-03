@@ -8,7 +8,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error("DATABASE_URL is not set in the environment variables!");
+  throw new Error('DATABASE_URL must be set in the environment variables.');
 }
 
 const pool = new Pool({ connectionString });

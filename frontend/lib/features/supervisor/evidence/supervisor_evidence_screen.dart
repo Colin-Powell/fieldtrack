@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
 import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
 import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:fieldtrack/core/network/api_result.dart';
@@ -26,22 +27,29 @@ class _C {
   static const orangeLight = Color(0xFFFFEDD5);
   static const blue = Color(0xFF3B82F6);
   static const blueLight = Color(0xFFEFF6FF);
-  
+
   static const cardRadius = 48.0; // Outer structural containers
-  static const innerCardRadius = 24.0; // Scaled down for tiny cards to prevent circle-clipping
+  static const innerCardRadius =
+      24.0; // Scaled down for tiny cards to prevent circle-clipping
 }
 
 class SupervisorEvidenceScreen extends ConsumerStatefulWidget {
   final String studentId;
   final String activityId;
-  
-  const SupervisorEvidenceScreen({super.key, required this.studentId, required this.activityId});
+
+  const SupervisorEvidenceScreen({
+    super.key,
+    required this.studentId,
+    required this.activityId,
+  });
 
   @override
-  ConsumerState<SupervisorEvidenceScreen> createState() => _SupervisorEvidenceScreenState();
+  ConsumerState<SupervisorEvidenceScreen> createState() =>
+      _SupervisorEvidenceScreenState();
 }
 
-class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScreen> {
+class _SupervisorEvidenceScreenState
+    extends ConsumerState<SupervisorEvidenceScreen> {
   final ScrollController _scrollController = ScrollController();
   final AudioPlayer _audioPlayer = AudioPlayer();
 
@@ -65,18 +73,33 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
   @override
   Widget build(BuildContext context) {
     final activityAsync = ref.watch(activityDetailsProvider(widget.activityId));
-    
+
     return ApiResultBuilder<Map<String, dynamic>>(
       asyncValue: activityAsync,
       onRetry: () => ref.refresh(activityDetailsProvider(widget.activityId)),
-      customLoading: const Scaffold(backgroundColor: Colors.white, body: Center(child: CircularProgressIndicator(color: _C.green))),
+      customLoading: const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator(color: _C.green)),
+      ),
       onData: (activity) {
         final evidenceList = activity['evidence'] as List<dynamic>? ?? [];
-        final images = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('image/')).toList();
-        final videos = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('video/')).toList();
-        final audios = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('audio/')).toList();
-        final docs = evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('application/') || (e['mimeType'] as String? ?? '').startsWith('text/')).toList();
-        
+        final images = evidenceList
+            .where((e) => (e['mimeType'] as String? ?? '').startsWith('image/'))
+            .toList();
+        final videos = evidenceList
+            .where((e) => (e['mimeType'] as String? ?? '').startsWith('video/'))
+            .toList();
+        final audios = evidenceList
+            .where((e) => (e['mimeType'] as String? ?? '').startsWith('audio/'))
+            .toList();
+        final docs = evidenceList
+            .where(
+              (e) =>
+                  (e['mimeType'] as String? ?? '').startsWith('application/') ||
+                  (e['mimeType'] as String? ?? '').startsWith('text/'),
+            )
+            .toList();
+
         String studentName = 'Unknown Student';
         if (activity['user'] != null && activity['user']['name'] != null) {
           studentName = activity['user']['name'];
@@ -84,10 +107,10 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
 
         String submittedDateStr = 'N/A';
         if (activity['timestamp'] != null) {
-            final dt = DateTime.parse(activity['timestamp']).toLocal();
-            submittedDateStr = DateFormat('dd MMM yyyy').format(dt);
+          final dt = DateTime.parse(activity['timestamp']).toLocal();
+          submittedDateStr = DateFormat('dd MMM yyyy').format(dt);
         }
-        
+
         String accuracy = 'N/A';
 
         return Stack(
@@ -116,53 +139,101 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                           if (images.isNotEmpty) ...[
                             Padding(
                               padding: const EdgeInsets.only(left: 8.0),
-                              child: Text('Images (${images.length})', style: const TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w700, color: _C.textDark)),
+                              child: Text(
+                                'Images (${images.length})',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: _C.textDark,
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             GridView.builder(
                               itemCount: images.length,
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 6,
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 16,
-                                childAspectRatio: 0.75,
-                              ),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 6,
+                                    crossAxisSpacing: 16,
+                                    mainAxisSpacing: 16,
+                                    childAspectRatio: 0.75,
+                                  ),
                               itemBuilder: (context, index) {
                                 final ev = images[index];
-                                final url = ImageUtils.getFullImageUrl(ev['storagePath']);
+                                final url = ImageUtils.getFullImageUrl(
+                                  ev['storagePath'],
+                                );
                                 final time = submittedDateStr;
-                                return _buildImageCard(context, ev['fileName'] ?? 'Image_$index.jpg', time, accuracy, url);
+                                return _buildImageCard(
+                                  context,
+                                  ev['fileName'] ?? 'Image_$index.jpg',
+                                  time,
+                                  accuracy,
+                                  url,
+                                );
                               },
                             ),
-                            const SizedBox(height: 32), 
+                            const SizedBox(height: 32),
                           ],
-                          
+
                           // --- VIDEOS ---
                           if (videos.isNotEmpty) ...[
                             Padding(
                               padding: const EdgeInsets.only(left: 8.0),
-                              child: Text('Videos (${videos.length})', style: const TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w700, color: _C.textDark)),
+                              child: Text(
+                                'Videos (${videos.length})',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: _C.textDark,
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             GridView.builder(
                               itemCount: videos.length,
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 16,
-                                childAspectRatio: 1.2,
-                              ),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    crossAxisSpacing: 16,
+                                    mainAxisSpacing: 16,
+                                    childAspectRatio: 1.2,
+                                  ),
                               itemBuilder: (context, index) {
                                 final ev = videos[index];
-                                final url = ImageUtils.getFullImageUrl(ev['storagePath']);
+                                final rawPath =
+                                    ev['storagePath'] ??
+                                    ev['url'] ??
+                                    ev['storedName'] ??
+                                    ev['originalName'];
+                                final url = ImageUtils.getFullImageUrl(
+                                  rawPath as String?,
+                                );
+                                debugPrint(
+                                  'SupervisorEvidence: resolved video URL: $url',
+                                );
                                 final time = submittedDateStr;
-                                return _buildVideoCard(context, ev['fileName'] ?? 'Video_$index.mp4', time, 'N/A', url);
+                                final title =
+                                    (ev['fileName'] ??
+                                            ev['originalName'] ??
+                                            ev['storedName'] ??
+                                            'Video_$index.mp4')
+                                        as String;
+                                return _buildVideoCard(
+                                  context,
+                                  title,
+                                  time,
+                                  'N/A',
+                                  url,
+                                );
                               },
                             ),
                             const SizedBox(height: 32),
@@ -172,7 +243,15 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                           if (audios.isNotEmpty) ...[
                             Padding(
                               padding: const EdgeInsets.only(left: 8.0),
-                              child: Text('Voice Notes (${audios.length})', style: const TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w700, color: _C.textDark)),
+                              child: Text(
+                                'Voice Notes (${audios.length})',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: _C.textDark,
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 16),
                             ListView.builder(
@@ -183,18 +262,24 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                                 final ev = audios[index];
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 12.0),
-                                  child: _buildVoiceNoteCard(context, ev['fileName'] ?? 'Audio_$index.mp3', ImageUtils.getFullImageUrl(ev['storagePath'])),
+                                  child: _buildVoiceNoteCard(
+                                    context,
+                                    ev['fileName'] ?? 'Audio_$index.mp3',
+                                    ImageUtils.getFullImageUrl(
+                                      ev['storagePath'],
+                                    ),
+                                  ),
                                 );
-                              }
+                              },
                             ),
                           ],
                         ],
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(width: 24),
-                  
+
                   // ── RIGHT COLUMN: Documents, Summary & Info ───────────────────
                   Expanded(
                     flex: 6,
@@ -207,7 +292,9 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                             padding: const EdgeInsets.all(32),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(_C.cardRadius),
+                              borderRadius: BorderRadius.circular(
+                                _C.cardRadius,
+                              ),
                               border: Border.all(color: _C.border),
                             ),
                             child: Column(
@@ -215,7 +302,15 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.only(left: 8.0),
-                                  child: Text('Documents (${docs.length})', style: const TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: _C.textDark)),
+                                  child: Text(
+                                    'Documents (${docs.length})',
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: _C.textDark,
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
                                 ListView.builder(
@@ -225,23 +320,34 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                                   itemBuilder: (context, index) {
                                     final ev = docs[index];
                                     return Padding(
-                                      padding: const EdgeInsets.only(bottom: 12.0),
+                                      padding: const EdgeInsets.only(
+                                        bottom: 12.0,
+                                      ),
                                       child: _buildDocumentCard(
-                                        ev['originalName'] ?? ev['fileName'] ?? 'Doc_$index', 
-                                        ImageUtils.getFullImageUrl(ev['storagePath']), 
-                                        ev['fileExtension'] ?? '', 
-                                        studentName
+                                        ev['originalName'] ??
+                                            ev['fileName'] ??
+                                            'Doc_$index',
+                                        ImageUtils.getFullImageUrl(
+                                          ev['storagePath'],
+                                        ),
+                                        ev['fileExtension'] ?? '',
+                                        studentName,
                                       ),
                                     );
-                                  }
+                                  },
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(height: 24),
                         ],
-                        
-                        _buildEvidenceSummaryCard(images.length, videos.length, audios.length, docs.length),
+
+                        _buildEvidenceSummaryCard(
+                          images.length,
+                          videos.length,
+                          audios.length,
+                          docs.length,
+                        ),
                         const SizedBox(height: 24),
                         _buildSubmissionInfoCard(submittedDateStr, accuracy),
                       ],
@@ -260,7 +366,11 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                 elevation: 8,
                 shape: const CircleBorder(),
                 onPressed: _scrollToBottom,
-                child: const Icon(PhosphorIconsRegular.caretDown, color: Colors.white, size: 24),
+                child: const Icon(
+                  PhosphorIconsRegular.caretDown,
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
             ),
           ],
@@ -271,7 +381,13 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
 
   // ── MEDIA WIDGET BUILDERS ─────────────────────────────────────────────
 
-  Widget _buildImageCard(BuildContext context, String title, String time, String accuracy, String url) {
+  Widget _buildImageCard(
+    BuildContext context,
+    String title,
+    String time,
+    String accuracy,
+    String url,
+  ) {
     return GestureDetector(
       onTap: () => _showTheaterMode(context, url, title),
       child: Container(
@@ -285,26 +401,61 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(_C.innerCardRadius)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(_C.innerCardRadius),
+                ),
                 child: Image.network(
                   url,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(color: _C.border, child: const Icon(PhosphorIconsRegular.image, color: _C.textFaint)),
+                  errorBuilder: (_, _, _) => Container(
+                    color: _C.border,
+                    child: const Icon(
+                      PhosphorIconsRegular.image,
+                      color: _C.textFaint,
+                    ),
+                  ),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10.0,
+                vertical: 10.0,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontFamily: 'Poppins', fontSize: 10, fontWeight: FontWeight.w700, color: _C.textDark), overflow: TextOverflow.ellipsis),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: _C.textDark,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(time, style: const TextStyle(fontFamily: 'Poppins', fontSize: 9, color: _C.textFaint)),
-                      Text(accuracy, style: const TextStyle(fontFamily: 'Poppins', fontSize: 9, fontWeight: FontWeight.w600, color: _C.green)),
+                      Text(
+                        time,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 9,
+                          color: _C.textFaint,
+                        ),
+                      ),
+                      Text(
+                        accuracy,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: _C.green,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -316,7 +467,13 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
     );
   }
 
-  Widget _buildVideoCard(BuildContext context, String title, String time, String duration, String url) {
+  Widget _buildVideoCard(
+    BuildContext context,
+    String title,
+    String time,
+    String duration,
+    String url,
+  ) {
     return GestureDetector(
       onTap: () => _showVideoPlayer(context, url, title),
       child: Container(
@@ -333,23 +490,38 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                 fit: StackFit.expand,
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(_C.innerCardRadius)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(_C.innerCardRadius),
+                    ),
                     child: Container(
                       color: Colors.black12,
-                      child: const Center(child: Icon(PhosphorIconsFill.videoCamera, size: 48, color: Colors.black26)),
+                      child: const Center(
+                        child: Icon(
+                          PhosphorIconsFill.videoCamera,
+                          size: 48,
+                          color: Colors.black26,
+                        ),
+                      ),
                     ),
                   ),
                   const Center(
                     child: CircleAvatar(
                       backgroundColor: Colors.white,
-                      child: Icon(PhosphorIconsFill.play, color: _C.textDark, size: 16),
+                      child: Icon(
+                        PhosphorIconsFill.play,
+                        color: _C.textDark,
+                        size: 16,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -357,16 +529,46 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: const TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w700, color: _C.textDark), overflow: TextOverflow.ellipsis),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _C.textDark,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         const SizedBox(height: 4),
-                        Text(time, style: const TextStyle(fontFamily: 'Poppins', fontSize: 10, color: _C.textFaint)),
+                        Text(
+                          time,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 10,
+                            color: _C.textFaint,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(8)),
-                    child: Text(duration, style: const TextStyle(fontFamily: 'Poppins', fontSize: 9, fontWeight: FontWeight.w600, color: _C.textBody)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _C.border,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      duration,
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: _C.textBody,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -391,23 +593,60 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              child: const Icon(PhosphorIconsFill.microphoneStage, color: _C.blue, size: 24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                PhosphorIconsFill.microphoneStage,
+                color: _C.blue,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w700, color: _C.textDark)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _C.textDark,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Text('Audio File', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w500, color: _C.blue)),
+                      const Text(
+                        'Audio File',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: _C.blue,
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      Container(width: 4, height: 4, decoration: const BoxDecoration(color: _C.textFaint, shape: BoxShape.circle)),
+                      Container(
+                        width: 4,
+                        height: 4,
+                        decoration: const BoxDecoration(
+                          color: _C.textFaint,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      const Text('Tap to listen', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: _C.textFaint)),
+                      const Text(
+                        'Tap to listen',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 12,
+                          color: _C.textFaint,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -415,8 +654,15 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
             ),
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle),
-              child: const Icon(PhosphorIconsFill.play, color: Colors.white, size: 20),
+              decoration: const BoxDecoration(
+                color: _C.blue,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                PhosphorIconsFill.play,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ],
         ),
@@ -426,24 +672,34 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
 
   // ── RIGHT COLUMN META WIDGETS ─────────────────────────────────────────
 
-  Widget _buildDocumentCard(String originalName, String url, String extension, String studentName) {
+  Widget _buildDocumentCard(
+    String originalName,
+    String url,
+    String extension,
+    String studentName,
+  ) {
     IconData icon = PhosphorIconsFill.fileText;
     if (extension.toLowerCase().contains('pdf')) {
       icon = PhosphorIconsFill.filePdf;
-    } else if (extension.toLowerCase().contains('doc') || extension.toLowerCase().contains('word')) {
+    } else if (extension.toLowerCase().contains('doc') ||
+        extension.toLowerCase().contains('word')) {
       icon = PhosphorIconsFill.fileDoc;
-    } else if (extension.toLowerCase().contains('xls') || extension.toLowerCase().contains('sheet')) {
+    } else if (extension.toLowerCase().contains('xls') ||
+        extension.toLowerCase().contains('sheet')) {
       icon = PhosphorIconsFill.fileXls;
-    } else if (extension.toLowerCase().contains('ppt') || extension.toLowerCase().contains('presentation')) {
+    } else if (extension.toLowerCase().contains('ppt') ||
+        extension.toLowerCase().contains('presentation')) {
       icon = PhosphorIconsFill.filePpt;
-    } else if (extension.toLowerCase().contains('zip') || extension.toLowerCase().contains('rar') || extension.toLowerCase().contains('tar')) {
+    } else if (extension.toLowerCase().contains('zip') ||
+        extension.toLowerCase().contains('rar') ||
+        extension.toLowerCase().contains('tar')) {
       icon = PhosphorIconsFill.fileZip;
     }
 
     final displayName = '${studentName.replaceAll(' ', '_')}_$originalName';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), 
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: _C.orangeLight.withOpacity(0.3),
         borderRadius: BorderRadius.circular(_C.innerCardRadius),
@@ -453,7 +709,10 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, color: _C.orange, size: 24),
           ),
           const SizedBox(width: 12),
@@ -461,9 +720,25 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(displayName, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w700, color: _C.textDark), overflow: TextOverflow.ellipsis),
+                Text(
+                  displayName,
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _C.textDark,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 2),
-                Text('Tap to open ${extension.isNotEmpty ? extension.toUpperCase() : "Document"}', style: const TextStyle(fontFamily: 'Poppins', fontSize: 11, color: _C.textFaint)),
+                Text(
+                  'Tap to open ${extension.isNotEmpty ? extension.toUpperCase() : "Document"}',
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 11,
+                    color: _C.textFaint,
+                  ),
+                ),
               ],
             ),
           ),
@@ -476,16 +751,24 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                 }
               }
             },
-            icon: const Icon(PhosphorIconsRegular.arrowSquareOut, color: _C.orange),
+            icon: const Icon(
+              PhosphorIconsRegular.arrowSquareOut,
+              color: _C.orange,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEvidenceSummaryCard(int numImages, int numVideos, int numAudios, int numDocs) {
+  Widget _buildEvidenceSummaryCard(
+    int numImages,
+    int numVideos,
+    int numAudios,
+    int numDocs,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(32), 
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(_C.cardRadius),
@@ -494,15 +777,35 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Evidence Summary', style: TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: _C.textDark)),
+          const Text(
+            'Evidence Summary',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: _C.textDark,
+            ),
+          ),
           const SizedBox(height: 20),
           _buildSummaryRow(PhosphorIconsRegular.image, 'Images', '$numImages'),
           const SizedBox(height: 12),
-          _buildSummaryRow(PhosphorIconsRegular.videoCamera, 'Videos', '$numVideos'),
+          _buildSummaryRow(
+            PhosphorIconsRegular.videoCamera,
+            'Videos',
+            '$numVideos',
+          ),
           const SizedBox(height: 12),
-          _buildSummaryRow(PhosphorIconsRegular.microphone, 'Voice Notes', '$numAudios'),
+          _buildSummaryRow(
+            PhosphorIconsRegular.microphone,
+            'Voice Notes',
+            '$numAudios',
+          ),
           const SizedBox(height: 12),
-          _buildSummaryRow(PhosphorIconsRegular.fileText, 'Documents', '$numDocs'),
+          _buildSummaryRow(
+            PhosphorIconsRegular.fileText,
+            'Documents',
+            '$numDocs',
+          ),
         ],
       ),
     );
@@ -513,16 +816,32 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
       children: [
         Icon(icon, size: 18, color: _C.textFaint),
         const SizedBox(width: 12),
-        Text(label, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: _C.textBody, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 13,
+            color: _C.textBody,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         const Spacer(),
-        Text(value, style: const TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.w700, color: _C.textDark)),
+        Text(
+          value,
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: _C.textDark,
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildSubmissionInfoCard(String date, String accuracy) {
     return Container(
-      padding: const EdgeInsets.all(32), 
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(_C.cardRadius),
@@ -531,13 +850,43 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Submission Info', style: TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: _C.textDark)),
+          const Text(
+            'Submission Info',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: _C.textDark,
+            ),
+          ),
           const SizedBox(height: 20),
-          _buildInfoRow('Submitted', Text(date, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w700, color: _C.textDark))),
+          _buildInfoRow(
+            'Submitted',
+            Text(
+              date,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: _C.textDark,
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
-          _buildInfoRow('GPS Accuracy', Text(accuracy, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w700, color: _C.green))),
+          _buildInfoRow(
+            'GPS Accuracy',
+            Text(
+              accuracy,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: _C.green,
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
-          
+
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -546,9 +895,19 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                 backgroundColor: _C.green,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 20),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_C.cardRadius)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(_C.cardRadius),
+                ),
               ),
-              child: const Text('Download Evidence', style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+              child: const Text(
+                'Download Evidence',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
         ],
@@ -560,7 +919,15 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: _C.textFaint, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 13,
+            color: _C.textFaint,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         trailingWidget,
       ],
     );
@@ -589,9 +956,21 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w600)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Poppins',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   IconButton(
-                    icon: const Icon(PhosphorIconsRegular.x, color: Colors.white, size: 32),
+                    icon: const Icon(
+                      PhosphorIconsRegular.x,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -604,77 +983,206 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
   }
 
   void _showVideoPlayer(BuildContext context, String url, String title) {
+    debugPrint('SupervisorEvidence: opening video player with URL: $url');
+
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No video URL available')));
+      return;
+    }
+
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    final initializeFuture = controller.initialize();
+    controller.setLooping(false);
+
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.black,
-        insetPadding: const EdgeInsets.all(40),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Mock Video Frame (could use actual VideoPlayer if available)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Container(
-                color: Colors.black87,
-                child: const Center(
-                  child: Icon(PhosphorIconsFill.videoCamera, size: 100, color: Colors.white24),
-                ),
-              ),
-            ),
-            Container(decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(24))),
-            
-            // Big Play Button
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-              child: const Icon(PhosphorIconsFill.play, color: Colors.white, size: 64),
-            ),
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: const EdgeInsets.all(24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return FutureBuilder<void>(
+                future: initializeFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    if (snapshot.hasError) {
+                      return SizedBox(
+                        height: 320,
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                PhosphorIconsRegular.warning,
+                                color: Colors.white,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Unable to load video.',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontFamily: 'Poppins',
+                                  fontSize: 16,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                snapshot.error.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontFamily: 'Poppins',
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                onPressed: () {
+                                  controller.dispose();
+                                  Navigator.pop(ctx);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _C.green,
+                                ),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
 
-            // Top Bar
-            Positioned(
-              top: 16, left: 24, right: 16,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w600)),
-                  IconButton(
-                    icon: const Icon(PhosphorIconsRegular.x, color: Colors.white, size: 28),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-            ),
+                    return const SizedBox(
+                      height: 320,
+                      child: Center(
+                        child: CircularProgressIndicator(color: _C.green),
+                      ),
+                    );
+                  }
 
-            // Bottom Controls Bar
-            Positioned(
-              bottom: 24, left: 24, right: 24,
-              child: Row(
-                children: [
-                  const Icon(PhosphorIconsFill.pause, color: Colors.white, size: 24),
-                  const SizedBox(width: 16),
-                  const Text('00:00', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: LinearProgressIndicator(
-                      value: 0.0,
-                      backgroundColor: Colors.white.withOpacity(0.3),
-                      valueColor: const AlwaysStoppedAnimation<Color>(_C.green),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Text('--:--', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
-                  const SizedBox(width: 16),
-                  const Icon(PhosphorIconsRegular.cornersOut, color: Colors.white, size: 24),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: AspectRatio(
+                          aspectRatio: controller.value.aspectRatio,
+                          child: VideoPlayer(controller),
+                        ),
+                      ),
+                      Positioned(
+                        top: 16,
+                        left: 24,
+                        right: 16,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontFamily: 'Poppins',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                PhosphorIconsRegular.x,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                              onPressed: () {
+                                controller.pause();
+                                controller.dispose();
+                                Navigator.pop(ctx);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 16,
+                        left: 16,
+                        right: 16,
+                        child: Column(
+                          children: [
+                            VideoProgressIndicator(
+                              controller,
+                              allowScrubbing: true,
+                              colors: const VideoProgressColors(
+                                playedColor: _C.green,
+                                bufferedColor: Colors.white30,
+                                backgroundColor: Colors.white24,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    controller.value.isPlaying
+                                        ? PhosphorIconsFill.pause
+                                        : PhosphorIconsFill.play,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      if (controller.value.isPlaying) {
+                                        controller.pause();
+                                      } else {
+                                        controller.play();
+                                      }
+                                    });
+                                  },
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    '${_formatDuration(controller.value.position)} / ${_formatDuration(controller.value.duration)}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontFamily: 'Poppins',
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    PhosphorIconsRegular.cornersOut,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {},
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
     );
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
   }
 
   void _showAudioPlayer(BuildContext context, String title, String url) {
@@ -695,7 +1203,10 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
             setDialogState(() => total = dur);
           });
           player.onPlayerComplete.listen((_) {
-            setDialogState(() { isPlaying = false; position = Duration.zero; });
+            setDialogState(() {
+              isPlaying = false;
+              position = Duration.zero;
+            });
           });
 
           String _fmt(Duration d) {
@@ -715,11 +1226,22 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                   top: 0,
                   right: 0,
                   child: GestureDetector(
-                    onTap: () { player.dispose(); Navigator.pop(ctx); },
+                    onTap: () {
+                      player.dispose();
+                      Navigator.pop(ctx);
+                    },
                     child: Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.black87, shape: BoxShape.circle, border: Border.all(color: Colors.white24)),
-                      child: const Icon(PhosphorIconsRegular.x, color: Colors.white, size: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: const Icon(
+                        PhosphorIconsRegular.x,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),
@@ -730,43 +1252,93 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                     color: Colors.black87,
                     borderRadius: BorderRadius.circular(_C.cardRadius),
                     border: Border.all(color: Colors.white24),
-                    boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 20, offset: Offset(0, 10))],
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black45,
+                        blurRadius: 20,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(PhosphorIconsFill.microphoneStage, color: _C.blue, size: 48),
+                      const Icon(
+                        PhosphorIconsFill.microphoneStage,
+                        color: _C.blue,
+                        size: 48,
+                      ),
                       const SizedBox(height: 16),
-                      Text(title, style: const TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Poppins',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                       const SizedBox(height: 8),
-                      const Text('Voice Note', style: TextStyle(color: Colors.white54, fontFamily: 'Poppins', fontSize: 13)),
+                      const Text(
+                        'Voice Note',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontFamily: 'Poppins',
+                          fontSize: 13,
+                        ),
+                      ),
                       const SizedBox(height: 32),
                       Row(
                         children: [
-                          Text(_fmt(position), style: const TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
+                          Text(
+                            _fmt(position),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'Poppins',
+                              fontSize: 12,
+                            ),
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: SliderTheme(
                               data: SliderThemeData(
                                 trackHeight: 4,
-                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 8,
+                                ),
+                                overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 16,
+                                ),
                                 activeTrackColor: _C.blue,
                                 inactiveTrackColor: Colors.white24,
                                 thumbColor: Colors.white,
                                 overlayColor: _C.blue.withOpacity(0.2),
                               ),
                               child: Slider(
-                                value: total.inMilliseconds > 0 ? position.inMilliseconds / total.inMilliseconds : 0.0,
+                                value: total.inMilliseconds > 0
+                                    ? position.inMilliseconds /
+                                          total.inMilliseconds
+                                    : 0.0,
                                 onChanged: (v) async {
-                                  final seek = Duration(milliseconds: (v * total.inMilliseconds).round());
+                                  final seek = Duration(
+                                    milliseconds: (v * total.inMilliseconds)
+                                        .round(),
+                                  );
                                   await player.seek(seek);
                                 },
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Text(_fmt(total), style: const TextStyle(color: Colors.white, fontFamily: 'Poppins', fontSize: 12)),
+                          Text(
+                            _fmt(total),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'Poppins',
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 32),
@@ -774,11 +1346,25 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           GestureDetector(
-                            onTap: () async => await player.seek(Duration(seconds: (position.inSeconds - 10).clamp(0, total.inSeconds))),
+                            onTap: () async => await player.seek(
+                              Duration(
+                                seconds: (position.inSeconds - 10).clamp(
+                                  0,
+                                  total.inSeconds,
+                                ),
+                              ),
+                            ),
                             child: Container(
                               padding: const EdgeInsets.all(12),
-                              decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
-                              child: const Icon(PhosphorIconsFill.rewindCircle, color: Colors.white, size: 32),
+                              decoration: const BoxDecoration(
+                                color: Colors.white12,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                PhosphorIconsFill.rewindCircle,
+                                color: Colors.white,
+                                size: 32,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 24),
@@ -796,17 +1382,40 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
                             },
                             child: Container(
                               padding: const EdgeInsets.all(20),
-                              decoration: const BoxDecoration(color: _C.blue, shape: BoxShape.circle),
-                              child: Icon(isPlaying ? PhosphorIconsFill.pause : PhosphorIconsFill.play, color: Colors.white, size: 36),
+                              decoration: const BoxDecoration(
+                                color: _C.blue,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isPlaying
+                                    ? PhosphorIconsFill.pause
+                                    : PhosphorIconsFill.play,
+                                color: Colors.white,
+                                size: 36,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 24),
                           GestureDetector(
-                            onTap: () async => await player.seek(Duration(seconds: (position.inSeconds + 10).clamp(0, total.inSeconds))),
+                            onTap: () async => await player.seek(
+                              Duration(
+                                seconds: (position.inSeconds + 10).clamp(
+                                  0,
+                                  total.inSeconds,
+                                ),
+                              ),
+                            ),
                             child: Container(
                               padding: const EdgeInsets.all(12),
-                              decoration: const BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
-                              child: const Icon(PhosphorIconsFill.fastForwardCircle, color: Colors.white, size: 32),
+                              decoration: const BoxDecoration(
+                                color: Colors.white12,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                PhosphorIconsFill.fastForwardCircle,
+                                color: Colors.white,
+                                size: 32,
+                              ),
                             ),
                           ),
                         ],
@@ -822,4 +1431,3 @@ class _SupervisorEvidenceScreenState extends ConsumerState<SupervisorEvidenceScr
     ).then((_) => player.dispose());
   }
 }
-

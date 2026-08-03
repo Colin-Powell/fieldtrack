@@ -121,7 +121,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/forgot-password',
         builder: (_, __) => const ForgotPasswordScreen(),
       ),
-      GoRoute(path: '/otp', builder: (_, __) => const OtpVerificationScreen()),
+      GoRoute(
+        path: '/otp',
+        builder: (context, state) {
+          final email = state.extra is String ? state.extra as String : null;
+          return OtpVerificationScreen(email: email);
+        },
+      ),
       GoRoute(
         path: '/reset-password',
         builder: (_, __) => const ResetPasswordScreen(),
@@ -139,7 +145,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/dashboard', builder: (_, __) => const DashboardScreen()),
       GoRoute(
         path: '/field-session',
-        builder: (_, __) => const FieldSessionScreen(),
+        builder: (_, state) => FieldSessionScreen(activityId: state.uri.queryParameters['id']),
       ),
       GoRoute(
         path: '/activities',

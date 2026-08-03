@@ -179,6 +179,8 @@ export async function getAdminDashboard(req, res) {
                 name: true,
                 role: true,
                 createdAt: true,
+                studentProfile: { select: { avatar: true } },
+                supervisorProfile: { select: { avatar: true } }
             },
         });
         const now = new Date();
@@ -196,7 +198,7 @@ export async function getAdminDashboard(req, res) {
                 name: u.name,
                 role: u.role === 'STUDENT' ? 'Student' : u.role === 'SUPERVISOR' ? 'Supervisor' : 'Admin',
                 time,
-                avatarUrl: '',
+                avatarUrl: u.studentProfile?.avatar ?? u.supervisorProfile?.avatar ?? '',
             };
         });
         // ── System Activities (last 5 audit logs) ──
@@ -264,7 +266,7 @@ export async function getSupervisorDashboard(req, res) {
             if (supervisorProfile) {
                 supervisor = {
                     name: supervisorProfile.user.name,
-                    avatarUrl: null, // User does not have avatarUrl
+                    avatarUrl: supervisorProfile.avatar,
                     department: supervisorProfile.department,
                 };
                 assignedStudentIds = supervisorProfile.assignedStudents.map(s => s.userId);

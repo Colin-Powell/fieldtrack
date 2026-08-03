@@ -177,9 +177,11 @@ export async function getAllUsers(req, res) {
             let department = '-';
             let supervisorName;
             let assignedStudentsCount;
+            let avatarUrl = '';
             if (user.role === 'STUDENT' && user.studentProfile) {
                 regNo = user.studentProfile.registrationNo;
                 department = user.studentProfile.department ?? '-';
+                avatarUrl = user.studentProfile.avatar ?? '';
                 if (user.studentProfile.supervisor) {
                     supervisorName = user.studentProfile.supervisor.user.name;
                 }
@@ -187,6 +189,7 @@ export async function getAllUsers(req, res) {
             else if (user.role === 'SUPERVISOR' && user.supervisorProfile) {
                 department = user.supervisorProfile.department ?? '-';
                 assignedStudentsCount = user.supervisorProfile.assignedStudents?.length || 0;
+                avatarUrl = user.supervisorProfile.avatar ?? '';
             }
             return {
                 id: user.id,
@@ -198,6 +201,7 @@ export async function getAllUsers(req, res) {
                 regNo,
                 supervisorName,
                 assignedStudentsCount,
+                avatarUrl,
             };
         });
         return res.status(200).json({ users: mappedUsers });
@@ -686,9 +690,14 @@ export async function broadcastNotification(req, res) {
         if (!title || !message) {
             return res.status(400).json({ error: 'Title and message are required' });
         }
-        // Get all users to notify
+        // Get all active supervisor and student users to notify
         const allUsers = await prisma.user.findMany({
-            where: { status: 'ACTIVE', deletedAt: null },
+            where: {
+                role: { in: ['STUDENT', 'SUPERVISOR'] },
+                status: 'ACTIVE',
+                isActive: true,
+                deletedAt: null,
+            },
             select: { id: true },
         });
         const notificationType = type || 'SYSTEM_ALERT';
@@ -863,6 +872,7 @@ export async function getMapData(req, res) {
             longitude: session.startLongitude,
             accuracy: session.startAccuracy,
             department: session.user.studentProfile?.department ?? 'Unknown',
+            avatarUrl: session.user.studentProfile?.avatar ?? '',
             checkInTime: session.checkInTime.toISOString(),
         }));
         return res.status(200).json({ markers });

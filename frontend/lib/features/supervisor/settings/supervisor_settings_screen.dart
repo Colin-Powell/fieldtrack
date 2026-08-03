@@ -1,7 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:dio/dio.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
+import 'package:fieldtrack/core/providers/auth_provider.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:image_picker/image_picker.dart';
 
 // ==========================================
@@ -23,7 +28,7 @@ class _C {
 // ==========================================
 // MAIN SCREEN
 // ==========================================
-class SupervisorSettingsScreen extends StatefulWidget {
+class SupervisorSettingsScreen extends ConsumerStatefulWidget {
   final String initialTab;
   const SupervisorSettingsScreen({
     super.key,
@@ -31,11 +36,12 @@ class SupervisorSettingsScreen extends StatefulWidget {
   });
 
   @override
-  State<SupervisorSettingsScreen> createState() =>
+  ConsumerState<SupervisorSettingsScreen> createState() =>
       _SupervisorSettingsScreenState();
 }
 
-class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
+class _SupervisorSettingsScreenState
+    extends ConsumerState<SupervisorSettingsScreen> {
   String _globalSearch = '';
   late String _selectedTab;
   bool _isSaving = false;
@@ -60,21 +66,18 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
   String _quietEnd = '06:00 AM';
 
   // --- STATE: PROFILE ---
-  final _nameCtrl = TextEditingController(text: 'Prof. Okeyo Benards');
-  final _staffNoCtrl = TextEditingController(text: 'PU/STF/1029');
-  final _emailCtrl = TextEditingController(text: 'okeyobenards@yahoo.com');
-  final _phoneCtrl = TextEditingController(text: '+254 712 345 678');
-  final _uniCtrl = TextEditingController(text: 'Pwani University');
-  final _facultyCtrl =
-      TextEditingController(text: 'School of Environmental Sciences');
-  final _deptCtrl =
-      TextEditingController(text: 'Geography and Environmental Studies');
-  final _rankCtrl = TextEditingController(text: 'Associate Professor');
-  final _researchCtrl =
-      TextEditingController(text: 'Coastal Erosion & GIS Mapping');
-  final _officeCtrl = TextEditingController(text: 'Block A, Room 102');
-  final _hoursCtrl =
-      TextEditingController(text: 'Mon-Wed, 10:00 AM - 12:00 PM');
+  final _nameCtrl = TextEditingController();
+  final _staffNoCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _uniCtrl = TextEditingController();
+  final _facultyCtrl = TextEditingController();
+  final _deptCtrl = TextEditingController();
+  final _rankCtrl = TextEditingController();
+  final _researchCtrl = TextEditingController();
+  final _officeCtrl = TextEditingController();
+  final _hoursCtrl = TextEditingController();
 
   // --- STATE: ACCOUNT ---
   bool _twoFactorAuth = false;
@@ -117,11 +120,13 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
       final sup = p['supervisorProfile'] ?? {};
       final prefs = p['preferences'] ?? {};
       final sessions = p['refreshTokens'] ?? [];
-      
+
       if (mounted) {
         setState(() {
           _nameCtrl.text = p['name'] ?? '';
           _emailCtrl.text = p['email'] ?? '';
+          _usernameCtrl.text = sup['staffNumber'] ?? p['email'] ?? '';
+          _staffNoCtrl.text = sup['staffNumber'] ?? '';
           _phoneCtrl.text = sup['phone'] ?? '';
           _deptCtrl.text = sup['department'] ?? '';
           _facultyCtrl.text = sup['faculty'] ?? '';
@@ -140,8 +145,8 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
           _notifAnnouncements = prefs['notifAnnouncements'] ?? true;
           _chanEmail = prefs['chanEmail'] ?? true;
           _chanInApp = prefs['chanInApp'] ?? true;
-          _quietStart = prefs['quietStart'] ?? '10:00 PM';
-          _quietEnd = prefs['quietEnd'] ?? '06:00 AM';
+          _quietStart = _resolveQuietTime(prefs['quietStart'] ?? '10:00 PM');
+          _quietEnd = _resolveQuietTime(prefs['quietEnd'] ?? '06:00 AM');
 
           // Preferences
           _prefDashboard = prefs['prefDashboard'] ?? 'Overview';
@@ -162,6 +167,41 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
     } catch (e) {
       if (mounted) _showSnackbar('Failed to load settings');
     }
+  }
+
+  String _resolveQuietTime(String value) {
+    switch (value) {
+      case '22:00':
+        return '10:00 PM';
+      case '23:00':
+        return '11:00 PM';
+      case '06:00':
+        return '06:00 AM';
+      case '07:00':
+        return '07:00 AM';
+      default:
+        return value;
+    }
+  }
+
+  String _normalizeQuietTime(String value) {
+    switch (value) {
+      case '10:00 PM':
+        return '22:00';
+      case '11:00 PM':
+        return '23:00';
+      case '06:00 AM':
+        return '06:00';
+      case '07:00 AM':
+        return '07:00';
+      default:
+        return value;
+    }
+  }
+
+  void _handleCancel() {
+    _loadSettings();
+    _showSnackbar('Changes reverted');
   }
 
   @override
@@ -199,9 +239,7 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
         ),
         backgroundColor: _C.textDark,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(40),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
         margin: EdgeInsets.only(
           bottom: 40,
           left: MediaQuery.of(context).size.width > 600
@@ -218,48 +256,61 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
 
   Future<void> _handleSave() async {
     setState(() => _isSaving = true);
-    
+
     try {
-      await ApiClient().dio.put('/settings/profile', data: {
-        'name': _nameCtrl.text,
-        'phone': _phoneCtrl.text,
-        'department': _deptCtrl.text,
-        'faculty': _facultyCtrl.text,
-        'specialization': _researchCtrl.text,
-        'office': _officeCtrl.text,
-      });
+      await ApiClient().dio.put(
+        '/settings/profile',
+        data: {
+          'name': _nameCtrl.text,
+          'phone': _phoneCtrl.text,
+          'department': _deptCtrl.text,
+          'faculty': _facultyCtrl.text,
+          'specialization': _researchCtrl.text,
+          'office': _officeCtrl.text,
+        },
+      );
 
-      await ApiClient().dio.put('/settings/security', data: {
-        'twoFactorEnabled': _twoFactorAuth,
-        'loginAlertsEnabled': _secLoginAlerts,
-      });
+      await ApiClient().dio.put(
+        '/settings/security',
+        data: {
+          'twoFactorEnabled': _twoFactorAuth,
+          'loginAlertsEnabled': _secLoginAlerts,
+        },
+      );
 
-      await ApiClient().dio.put('/settings/preferences', data: {
-        'notifNewActivity': _notifNewActivity,
-        'notifCheckInOut': _notifCheckInOut,
-        'notifReview': _notifReview,
-        'notifComments': _notifComments,
-        'notifAnnouncements': _notifAnnouncements,
-        'chanEmail': _chanEmail,
-        'chanInApp': _chanInApp,
-        'quietStart': _quietStart,
-        'quietEnd': _quietEnd,
-        'prefDashboard': _prefDashboard,
-        'prefLanding': _prefLanding,
-        'prefZoom': _prefZoom,
-        'prefMapType': _prefMapType,
-        'prefDateFormat': _prefDateFormat,
-        'prefTimeFormat': _prefTimeFormat,
-        'prefLanguage': _prefLanguage,
-        'prefRefresh': _prefRefresh,
-        'prefRows': _prefRows,
-        'prefTheme': _prefTheme,
-        'exportPdf': _exportPdf,
-        'exportExcel': _exportExcel,
-        'exportCsv': _exportCsv,
-      });
+      await ApiClient().dio.put(
+        '/settings/preferences',
+        data: {
+          'notifNewActivity': _notifNewActivity,
+          'notifCheckInOut': _notifCheckInOut,
+          'notifReview': _notifReview,
+          'notifComments': _notifComments,
+          'notifAnnouncements': _notifAnnouncements,
+          'chanEmail': _chanEmail,
+          'chanInApp': _chanInApp,
+          'quietStart': _normalizeQuietTime(_quietStart),
+          'quietEnd': _normalizeQuietTime(_quietEnd),
+          'prefDashboard': _prefDashboard,
+          'prefLanding': _prefLanding,
+          'prefZoom': _prefZoom,
+          'prefMapType': _prefMapType,
+          'prefDateFormat': _prefDateFormat,
+          'prefTimeFormat': _prefTimeFormat,
+          'prefLanguage': _prefLanguage,
+          'prefRefresh': _prefRefresh,
+          'prefRows': _prefRows,
+          'prefTheme': _prefTheme,
+          'exportPdf': _exportPdf,
+          'exportExcel': _exportExcel,
+          'exportCsv': _exportCsv,
+        },
+      );
 
-      if (mounted) _showSnackbar('Settings updated successfully!');
+      if (mounted) {
+        _showSnackbar('Settings updated successfully!');
+        await _loadSettings();
+        await ref.read(authProvider.notifier).checkAuthStatus();
+      }
     } catch (e) {
       if (mounted) {
         String msg = 'Failed to save settings';
@@ -277,21 +328,22 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) { 
-         setState(() => _isSaving = true);
-         final formData = FormData.fromMap({
-           'avatar': await MultipartFile.fromFile(pickedFile.path),
-         });
-         
-         final res = await ApiClient().dio.post('/settings/avatar', data: formData);
-         
-         if (mounted) {
-           setState(() {
-             _avatarPath = res.data['avatar'];
-             _isSaving = false;
-           });
-           _showSnackbar('Profile picture updated successfully!');
-         }
+      if (pickedFile != null) {
+        setState(() => _isSaving = true);
+        final imageFile = File(pickedFile.path);
+        final success = await ref
+            .read(authProvider.notifier)
+            .uploadAvatar(imageFile);
+
+        if (mounted) {
+          setState(() => _isSaving = false);
+          if (success) {
+            await _loadSettings();
+            _showSnackbar('Profile picture updated successfully!');
+          } else {
+            _showSnackbar('Failed to update picture');
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -312,31 +364,39 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
       _showSnackbar('New passwords do not match');
       return;
     }
-    
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         backgroundColor: Colors.white,
-        title: const Text('Change Password',
-            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Change Password',
+          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold),
+        ),
         content: const Text(
-            'Are you sure you want to update your password? You may be logged out of other active sessions.',
-            style: TextStyle(fontFamily: 'Poppins', color: _C.textDark)),
+          'Are you sure you want to update your password? You may be logged out of other active sessions.',
+          style: TextStyle(fontFamily: 'Poppins', color: _C.textDark),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await ApiClient().dio.put('/settings/password', data: {
-                  'currentPassword': _currPassCtrl.text,
-                  'newPassword': _newPassCtrl.text,
-                });
+                await ApiClient().dio.put(
+                  '/settings/password',
+                  data: {
+                    'currentPassword': _currPassCtrl.text,
+                    'newPassword': _newPassCtrl.text,
+                  },
+                );
                 _currPassCtrl.clear();
                 _newPassCtrl.clear();
                 _confPassCtrl.clear();
@@ -354,10 +414,13 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: _C.green,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
-            child: const Text('Confirm & Update',
-                style: TextStyle(fontFamily: 'Poppins', color: Colors.white)),
+            child: const Text(
+              'Confirm & Update',
+              style: TextStyle(fontFamily: 'Poppins', color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -370,19 +433,25 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         backgroundColor: Colors.white,
-        title: const Text('Deactivate Account',
-            style: TextStyle(
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.bold,
-                color: _C.red)),
+        title: const Text(
+          'Deactivate Account',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.bold,
+            color: _C.red,
+          ),
+        ),
         content: const Text(
-            'Are you sure you want to deactivate your account? This action is irreversible and you will lose access immediately.',
-            style: TextStyle(fontFamily: 'Poppins', color: _C.textDark)),
+          'Are you sure you want to deactivate your account? This action is irreversible and you will lose access immediately.',
+          style: TextStyle(fontFamily: 'Poppins', color: _C.textDark),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontFamily: 'Poppins', color: _C.textMuted),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -405,10 +474,13 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: _C.red,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
-            child: const Text('Deactivate',
-                style: TextStyle(fontFamily: 'Poppins', color: Colors.white)),
+            child: const Text(
+              'Deactivate',
+              style: TextStyle(fontFamily: 'Poppins', color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -471,10 +543,7 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
               setState(() => _globalSearch = v);
               // TODO(API): Implement local or remote search filtering
             },
-            style: const TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 14,
-            ),
+            style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white,
@@ -484,12 +553,16 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                 color: _C.textFaint,
                 fontSize: 14,
               ),
-              prefixIcon: Icon(PhosphorIcons.magnifyingGlass(),
-                  color: _C.textFaint, size: 20),
+              prefixIcon: Icon(
+                PhosphorIcons.magnifyingGlass(),
+                color: _C.textFaint,
+                size: 20,
+              ),
               contentPadding: const EdgeInsets.symmetric(vertical: 0),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(26),
-                borderSide: BorderSide.none, // Removes the double material effect
+                borderSide:
+                    BorderSide.none, // Removes the double material effect
               ),
             ),
           ),
@@ -518,11 +591,7 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
             Expanded(child: titleBlock),
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                searchBar,
-                const SizedBox(width: 16),
-                bellIcon,
-              ],
+              children: [searchBar, const SizedBox(width: 16), bellIcon],
             ),
           ],
         );
@@ -543,10 +612,7 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
             borderRadius: BorderRadius.circular(30),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 28,
-                vertical: 14,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
               decoration: BoxDecoration(
                 color: isSelected ? null : Colors.white,
                 gradient: isSelected
@@ -584,10 +650,12 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: tabWidgets
-                  .map((w) => Padding(
-                        padding: const EdgeInsets.only(right: 16.0),
-                        child: w,
-                      ))
+                  .map(
+                    (w) => Padding(
+                      padding: const EdgeInsets.only(right: 16.0),
+                      child: w,
+                    ),
+                  )
                   .toList(),
             ),
           );
@@ -660,7 +728,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(
-            'Notifications', 'Choose What you want to be notified about'),
+          'Notifications',
+          'Choose What you want to be notified about',
+        ),
         _buildSplitLayout(
           left: _buildCard(
             child: Column(
@@ -720,7 +790,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                     const SizedBox(height: 24),
                     _buildChannelCheckbox(
                       'Email',
-                      'okeyobenards@yahoo.com',
+                      _emailCtrl.text.isNotEmpty
+                          ? _emailCtrl.text
+                          : 'Email notifications to your account',
                       PhosphorIcons.envelopeSimple(),
                       _chanEmail,
                       () => setState(() => _chanEmail = !_chanEmail),
@@ -783,7 +855,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(
-            'Profile Information', 'Update your personal and academic details.'),
+          'Profile Information',
+          'Update your personal and academic details.',
+        ),
         _buildSplitLayout(
           left: _buildCard(
             child: Column(
@@ -804,7 +878,7 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                     ClipOval(
                       child: _avatarPath != null
                           ? Image.network(
-                              'http://192.168.18.5:3000$_avatarPath',
+                              ImageUtils.getFullImageUrl(_avatarPath),
                               width: 80,
                               height: 80,
                               fit: BoxFit.cover,
@@ -812,31 +886,41 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                                 width: 80,
                                 height: 80,
                                 color: _C.bg,
-                                child: Icon(PhosphorIcons.user(),
-                                    color: _C.textDark),
+                                child: Icon(
+                                  PhosphorIcons.user(),
+                                  color: _C.textDark,
+                                ),
                               ),
                             )
                           : Container(
                               width: 80,
                               height: 80,
                               color: _C.bg,
-                              child: Icon(PhosphorIcons.user(),
-                                  color: _C.textDark),
+                              child: Icon(
+                                PhosphorIcons.user(),
+                                color: _C.textDark,
+                              ),
                             ),
                     ),
                     const SizedBox(width: 24),
                     OutlinedButton.icon(
                       onPressed: _pickImage, // Wired to file explorer
-                      icon: Icon(PhosphorIcons.camera(),
-                          size: 18, color: _C.textDark),
+                      icon: Icon(
+                        PhosphorIcons.camera(),
+                        size: 18,
+                        color: _C.textDark,
+                      ),
                       label: const Text(
                         'Change Picture',
                         style: TextStyle(
-                            fontFamily: 'Poppins', color: _C.textDark),
+                          fontFamily: 'Poppins',
+                          color: _C.textDark,
+                        ),
                       ),
                       style: OutlinedButton.styleFrom(
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(40)),
+                          borderRadius: BorderRadius.circular(40),
+                        ),
                       ),
                     ),
                   ],
@@ -893,7 +977,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(
-            'Account Information', 'Manage authentication and sessions.'),
+          'Account Information',
+          'Manage authentication and sessions.',
+        ),
         _buildSplitLayout(
           left: Column(
             children: [
@@ -911,13 +997,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    _buildTextField(
-                        'Username', TextEditingController(text: 'okeyo_b'),
-                        readOnly: true),
+                    _buildTextField('Username', _usernameCtrl, readOnly: true),
                     const SizedBox(height: 16),
-                    _buildTextField(
-                        'Email', TextEditingController(text: 'okeyobenards@yahoo.com'),
-                        readOnly: true),
+                    _buildTextField('Email', _emailCtrl, readOnly: true),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Divider(color: _C.border),
@@ -963,7 +1045,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: _C.red),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 16),
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(40),
                         ),
@@ -1005,20 +1089,22 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                ..._activeSessions.map((session) => Column(
-                  children: [
-                    _buildSessionItem(
-                      PhosphorIcons.desktop(),
-                      session['deviceInfo'] ?? 'Unknown Device',
-                      'IP: ${session['ipAddress'] ?? 'Unknown'}',
-                      false,
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Divider(color: _C.border),
-                    ),
-                  ],
-                )),
+                ..._activeSessions.map(
+                  (session) => Column(
+                    children: [
+                      _buildSessionItem(
+                        PhosphorIcons.desktop(),
+                        session['deviceInfo'] ?? 'Unknown Device',
+                        'IP: ${session['ipAddress'] ?? 'Unknown'}',
+                        false,
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Divider(color: _C.border),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -1026,14 +1112,20 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                     onPressed: () async {
                       try {
                         await ApiClient().dio.post('/settings/logout-others');
-                        if (mounted) _showSnackbar('Other devices logged out successfully.');
+                        if (mounted)
+                          _showSnackbar(
+                            'Other devices logged out successfully.',
+                          );
                       } catch (e) {
-                        if (mounted) _showSnackbar('Failed to logout other devices');
+                        if (mounted)
+                          _showSnackbar('Failed to logout other devices');
                       }
                     },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 16),
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(40),
                       ),
@@ -1041,7 +1133,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                     child: const Text(
                       'Logout Other Devices',
                       style: TextStyle(
-                          fontFamily: 'Poppins', color: _C.textDark),
+                        fontFamily: 'Poppins',
+                        color: _C.textDark,
+                      ),
                     ),
                   ),
                 ),
@@ -1059,7 +1153,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(
-            'System Preferences', 'Customize how your data is displayed.'),
+          'System Preferences',
+          'Customize how your data is displayed.',
+        ),
         _buildSplitLayout(
           left: _buildCard(
             child: Column(
@@ -1076,28 +1172,32 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                 ),
                 const SizedBox(height: 24),
                 _buildDropdownField(
-                    'Default Dashboard',
-                    ['Overview', 'Reports', 'Map'],
-                    _prefDashboard,
-                    (v) => setState(() => _prefDashboard = v!)),
+                  'Default Dashboard',
+                  ['Overview', 'Reports', 'Map'],
+                  _prefDashboard,
+                  (v) => setState(() => _prefDashboard = v!),
+                ),
                 const SizedBox(height: 16),
                 _buildDropdownField(
-                    'Default Landing Page',
-                    ['Home', 'Reports', 'Students', 'Map'],
-                    _prefLanding,
-                    (v) => setState(() => _prefLanding = v!)),
+                  'Default Landing Page',
+                  ['Home', 'Reports', 'Students', 'Map'],
+                  _prefLanding,
+                  (v) => setState(() => _prefLanding = v!),
+                ),
                 const SizedBox(height: 16),
                 _buildDropdownField(
-                    'Default Zoom Level (Map)',
-                    ['Street', 'City', 'Region'],
-                    _prefZoom,
-                    (v) => setState(() => _prefZoom = v!)),
+                  'Default Zoom Level (Map)',
+                  ['Street', 'City', 'Region'],
+                  _prefZoom,
+                  (v) => setState(() => _prefZoom = v!),
+                ),
                 const SizedBox(height: 16),
                 _buildDropdownField(
-                    'Map Type',
-                    ['Satellite', 'Terrain', 'Street'],
-                    _prefMapType,
-                    (v) => setState(() => _prefMapType = v!)),
+                  'Map Type',
+                  ['Satellite', 'Terrain', 'Street'],
+                  _prefMapType,
+                  (v) => setState(() => _prefMapType = v!),
+                ),
               ],
             ),
           ),
@@ -1116,19 +1216,25 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                 ),
                 const SizedBox(height: 24),
                 _buildDropdownField(
-                    'Date Format',
-                    ['DD/MM/YYYY', 'MM/DD/YYYY'],
-                    _prefDateFormat,
-                    (v) => setState(() => _prefDateFormat = v!)),
+                  'Date Format',
+                  ['DD/MM/YYYY', 'MM/DD/YYYY'],
+                  _prefDateFormat,
+                  (v) => setState(() => _prefDateFormat = v!),
+                ),
                 const SizedBox(height: 16),
                 _buildDropdownField(
-                    'Time Format',
-                    ['12 Hour', '24 Hour'],
-                    _prefTimeFormat,
-                    (v) => setState(() => _prefTimeFormat = v!)),
+                  'Time Format',
+                  ['12 Hour', '24 Hour'],
+                  _prefTimeFormat,
+                  (v) => setState(() => _prefTimeFormat = v!),
+                ),
                 const SizedBox(height: 16),
-                _buildDropdownField('Language', ['English'], _prefLanguage,
-                    (v) => setState(() => _prefLanguage = v!)),
+                _buildDropdownField(
+                  'Language',
+                  ['English'],
+                  _prefLanguage,
+                  (v) => setState(() => _prefLanguage = v!),
+                ),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Divider(color: _C.border),
@@ -1145,14 +1251,23 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    _buildRadioOption('Light', _prefTheme == 'Light',
-                        () => setState(() => _prefTheme = 'Light')),
+                    _buildRadioOption(
+                      'Light',
+                      _prefTheme == 'Light',
+                      () => setState(() => _prefTheme = 'Light'),
+                    ),
                     const SizedBox(width: 24),
-                    _buildRadioOption('Dark', _prefTheme == 'Dark',
-                        () => setState(() => _prefTheme = 'Dark')),
+                    _buildRadioOption(
+                      'Dark',
+                      _prefTheme == 'Dark',
+                      () => setState(() => _prefTheme = 'Dark'),
+                    ),
                     const SizedBox(width: 24),
-                    _buildRadioOption('System', _prefTheme == 'System',
-                        () => setState(() => _prefTheme = 'System')),
+                    _buildRadioOption(
+                      'System',
+                      _prefTheme == 'System',
+                      () => setState(() => _prefTheme = 'System'),
+                    ),
                   ],
                 ),
                 const Padding(
@@ -1171,14 +1286,23 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    _buildCheckboxOption('PDF', _exportPdf,
-                        () => setState(() => _exportPdf = !_exportPdf)),
+                    _buildCheckboxOption(
+                      'PDF',
+                      _exportPdf,
+                      () => setState(() => _exportPdf = !_exportPdf),
+                    ),
                     const SizedBox(width: 24),
-                    _buildCheckboxOption('Excel', _exportExcel,
-                        () => setState(() => _exportExcel = !_exportExcel)),
+                    _buildCheckboxOption(
+                      'Excel',
+                      _exportExcel,
+                      () => setState(() => _exportExcel = !_exportExcel),
+                    ),
                     const SizedBox(width: 24),
-                    _buildCheckboxOption('CSV', _exportCsv,
-                        () => setState(() => _exportCsv = !_exportCsv)),
+                    _buildCheckboxOption(
+                      'CSV',
+                      _exportCsv,
+                      () => setState(() => _exportCsv = !_exportCsv),
+                    ),
                   ],
                 ),
               ],
@@ -1195,7 +1319,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(
-            'Security Settings', 'Protect your supervisor account.'),
+          'Security Settings',
+          'Protect your supervisor account.',
+        ),
         _buildSplitLayout(
           left: Column(
             children: [
@@ -1218,9 +1344,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                       'Email me when a new device logs in.',
                       _secLoginAlerts,
                       (v) {
-                         setState(() => _secLoginAlerts = v);
-                         // TODO(API): Toggle login alert setting in backend
-                      }
+                        setState(() => _secLoginAlerts = v);
+                        // TODO(API): Toggle login alert setting in backend
+                      },
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
@@ -1238,11 +1364,15 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                     const SizedBox(height: 16),
                     OutlinedButton(
                       onPressed: () {
-                         _showSnackbar('Security questions configuration launched.');
+                        _showSnackbar(
+                          'Security questions configuration launched.',
+                        );
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 16),
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(40),
                         ),
@@ -1250,7 +1380,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                       child: const Text(
                         'Configure Recovery Questions',
                         style: TextStyle(
-                            fontFamily: 'Poppins', color: _C.textDark),
+                          fontFamily: 'Poppins',
+                          color: _C.textDark,
+                        ),
                       ),
                     ),
                   ],
@@ -1280,14 +1412,23 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    _buildTextField('Current Password', _currPassCtrl,
-                        isPassword: true),
+                    _buildTextField(
+                      'Current Password',
+                      _currPassCtrl,
+                      isPassword: true,
+                    ),
                     const SizedBox(height: 16),
-                    _buildTextField('New Password', _newPassCtrl,
-                        isPassword: true),
+                    _buildTextField(
+                      'New Password',
+                      _newPassCtrl,
+                      isPassword: true,
+                    ),
                     const SizedBox(height: 16),
-                    _buildTextField('Confirm Password', _confPassCtrl,
-                        isPassword: true),
+                    _buildTextField(
+                      'Confirm Password',
+                      _confPassCtrl,
+                      isPassword: true,
+                    ),
                     const SizedBox(height: 24),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -1296,7 +1437,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _C.textDark,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 16),
+                            horizontal: 24,
+                            vertical: 16,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(40),
                           ),
@@ -1304,7 +1447,9 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                         child: const Text(
                           'Update Password',
                           style: TextStyle(
-                              fontFamily: 'Poppins', color: Colors.white),
+                            fontFamily: 'Poppins',
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -1338,10 +1483,17 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                 const SizedBox(height: 32),
                 _buildTimelineItem('Password Changed', 'July 12', true),
                 _buildTimelineItem(
-                    'Logged In (Windows Desktop)', 'July 11', false),
+                  'Logged In (Windows Desktop)',
+                  'July 11',
+                  false,
+                ),
                 _buildTimelineItem('Profile Updated', 'July 8', false),
-                _buildTimelineItem('Enabled Email Notifications', 'July 1', false,
-                    isLast: true),
+                _buildTimelineItem(
+                  'Enabled Email Notifications',
+                  'July 1',
+                  false,
+                  isLast: true,
+                ),
               ],
             ),
           ),
@@ -1393,8 +1545,12 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller,
-      {bool readOnly = false, bool isPassword = false}) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    bool readOnly = false,
+    bool isPassword = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1438,8 +1594,12 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
     );
   }
 
-  Widget _buildDropdownField(String label, List<String> options, String value,
-      ValueChanged<String?> onChanged) {
+  Widget _buildDropdownField(
+    String label,
+    List<String> options,
+    String value,
+    ValueChanged<String?> onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1489,7 +1649,11 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
   }
 
   Widget _buildToggleRow(
-      String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+    String title,
+    String subtitle,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1531,7 +1695,11 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
   }
 
   Widget _buildNotificationToggle(
-      String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+    String title,
+    String subtitle,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1575,8 +1743,13 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
     );
   }
 
-  Widget _buildChannelCheckbox(String title, String subtitle, IconData icon,
-      bool checked, VoidCallback onTap) {
+  Widget _buildChannelCheckbox(
+    String title,
+    String subtitle,
+    IconData icon,
+    bool checked,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -1629,7 +1802,10 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
   }
 
   Widget _buildTimeDropdownRow(
-      String label, String value, ValueChanged<String?> onChanged) {
+    String label,
+    String value,
+    ValueChanged<String?> onChanged,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1655,8 +1831,11 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
               borderRadius: BorderRadius.circular(24),
               icon: Padding(
                 padding: const EdgeInsets.only(left: 8.0),
-                child: Icon(PhosphorIcons.caretDown(),
-                    size: 16, color: _C.textDark),
+                child: Icon(
+                  PhosphorIcons.caretDown(),
+                  size: 16,
+                  color: _C.textDark,
+                ),
               ),
               style: const TextStyle(
                 fontFamily: 'Poppins',
@@ -1664,9 +1843,12 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
                 fontSize: 13,
                 color: _C.textDark,
               ),
-              items: ['10:00 PM', '11:00 PM', '06:00 AM', '07:00 AM']
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                  .toList(),
+              items: [
+                '10:00 PM',
+                '11:00 PM',
+                '06:00 AM',
+                '07:00 AM',
+              ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               onChanged: onChanged,
             ),
           ),
@@ -1676,7 +1858,11 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
   }
 
   Widget _buildSessionItem(
-      IconData icon, String title, String subtitle, bool isCurrent) {
+    IconData icon,
+    String title,
+    String subtitle,
+    bool isCurrent,
+  ) {
     return Row(
       children: [
         Container(
@@ -1783,7 +1969,10 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
   }
 
   Widget _buildCheckboxOption(
-      String label, bool isSelected, VoidCallback onTap) {
+    String label,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -1817,8 +2006,12 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
     );
   }
 
-  Widget _buildTimelineItem(String title, String date, bool isRecent,
-      {bool isLast = false}) {
+  Widget _buildTimelineItem(
+    String title,
+    String date,
+    bool isRecent, {
+    bool isLast = false,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1873,7 +2066,7 @@ class _SupervisorSettingsScreenState extends State<SupervisorSettingsScreen> {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         OutlinedButton(
-          onPressed: () {},
+          onPressed: _handleCancel,
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
             shape: RoundedRectangleBorder(

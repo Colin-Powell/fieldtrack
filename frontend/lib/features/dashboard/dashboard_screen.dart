@@ -17,11 +17,43 @@ import 'package:fieldtrack/core/utils/time_utils.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.invalidate(studentDashboardProvider);
+        ref.invalidate(studentActivitiesProvider);
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(studentDashboardProvider);
+      ref.invalidate(studentActivitiesProvider);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final locState = ref.watch(locationProvider);
     final checkInState = ref.watch(checkInProvider);
     const greenColor = Color(0xFF1BA654);
@@ -45,6 +77,7 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
+
       body: SingleChildScrollView(
         // Extra bottom padding ensures the last items aren't hidden behind the floating nav bar
         padding: const EdgeInsets.only(bottom: 120),
@@ -95,12 +128,16 @@ class DashboardScreen extends ConsumerWidget {
     final user = authState.user;
 
     // Display student name or fallback
-    final name = user?.name ?? 'Student';
+    final rawName = user?.name;
+    final name = rawName != null && rawName.trim().isNotEmpty
+        ? rawName.trim()
+        : 'Student';
 
     // Fetch real student profile details from authentication payload
     final prog = user?.programme ?? 'Environmental Sciences';
     final dept = user?.department ?? 'Pwani University';
     final details = '$prog\n$dept';
+    final displayName = rawName?.trim();
 
     return Container(
       padding: EdgeInsets.only(
@@ -183,8 +220,8 @@ class DashboardScreen extends ConsumerWidget {
                       imagePath: user?.avatarUrl,
                       size: 56,
                       shape: AvatarShape.circle,
-                      initials: user?.name?.isNotEmpty == true
-                          ? user!.name!
+                      initials: displayName != null && displayName.isNotEmpty
+                          ? displayName
                                 .split(' ')
                                 .map((s) => s.isNotEmpty ? s[0] : '')
                                 .take(2)
@@ -346,6 +383,7 @@ class DashboardScreen extends ConsumerWidget {
 
   // --- 2. SUMMARY GRID ---
   Widget _buildSummaryGrid(WidgetRef ref) {
+    final checkInState = ref.watch(checkInProvider);
     final statsAsync = ref.watch(studentDashboardProvider);
 
     return Padding(
@@ -367,8 +405,8 @@ class DashboardScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: _buildSummaryCell(
-                      'Activities',
-                      '${stats.approvals}',
+                      'Total Activities',
+                      '${stats.totalActivities}',
                       PhosphorIconsFill.article,
                     ),
                   ),
@@ -379,8 +417,8 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                   Expanded(
                     child: _buildSummaryCell(
-                      'Hours Logged',
-                      '${stats.hoursLogged}',
+                      'Evidence Files',
+                      '${stats.evidenceFiles}',
                       PhosphorIconsFill.folder,
                     ),
                   ),
@@ -391,8 +429,8 @@ class DashboardScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: _buildSummaryCell(
-                      'Status',
-                      stats.status,
+                      'Sync Status',
+                      stats.syncStatus,
                       PhosphorIconsFill.cloudCheck,
                     ),
                   ),
@@ -404,7 +442,7 @@ class DashboardScreen extends ConsumerWidget {
                   Expanded(
                     child: _buildSummaryCell(
                       'Check Out',
-                      '--',
+                      checkInState.isCheckedIn ? 'Tap to check out' : 'N/A',
                       PhosphorIconsBold.arrowsClockwise,
                     ),
                   ),
@@ -581,9 +619,12 @@ class DashboardScreen extends ConsumerWidget {
             );
           }
 
+          final displayActivities = activities.take(3).toList();
+
           return Column(
-            children: activities.map<Widget>((activity) {
-              final title = activity['title'] ?? 'Untitled Activity';
+            children: [
+              ...displayActivities.map<Widget>((activity) {
+                final title = activity['title'] ?? 'Untitled Activity';
               final status = activity['status'] ?? 'DRAFT';
 
               // Map status to colors
@@ -607,6 +648,20 @@ class DashboardScreen extends ConsumerWidget {
                 timeStr = DateFormat('dd MMM yyyy • hh:mm a').format(dt);
               }
 
+              // Extract first image from evidence list
+              String? activityImageUrl;
+              final evidenceList = activity['evidence'] as List<dynamic>? ?? [];
+              for (final ev in evidenceList) {
+                final mimeType = ev['mimeType'] as String? ?? '';
+                if (mimeType.startsWith('image/')) {
+                  final path = ev['storagePath'] as String?;
+                  if (path != null && path.isNotEmpty) {
+                    activityImageUrl = ImageUtils.getFullImageUrl(path);
+                    break;
+                  }
+                }
+              }
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
                 child: _buildActivityCard(
@@ -619,9 +674,19 @@ class DashboardScreen extends ConsumerWidget {
                   status: status,
                   statusColor: statusColor,
                   statusBgColor: statusBgColor,
+                  imageUrl: activityImageUrl,
                 ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+              if (activities.length > 3)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
+                  child: TextButton(
+                    onPressed: () => ref.read(navigationIndexProvider.notifier).state = 1,
+                    child: const Text('View All Activities', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1BA654))),
+                  ),
+                ),
+            ],
           );
         },
       ),
@@ -637,6 +702,7 @@ class DashboardScreen extends ConsumerWidget {
     required String status,
     Color statusColor = const Color(0xFF1BA654),
     Color statusBgColor = const Color(0xFFC3DFCC),
+    String? imageUrl,
   }) {
     return GestureDetector(
       onTap: () => context.push('/activity-detail/$id'),
@@ -651,19 +717,38 @@ class DashboardScreen extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            // Fallback Image Icon replacing the Network Image
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6), // Light grey placeholder
-                borderRadius: BorderRadius.circular(32), // Completely round
-              ),
-              child: const Icon(
-                PhosphorIconsRegular.image,
-                color: Color(0xFF9CA3AF), // Grey icon
-                size: 32,
-              ),
+            // Activity Image (from evidence) or fallback icon
+            ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: imageUrl != null && imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 64,
+                          height: 64,
+                          color: const Color(0xFFF3F4F6),
+                          child: const Icon(
+                            PhosphorIconsRegular.image,
+                            color: Color(0xFF9CA3AF),
+                            size: 32,
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      width: 64,
+                      height: 64,
+                      color: const Color(0xFFF3F4F6),
+                      child: const Icon(
+                        PhosphorIconsRegular.image,
+                        color: Color(0xFF9CA3AF),
+                        size: 32,
+                      ),
+                    ),
             ),
             const SizedBox(width: 16),
             // Info

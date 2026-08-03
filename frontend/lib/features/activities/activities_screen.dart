@@ -20,7 +20,7 @@ class ActivitiesScreen extends ConsumerStatefulWidget {
 class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   // State variables for our tabs and loading skeleton
   int _selectedFilterIndex = 0;
-  final List<String> _filters = ['All', 'Today', 'In Progress', 'Submitted'];
+  final List<String> _filters = ['All', 'Today', 'Drafts', 'Submitted', 'Needs Revision'];
 
   @override
   void initState() {
@@ -51,7 +51,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
           ),
 
           // Floating Action Button
-          Positioned(bottom: 32, right: 24, child: _buildFab()),
+          Positioned(bottom: 110, right: 24, child: _buildFab()),
         ],
       ),
     );
@@ -128,19 +128,25 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   Widget _buildFilters() {
     return Padding(
       padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(_filters.length, (index) {
-          final isActive = _selectedFilterIndex == index;
-          return GestureDetector(
-            onTap: () {
-              if (!isActive) {
-                setState(() => _selectedFilterIndex = index);
-              }
-            },
-            child: _buildFilterChip(_filters[index], isActive: isActive),
-          );
-        }),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: List.generate(_filters.length, (index) {
+            final isActive = _selectedFilterIndex == index;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: GestureDetector(
+                onTap: () {
+                  if (!isActive) {
+                    setState(() => _selectedFilterIndex = index);
+                  }
+                },
+                child: _buildFilterChip(_filters[index], isActive: isActive),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -181,13 +187,14 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
         }
 
         // Apply filter based on _selectedFilterIndex
-        // 0: 'All', 1: 'Today', 2: 'In Progress', 3: 'Submitted'
+        // 0: 'All', 1: 'Today', 2: 'Drafts', 3: 'Submitted', 4: 'Needs Revision'
         final filteredActivities = activities.where((activity) {
           if (_selectedFilterIndex == 0) return true;
           
           final status = activity['status'] ?? '';
-          if (_selectedFilterIndex == 2) return status == 'UNDER_REVIEW' || status == 'DRAFT';
-          if (_selectedFilterIndex == 3) return status == 'APPROVED' || status == 'SUBMITTED';
+          if (_selectedFilterIndex == 2) return status == 'DRAFT';
+          if (_selectedFilterIndex == 3) return status == 'SUBMITTED' || status == 'RESUBMITTED' || status == 'UNDER_REVIEW' || status == 'APPROVED';
+          if (_selectedFilterIndex == 4) return status == 'REVISION_REQUESTED' || status == 'REJECTED';
           
           if (_selectedFilterIndex == 1) {
             // Today
@@ -215,7 +222,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
             if (status == 'DRAFT') {
               statusColor = const Color(0xFF3B82F6);
               statusBgColor = const Color(0xFFDBEAFE);
-              statusText = 'In Progress';
+              statusText = 'Draft';
             } else if (status == 'UNDER_REVIEW') {
               statusColor = const Color(0xFFEAB308);
               statusBgColor = const Color(0xFFFEF08A);
@@ -224,7 +231,11 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
               statusColor = const Color(0xFFEF4444);
               statusBgColor = const Color(0xFFFEE2E2);
               statusText = 'Rejected';
-            } else if (status == 'APPROVED' || status == 'SUBMITTED') {
+            } else if (status == 'REVISION_REQUESTED') {
+              statusColor = const Color(0xFFF97316);
+              statusBgColor = const Color(0xFFFFEDD5);
+              statusText = 'Needs Revision';
+            } else if (status == 'APPROVED' || status == 'SUBMITTED' || status == 'RESUBMITTED') {
               statusText = 'Submitted';
             }
 

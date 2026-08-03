@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { AuditLogService } from '../services/audit-log.service.js';
+import { NotificationService } from '../notifications/notification.service.js';
 import { prisma } from '../db.js';
+
+const notificationService = new NotificationService();
 
 // Generate a random temporary password
 function generateTempPassword() {
@@ -790,25 +793,30 @@ export async function broadcastNotification(req: Request, res: Response) {
       return res.status(400).json({ error: 'Title and message are required' });
     }
 
-    // Get all users to notify
+    // Get all active supervisor and student users to notify
     const allUsers = await prisma.user.findMany({
-      where: { status: 'ACTIVE', deletedAt: null },
+      where: {
+        role: { in: ['STUDENT', 'SUPERVISOR'] },
+        status: 'ACTIVE',
+        isActive: true,
+        deletedAt: null,
+      },
       select: { id: true },
     });
 
     const notificationType = type || 'SYSTEM_ALERT';
 
-    // Create notifications for all active users
-    await prisma.notification.createMany({
-      data: allUsers.map((u) => ({
-        recipientId: u.id,
+    // Create notifications and push for all active users
+    for (const user of allUsers) {
+      await notificationService.sendNotification({
+        recipientId: user.id,
         senderId: actorId,
         title,
         message,
         type: notificationType as any,
         priority: 1,
-      })),
-    });
+      });
+    }
 
     if (actorId) {
       await AuditLogService.log({

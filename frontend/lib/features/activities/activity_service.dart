@@ -40,6 +40,34 @@ class ActivityService {
     }
   }
 
+  Future<ApiResult<Map<String, dynamic>>> updateActivity({
+    required String activityId,
+    required String studentId,
+    required String title,
+    required String description,
+    required String methodology,
+  }) async {
+    try {
+      final response = await _apiClient.dio.patch(
+        '/activities/$activityId',
+        data: {
+          'studentId': studentId,
+          'title': title,
+          'description': description,
+          'methodology': methodology,
+        },
+      );
+      return Success(response.data);
+    } on DioException catch (e) {
+      return Failure(
+        message: e.message ?? 'Failed to update activity',
+        exception: e,
+      );
+    } catch (e) {
+      return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
+    }
+  }
+
   Future<ApiResult<Map<String, dynamic>>> uploadEvidence({
     required String activityId,
     required String uploaderId,

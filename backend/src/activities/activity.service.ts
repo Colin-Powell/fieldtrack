@@ -52,13 +52,16 @@ export class ActivityService {
       throw new Error('Activity not found or unauthorized');
     }
 
-    if (['APPROVED', 'UNDER_REVIEW', 'REJECTED'].includes(activity.status)) {
+    if (['APPROVED', 'UNDER_REVIEW', 'SUBMITTED', 'RESUBMITTED'].includes(activity.status)) {
       throw new Error(`Cannot edit activity in status: ${activity.status}`);
     }
 
     return prisma.fieldLog.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        status: 'DRAFT',
+      },
     });
   }
 

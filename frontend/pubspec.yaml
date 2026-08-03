@@ -51,6 +51,8 @@ dependencies:
   audioplayers: ^6.7.1
   fl_chart: ^1.2.0
   flutter_secure_storage: ^10.3.1
+  flutter_dotenv: ^5.0.1
+  video_player: ^2.2.4
   connectivity_plus: ^7.3.1
   dio_cache_interceptor: ^3.5.1
   dio_cache_interceptor_hive_store: ^4.0.0
@@ -63,6 +65,8 @@ dependencies:
   url_launcher: ^6.3.2
   cached_network_image: ^3.2.3
   flutter_cache_manager: ^3.3.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.7
 
 dev_dependencies:
   flutter_test:
@@ -91,6 +95,7 @@ flutter:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
   assets:
+    - .env
     - assets/images/
     - lib/assets/Images/
 

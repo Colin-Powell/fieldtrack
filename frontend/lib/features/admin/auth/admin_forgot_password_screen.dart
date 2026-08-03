@@ -9,10 +9,12 @@ class AdminForgotPasswordScreen extends ConsumerStatefulWidget {
   const AdminForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<AdminForgotPasswordScreen> createState() => _AdminForgotPasswordScreenState();
+  ConsumerState<AdminForgotPasswordScreen> createState() =>
+      _AdminForgotPasswordScreenState();
 }
 
-class _AdminForgotPasswordScreenState extends ConsumerState<AdminForgotPasswordScreen> {
+class _AdminForgotPasswordScreenState
+    extends ConsumerState<AdminForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   bool _loading = false;
@@ -25,9 +27,9 @@ class _AdminForgotPasswordScreenState extends ConsumerState<AdminForgotPasswordS
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _loading = true);
-    
+
     final email = _emailController.text.trim();
     final success = await ref.read(authProvider.notifier).forgotPassword(email);
 
@@ -43,15 +45,12 @@ class _AdminForgotPasswordScreenState extends ConsumerState<AdminForgotPasswordS
         ),
       );
       // Navigate to OTP screen and pass the email
-      context.push('/Admin/verify-otp', extra: email);
+      context.push('/admin/verify-otp', extra: email);
     } else {
       final error = ref.read(authProvider).error ?? 'Failed to send OTP';
       rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
       rootScaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(error), backgroundColor: Colors.red),
       );
     }
   }
@@ -168,10 +167,7 @@ class _AdminForgotPasswordScreenState extends ConsumerState<AdminForgotPasswordS
                 children: [
                   IconButton(
                     onPressed: () => context.pop(),
-                    icon: Icon(
-                      PhosphorIcons.arrowLeft(),
-                      color: Colors.black,
-                    ),
+                    icon: Icon(PhosphorIcons.arrowLeft(), color: Colors.black),
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -311,6 +307,7 @@ class _BottomWavePainter extends CustomPainter {
     path.close();
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

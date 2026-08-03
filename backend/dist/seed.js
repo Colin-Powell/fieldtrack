@@ -10,8 +10,11 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 async function main() {
     console.log('Starting seeder...');
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@fieldtrack.com';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'ChangeMe123!';
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!connectionString || !adminEmail || !adminPassword) {
+        throw new Error('DATABASE_URL, ADMIN_EMAIL, and ADMIN_PASSWORD must be configured in the environment.');
+    }
     // Check if admin already exists
     const existingAdmin = await prisma.user.findFirst({
         where: { role: 'ADMIN' },

@@ -48,16 +48,21 @@ export class ReviewService {
     if (data.status === 'APPROVED') notificationType = 'ACTIVITY_APPROVED';
     if (data.status === 'REVISION_REQUESTED') notificationType = 'REVISION_REQUESTED';
 
-    await notificationService.sendNotification({
-      recipientId: activity.studentId,
-      senderId: data.reviewerId,
-      title: `Activity ${data.status.replace('_', ' ')}`,
-      message: data.comments || `Your activity "${activity.title}" was ${data.status.toLowerCase()}.`,
-      type: notificationType,
-      entityType: 'FIELD_LOG',
-      entityId: activity.id,
-      priority: data.status === 'REVISION_REQUESTED' ? 1 : 0
-    });
+    try {
+      await notificationService.sendNotification({
+        recipientId: activity.studentId,
+        senderId: data.reviewerId,
+        title: `Activity ${data.status.replace('_', ' ')}`,
+        message: data.comments || `Your activity "${activity.title}" was ${data.status.toLowerCase()}.`,
+        type: notificationType,
+        entityType: 'FIELD_LOG',
+        entityId: activity.id,
+        priority: data.status === 'REVISION_REQUESTED' ? 1 : 0
+      });
+    } catch (notificationError: any) {
+      console.error('[submitReview] Failed to send notification:', notificationError.message);
+      // Continue - notification failure should not fail the review submission
+    }
 
     return review;
   }

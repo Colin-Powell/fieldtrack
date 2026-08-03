@@ -4,13 +4,37 @@ class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+
+    if (!smtpUser || !smtpPass) {
+      throw new Error('SMTP credentials must be configured via environment variables.');
+    }
+
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: smtpUser,
+        pass: smtpPass,
       },
     });
+  }
+
+  async sendEmail(to: string, subject: string, html: string, text?: string): Promise<void> {
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: `"FieldTrack Support" <${process.env.SMTP_USER}>`,
+      to,
+      subject,
+      html,
+      text: text ?? html.replaceAll(new RegExp('<[^>]*>', 'g'), ''),
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+    } catch (error) {
+      console.error('Error sending email:', error);
+      throw new Error('Failed to send email');
+    }
   }
 
   async sendPasswordResetOtp(to: string, otp: string): Promise<void> {

@@ -9,14 +9,16 @@ class AdminResetPasswordScreen extends ConsumerStatefulWidget {
   const AdminResetPasswordScreen({super.key});
 
   @override
-  ConsumerState<AdminResetPasswordScreen> createState() => _AdminResetPasswordScreenState();
+  ConsumerState<AdminResetPasswordScreen> createState() =>
+      _AdminResetPasswordScreenState();
 }
 
-class _AdminResetPasswordScreenState extends ConsumerState<AdminResetPasswordScreen> {
+class _AdminResetPasswordScreenState
+    extends ConsumerState<AdminResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _pwController = TextEditingController();
   final _confirmPwController = TextEditingController();
-  
+
   bool _loading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -30,11 +32,13 @@ class _AdminResetPasswordScreenState extends ConsumerState<AdminResetPasswordScr
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _loading = true);
-    
+
     final password = _pwController.text;
-    final success = await ref.read(authProvider.notifier).resetPassword(password);
+    final success = await ref
+        .read(authProvider.notifier)
+        .resetPassword(password);
 
     if (!mounted) return;
     setState(() => _loading = false);
@@ -48,15 +52,12 @@ class _AdminResetPasswordScreenState extends ConsumerState<AdminResetPasswordScr
         ),
       );
       // Clear route history and go back to login
-      context.go('/Admin/login');
+      context.go('/admin/login');
     } else {
       final error = ref.read(authProvider).error ?? 'Failed to reset password';
       rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
       rootScaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(error), backgroundColor: Colors.red),
       );
     }
   }
@@ -190,7 +191,7 @@ class _AdminResetPasswordScreenState extends ConsumerState<AdminResetPasswordScr
                     ),
                   ),
                   const SizedBox(height: 48),
-                  
+
                   // New Password
                   const Text(
                     'New Password',
@@ -264,7 +265,7 @@ class _AdminResetPasswordScreenState extends ConsumerState<AdminResetPasswordScr
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Confirm Password
                   const Text(
                     'Confirm Password',
@@ -330,7 +331,8 @@ class _AdminResetPasswordScreenState extends ConsumerState<AdminResetPasswordScr
                           ),
                           onPressed: () {
                             setState(() {
-                              _obscureConfirmPassword = !_obscureConfirmPassword;
+                              _obscureConfirmPassword =
+                                  !_obscureConfirmPassword;
                             });
                           },
                         ),
@@ -338,7 +340,7 @@ class _AdminResetPasswordScreenState extends ConsumerState<AdminResetPasswordScr
                     ),
                   ),
                   const SizedBox(height: 40),
-                  
+
                   _loading
                       ? const Center(
                           child: CircularProgressIndicator(color: greenColor),
@@ -401,6 +403,7 @@ class _BottomWavePainter extends CustomPainter {
     path.close();
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

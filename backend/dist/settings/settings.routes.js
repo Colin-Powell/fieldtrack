@@ -1,11 +1,22 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { getProfileSettings, updateProfileSettings, updatePassword, updateSecuritySettings, logoutOtherSessions, deactivateAccount, updatePreferences, uploadAvatar, revokeSession } from './settings.controller.js';
+import path from 'path';
+import { getSettingsInfo, getProfileSettings, updateProfileSettings, updatePassword, updateSecuritySettings, logoutOtherSessions, deactivateAccount, updatePreferences, uploadAvatar, revokeSession } from './settings.controller.js';
 import { authenticate } from '../auth/auth.middleware.js';
 const router = Router();
-const upload = multer({ dest: 'storage/avatars/' });
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'storage/avatars/');
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    },
+});
+const upload = multer({ storage });
 // All settings routes require authentication
 router.use(authenticate);
+router.get('/info', getSettingsInfo);
 router.get('/profile', getProfileSettings);
 router.put('/profile', updateProfileSettings);
 router.put('/password', updatePassword);

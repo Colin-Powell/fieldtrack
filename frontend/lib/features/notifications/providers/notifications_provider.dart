@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:fieldtrack/core/network/api_result.dart';
@@ -26,16 +28,29 @@ class NotificationModel {
       message: json['message'] as String? ?? '',
       type: json['type'] as String? ?? 'SYSTEM_ALERT',
       isRead: json['isRead'] as bool? ?? false,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
+          : DateTime.now(),
     );
   }
 }
 
-class NotificationsNotifier extends StateNotifier<AsyncValue<List<NotificationModel>>> {
+class NotificationsNotifier
+    extends StateNotifier<AsyncValue<List<NotificationModel>>> {
   final ApiClient _api;
+  Timer? _refreshTimer;
 
   NotificationsNotifier(this._api) : super(const AsyncValue.loading()) {
     fetchNotifications();
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) async {
+      await fetchNotifications();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> fetchNotifications() async {
@@ -43,7 +58,9 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<List<NotificationMo
     try {
       final response = await _api.dio.get('/notifications');
       final data = response.data as List<dynamic>;
-      final notifications = data.map((e) => NotificationModel.fromJson(e)).toList();
+      final notifications = data
+          .map((e) => NotificationModel.fromJson(e))
+          .toList();
       state = AsyncValue.data(notifications);
     } catch (e, stackTrace) {
       state = AsyncValue.error(e, stackTrace);
@@ -77,6 +94,10 @@ class NotificationsNotifier extends StateNotifier<AsyncValue<List<NotificationMo
   }
 }
 
-final notificationsProvider = StateNotifierProvider<NotificationsNotifier, AsyncValue<List<NotificationModel>>>((ref) {
-  return NotificationsNotifier(ApiClient());
-});
+final notificationsProvider =
+    StateNotifierProvider<
+      NotificationsNotifier,
+      AsyncValue<List<NotificationModel>>
+    >((ref) {
+      return NotificationsNotifier(ApiClient());
+    });

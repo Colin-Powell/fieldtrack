@@ -20,8 +20,9 @@ import 'package:fieldtrack/core/providers/activity_provider.dart';
 
 class FieldSessionScreen extends ConsumerStatefulWidget {
   final bool isDraft; // Pass true if loading a saved draft
+  final String? activityId;
 
-  const FieldSessionScreen({super.key, this.isDraft = false});
+  const FieldSessionScreen({super.key, this.isDraft = false, this.activityId});
 
   @override
   ConsumerState<FieldSessionScreen> createState() => _FieldSessionScreenState();
@@ -73,6 +74,10 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
       _methodController.text = 'Transect and Quadrant Method';
     }
 
+    if (widget.activityId != null) {
+      _loadActivityDetails();
+    }
+
     // Location is now handled by the shared locationProvider (Riverpod)
     _audioPlayer.onPlayerComplete.listen((_) {
       if (mounted) {
@@ -93,6 +98,27 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         setState(() => _voiceDuration = duration);
       }
     });
+  }
+
+  Future<void> _loadActivityDetails() async {
+    setState(() => _isLoading = true);
+    final activityService = ref.read(activityServiceProvider);
+    final result = await activityService.getActivityById(widget.activityId!);
+    if (result is Success) {
+      final activity = (result as Success).data;
+      if (mounted) {
+        setState(() {
+          _titleController.text = activity['title'] ?? '';
+          _descController.text = activity['description'] ?? '';
+          _methodController.text = activity['methodology'] ?? '';
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -508,25 +534,39 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
       }
 
       final activityService = ref.read(activityServiceProvider);
+      String activityId;
 
-      // 1. Create Draft Activity
-      final draftRes = await activityService.createDraftActivity(
-        studentId: user.id,
-        title: _titleController.text,
-        description: _descController.text,
-        methodology: _methodController.text,
-        latitude: locationState.latitude,
-        longitude: locationState.longitude,
-        gpsAccuracy: locationState.accuracy,
-      );
+      if (widget.activityId != null) {
+        // Update existing activity
+        final updateRes = await activityService.updateActivity(
+          activityId: widget.activityId!,
+          studentId: user.id,
+          title: _titleController.text,
+          description: _descController.text,
+          methodology: _methodController.text,
+        );
+        if (updateRes is Failure) throw Exception((updateRes as Failure).message);
+        activityId = widget.activityId!;
+      } else {
+        // 1. Create Draft Activity
+        final draftRes = await activityService.createDraftActivity(
+          studentId: user.id,
+          title: _titleController.text,
+          description: _descController.text,
+          methodology: _methodController.text,
+          latitude: locationState.latitude,
+          longitude: locationState.longitude,
+          gpsAccuracy: locationState.accuracy,
+        );
 
-      if (draftRes is Failure) {
-        throw Exception((draftRes as Failure).message);
+        if (draftRes is Failure) {
+          throw Exception((draftRes as Failure).message);
+        }
+        final draftData = (draftRes as Success).data;
+        activityId = draftData['id'];
       }
-      final draftData = (draftRes as Success).data;
-      final activityId = draftData['id'];
 
-      // 2. Upload Evidence
+      // 2. Upload Evidence (Ideally only upload new ones, but for now we upload all items that are new)
       for (final item in _evidenceItems) {
         await activityService.uploadEvidence(
           activityId: activityId,
@@ -560,14 +600,83 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     }
   }
 
-  void _saveDraft() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Activity saved as draft.'),
-        backgroundColor: Color(0xFF1BA654),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _saveDraft() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final user = ref.read(authProvider).user;
+      final locationState = ref.read(locationProvider);
+      
+      if (user == null) {
+        throw Exception('User data is missing');
+      }
+
+      final activityService = ref.read(activityServiceProvider);
+      String activityId;
+
+      if (widget.activityId != null) {
+        final updateRes = await activityService.updateActivity(
+          activityId: widget.activityId!,
+          studentId: user.id,
+          title: _titleController.text,
+          description: _descController.text,
+          methodology: _methodController.text,
+        );
+        if (updateRes is Failure) throw Exception((updateRes as Failure).message);
+        activityId = widget.activityId!;
+      } else {
+        final draftRes = await activityService.createDraftActivity(
+          studentId: user.id,
+          title: _titleController.text,
+          description: _descController.text,
+          methodology: _methodController.text,
+          latitude: locationState.latitude,
+          longitude: locationState.longitude,
+          gpsAccuracy: locationState.accuracy,
+        );
+        if (draftRes is Failure) throw Exception((draftRes as Failure).message);
+        final draftData = (draftRes as Success).data;
+        activityId = draftData['id'];
+      }
+
+      for (final item in _evidenceItems) {
+        await activityService.uploadEvidence(
+          activityId: activityId,
+          uploaderId: user.id,
+          filePath: item.path,
+          latitude: locationState.latitude,
+          longitude: locationState.longitude,
+          gpsAccuracy: locationState.accuracy,
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Activity saved as draft.'),
+            backgroundColor: Color(0xFF1BA654),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save draft: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   @override

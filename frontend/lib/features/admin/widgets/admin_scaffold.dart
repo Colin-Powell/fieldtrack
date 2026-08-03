@@ -93,10 +93,11 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                           color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Icon(
-                          PhosphorIconsFill.shieldCheck,
-                          color: Colors.white,
-                          size: 32,
+                        child: Image.asset(
+                          'lib/assets/Images/logo.png',
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.contain,
                         ),
                       ),
                       if (_isExpanded) ...[

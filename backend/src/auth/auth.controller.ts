@@ -345,7 +345,7 @@ export async function forgotPassword(req: Request, res: Response) {
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || user.role !== 'SUPERVISOR') {
+    if (!user) {
       // Return success even if user not found to prevent email enumeration
       return res.json({ success: true, message: 'If the email exists, an OTP has been sent.' });
     }

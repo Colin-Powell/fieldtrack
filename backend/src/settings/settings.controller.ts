@@ -5,6 +5,57 @@ import sharp from 'sharp';
 import fs from 'fs/promises';
 import path from 'path';
 
+// GET /api/v1/settings/info
+export const getSettingsInfo = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const settingsRecord = await prisma.systemSetting.findUnique({
+      where: { key: 'student_help_info' },
+    });
+
+    const defaults = {
+      faqs: [
+        {
+          question: 'How do I capture a new field entry?',
+          answer:
+            'Navigate to the Home screen and tap the large + button. Make sure your GPS is turned on.',
+        },
+        {
+          question: 'Why is my data not syncing?',
+          answer:
+            'Ensure you have an active internet connection and that Offline Sync is enabled in settings.',
+        },
+      ],
+      supportEmail: 'support@fieldtrack.com',
+      privacyPolicy:
+        'FieldTrack Privacy Policy\n\nLast Updated: October 2024\n\n1. Information Collection\nWe collect location data and field metrics you input to assist in environmental research. Your personal information (Name, ID, Email) is used strictly for authentication and academic tracking.\n\n2. Data Usage\nAll geographic and analytical data collected is synced to university servers and may be used in aggregated research studies. Individual user tracking is kept confidential.\n\n3. Offline Data\nData stored locally on your device remains encrypted until a secure connection is established for syncing.\n\n(This is a sample privacy policy for demonstration purposes. In a real application, place your full legal terms here.)',
+      about: {
+        title: 'FieldTrack',
+        version: 'Version 1.0.0 (Build 42)',
+        description: 'Developed for\nPwani University, Environmental Sciences',
+      },
+    };
+
+    const savedSettings =
+      settingsRecord && typeof settingsRecord.value === 'object'
+        ? (settingsRecord.value as Record<string, any>)
+        : {};
+
+    const info = {
+      ...defaults,
+      ...savedSettings,
+      about: {
+        ...defaults.about,
+        ...((savedSettings.about as Record<string, any>) ?? {}),
+      },
+    };
+
+    res.json({ success: true, info });
+  } catch (error: any) {
+    console.error('getSettingsInfo error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // GET /api/v1/settings/profile
 export const getProfileSettings = async (req: Request, res: Response): Promise<void> => {
   try {

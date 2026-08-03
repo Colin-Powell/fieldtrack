@@ -1,19 +1,22 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:fieldtrack/core/providers/auth_provider.dart';
 
-class OtpVerificationScreen extends StatefulWidget {
+class OtpVerificationScreen extends ConsumerStatefulWidget {
   final String? email;
 
   const OtpVerificationScreen({super.key, this.email});
 
   @override
-  State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+  ConsumerState<OtpVerificationScreen> createState() =>
+      _OtpVerificationScreenState();
 }
 
-class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   // Controllers and FocusNodes for the 6 OTP fields
   final List<TextEditingController> _controllers = List.generate(
     6,
@@ -24,6 +27,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   Timer? _timer;
   int _remainingSeconds = 168; // default 2:48
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
 
   @override
   void dispose() {
@@ -37,15 +46,30 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     super.dispose();
   }
 
-  void _verify() async {
+  Future<void> _verify() async {
+    final otp = _controllers.map((controller) => controller.text.trim()).join();
+    if (otp.length != 6 || widget.email == null || widget.email!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter the 6-digit OTP')),
+      );
+      return;
+    }
+
     setState(() => _loading = true);
-    // Prototype: fake delay for verification
-    await Future.delayed(const Duration(milliseconds: 900));
+    final success = await ref
+        .read(authProvider.notifier)
+        .verifyOtp(widget.email!, otp);
     if (!mounted) return;
     setState(() => _loading = false);
 
-    // Navigate to reset password (forgot-password flow)
-    context.go('/reset-password');
+    if (success) {
+      context.go('/reset-password');
+    } else {
+      final error = ref.read(authProvider).error ?? 'Invalid OTP';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: Colors.red),
+      );
+    }
   }
 
   void _startTimer([int seconds = 168]) {
@@ -64,17 +88,26 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   Future<void> _resendCode() async {
-    if (_loading) return;
+    if (_loading || widget.email == null || widget.email!.isEmpty) return;
+
     setState(() => _loading = true);
-    // Stubbed API call
-    await Future.delayed(const Duration(milliseconds: 800));
+    final success = await ref
+        .read(authProvider.notifier)
+        .forgotPassword(widget.email!);
     if (!mounted) return;
     setState(() => _loading = false);
-    // Restart timer
-    _startTimer();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Verification code resent')));
+
+    if (success) {
+      _startTimer();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Verification code resent')));
+    } else {
+      final error = ref.read(authProvider).error ?? 'Failed to resend OTP';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override

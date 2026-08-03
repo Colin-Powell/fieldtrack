@@ -130,11 +130,14 @@ class ActivityDetailScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        // Menu Button
-                        _buildTopIconBtn(
-                          icon: PhosphorIconsRegular.dotsThreeVertical,
-                          onTap: () {},
-                        ),
+                        // Edit Button (Only for specific statuses)
+                        if (activity['status'] == 'DRAFT' || activity['status'] == 'REJECTED' || activity['status'] == 'REVISION_REQUESTED')
+                          _buildTopIconBtn(
+                            icon: PhosphorIconsRegular.pencilSimple,
+                            onTap: () => context.push('/field-session?id=${activity['id']}'),
+                          )
+                        else
+                          const SizedBox(width: 48),
                       ],
                     ),
                   ),

@@ -4,3 +4,9 @@
 {"level":"info","message":"Login successful for user ffd7f128-1522-4afc-8816-156b3a2dfa27 (admin@fieldtrack.com)","timestamp":"2026-08-01T17:00:07.502Z"}
 {"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: ochiengdavis062@gmail.com, RegNo: N/A","timestamp":"2026-08-01T17:11:31.519Z"}
 {"level":"info","message":"Login successful for user 6af194c3-153e-40ba-959b-b01dd6f235d0 (ochiengdavis062@gmail.com)","timestamp":"2026-08-01T17:11:32.677Z"}
+{"level":"info","message":"Login attempt from IP: 192.168.18.3 - Email: N/A, RegNo: MB21/PU/54323/22","timestamp":"2026-08-01T18:52:48.189Z"}
+{"level":"info","message":"Login successful for user f6f98619-b2b0-4c31-8a2f-43e5eed6ef5e (otienozilpah@gmail.com)","timestamp":"2026-08-01T18:52:48.716Z"}
+{"level":"info","message":"Login attempt from IP: 192.168.18.3 - Email: N/A, RegNo: MB21/PU/54323/22","timestamp":"2026-08-01T19:39:26.065Z"}
+{"level":"info","message":"Login successful for user f6f98619-b2b0-4c31-8a2f-43e5eed6ef5e (otienozilpah@gmail.com)","timestamp":"2026-08-01T19:39:26.411Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: ochiengdavis062@gmail.com, RegNo: N/A","timestamp":"2026-08-01T19:59:54.959Z"}
+{"level":"info","message":"Login successful for user 6af194c3-153e-40ba-959b-b01dd6f235d0 (ochiengdavis062@gmail.com)","timestamp":"2026-08-01T19:59:55.983Z"}

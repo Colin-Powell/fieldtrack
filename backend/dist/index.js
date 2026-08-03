@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import morgan from 'morgan';
+import jwt from 'jsonwebtoken';
+import { appLogger } from './utils/logger.js';
 import { prisma } from './db.js';
 import authRoutes from './auth/auth.routes.js';
 import adminRoutes from './admins/admins.routes.js';
@@ -13,12 +16,22 @@ import notificationRoutes from './notifications/notification.routes.js';
 import reviewRoutes from './reviews/review.routes.js';
 import reportRoutes from './reports/reports.routes.js';
 import settingsRoutes from './settings/settings.routes.js';
+import { startScheduler } from './background/scheduler.js';
+import { initFirebaseAdmin } from './firebase_admin.js';
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (Nginx) for accurate client IP
 const port = process.env.PORT || 3000;
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET must be configured before starting the backend.');
+}
+if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL must be configured before starting the backend.');
+}
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+// Log HTTP requests using Morgan and Winston
+app.use(morgan('combined', { stream: { write: (msg) => appLogger.info(msg.trim()) } }));
 // Global Rate Limiter
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -28,6 +41,44 @@ const globalLimiter = rateLimit({
     message: 'Too many requests from this IP, please try again after 15 minutes',
 });
 app.use('/api', globalLimiter);
+// Public FCM token endpoint (no authentication required)
+app.put('/api/v1/fcm-token', async (req, res) => {
+    try {
+        console.log('[FCM] Received FCM token sync request from', req.ip);
+        const { fcmToken } = req.body;
+        if (!fcmToken) {
+            console.log('[FCM] No FCM token provided in request');
+            return res.status(400).json({ error: 'FCM token is required' });
+        }
+        console.log('[FCM] FCM token received:', fcmToken.substring(0, 20) + '...');
+        // Check if user is authenticated via JWT token
+        const authHeader = req.headers.authorization;
+        if (authHeader) {
+            try {
+                const token = authHeader.replace('Bearer ', '');
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+                // Update user's FCM token in database
+                await prisma.user.update({
+                    where: { id: decoded.userId },
+                    data: { fcmToken },
+                });
+                appLogger.info(`FCM token updated for user ${decoded.userId}`);
+            }
+            catch (jwtErr) {
+                // Invalid/expired JWT - just register device token anyway
+                appLogger.warn('Invalid JWT for FCM token registration, proceeding without user update');
+            }
+        }
+        else {
+            appLogger.info('FCM token registered (pre-auth device registration)');
+        }
+        res.json({ success: true, message: 'FCM token registered' });
+    }
+    catch (error) {
+        appLogger.error('Error updating FCM token:', error);
+        res.status(500).json({ error: 'Failed to register FCM token' });
+    }
+});
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
@@ -39,6 +90,7 @@ app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 import { BASE_STORAGE_DIR } from './media/storage.service.js';
+import { ensureEnvAdminAccount } from './admin-sync.js';
 // Serve the storage folder statically with caching and media streaming support
 app.use('/storage', express.static(BASE_STORAGE_DIR, {
     maxAge: '30d',
@@ -153,7 +205,7 @@ app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR'
                 name: u.name,
                 email: u.email,
                 status: u.status, // ACTIVE | SUSPENDED | ARCHIVED
-                avatarUrl: '',
+                avatarUrl: sp?.avatar ?? '',
                 reg: sp?.registrationNo ?? '',
                 programme: sp?.programme ?? '',
                 department: sp?.department ?? '',
@@ -219,12 +271,14 @@ app.get('/api/v1/supervisor/students/:id', async (req, res) => {
             name: u.name,
             email: u.email,
             status: u.status,
-            avatarUrl: '',
+            avatarUrl: sp?.avatar ?? '',
             reg: sp?.registrationNo ?? '',
             programme: sp?.programme ?? '',
             department: sp?.department ?? '',
             faculty: sp?.faculty ?? '',
+            phone: sp?.phone ?? '',
             topic: sp?.topic ?? '',
+            university: sp?.faculty ?? '',
             checkInStatus: isCheckedIn ? 'Checked In' : 'Checked Out',
             fieldStatus: isCheckedIn ? 'In Field' : 'Offline',
             lastActivity: logs[0]?.timestamp ?? null,
@@ -302,12 +356,16 @@ app.get('/api/v1/supervisor/students/:id', async (req, res) => {
                     title: 'Checked Out',
                     description: `Checked out`
                 })),
-                ...logs.map((l) => ({
-                    time: l.timestamp.toISOString(),
-                    type: 'activitySubmit',
-                    title: l.title,
-                    description: `Activity submitted with ${l.evidence?.length ?? 0} evidence files`
-                }))
+                ...logs.map((l) => {
+                    const imageEvidence = l.evidence?.find((e) => e.mimeType?.startsWith('image/'));
+                    return {
+                        time: l.timestamp.toISOString(),
+                        type: 'activitySubmit',
+                        title: l.title,
+                        description: `Activity submitted with ${l.evidence?.length ?? 0} evidence files`,
+                        imageUrl: imageEvidence?.storagePath || undefined
+                    };
+                })
             ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()),
         });
     }
@@ -330,6 +388,15 @@ app.get('/api/v1/admin/users', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
-app.listen(Number(port), '0.0.0.0', () => {
-    console.log(`[server]: Unified Server is running at http://0.0.0.0:${port}`);
+ensureEnvAdminAccount()
+    .then(async () => {
+    await initFirebaseAdmin();
+    startScheduler();
+    app.listen(Number(port), '0.0.0.0', () => {
+        console.log(`[server]: Unified Server is running at http://0.0.0.0:${port}`);
+    });
+})
+    .catch((error) => {
+    console.error('Failed to ensure admin account from env:', error);
+    process.exit(1);
 });
