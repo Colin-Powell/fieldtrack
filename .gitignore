@@ -16,8 +16,9 @@
 # Backend generated and dependency artifacts
 /backend/node_modules/
 /backend/generated/prisma/
-/backend/backend/storage/
+/backend/storage/
 /backend/.env
+/backend/firebase_service_account_key.json
 
 # IDE and editor files
 .idea/

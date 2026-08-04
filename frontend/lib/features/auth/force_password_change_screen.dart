@@ -12,14 +12,16 @@ class ForcePasswordChangeScreen extends ConsumerStatefulWidget {
   const ForcePasswordChangeScreen({super.key});
 
   @override
-  ConsumerState<ForcePasswordChangeScreen> createState() => _ForcePasswordChangeScreenState();
+  ConsumerState<ForcePasswordChangeScreen> createState() =>
+      _ForcePasswordChangeScreenState();
 }
 
-class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeScreen> {
+class _ForcePasswordChangeScreenState
+    extends ConsumerState<ForcePasswordChangeScreen> {
   final _currentPwController = TextEditingController();
   final _newPwController = TextEditingController();
   final _confirmPwController = TextEditingController();
-  
+
   bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
@@ -38,7 +40,9 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
     final newPassword = _newPwController.text;
     final confirmPassword = _confirmPwController.text;
 
-    if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
+    if (currentPassword.isEmpty ||
+        newPassword.isEmpty ||
+        confirmPassword.isEmpty) {
       ToastService.showError('Please fill all fields');
       return;
     }
@@ -55,12 +59,12 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
     }
 
     setState(() => _loading = true);
-    
+
     try {
-      final response = await ApiClient().dio.post('/auth/change-password', data: {
-        'currentPassword': currentPassword,
-        'newPassword': newPassword,
-      });
+      final response = await ApiClient().dio.post(
+        '/auth/change-password',
+        data: {'currentPassword': currentPassword, 'newPassword': newPassword},
+      );
 
       if (!mounted) return;
       setState(() => _loading = false);
@@ -70,18 +74,20 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
         ref.read(authProvider.notifier).checkAuthStatus();
         context.go('/portal');
       } else {
-        final errorMsg = response.data?['error'] ?? 'Failed to update password';
+        final errorMsg = ErrorHandler.getFriendlyErrorMessage(response.data);
         ToastService.showError(errorMsg);
       }
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      final errorMsg = e.response?.data?['error'] ?? 'Server error updating password';
+      final errorMsg = ErrorHandler.getFriendlyErrorMessage(e);
       ToastService.showError(errorMsg);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ToastService.showError('Unexpected error: ${ErrorHandler.getFriendlyErrorMessage(e)}');
+      ToastService.showError(
+        'Unexpected error: ${ErrorHandler.getFriendlyErrorMessage(e)}',
+      );
     }
   }
 
@@ -101,23 +107,28 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
             child: SizedBox(
               height: 150, // Controls how high the wave reaches
               width: double.infinity,
-              child: CustomPaint(
-                painter: _BottomWavePainter(),
-              ),
+              child: CustomPaint(painter: _BottomWavePainter()),
             ),
           ),
-          
+
           // --- Main Content ---
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 16.0,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // --- Back Arrow ---
                   IconButton(
                     onPressed: () => context.pop(),
-                    icon: Icon(PhosphorIconsRegular.arrowLeft, size: 28, color: Colors.black),
+                    icon: Icon(
+                      PhosphorIconsRegular.arrowLeft,
+                      size: 28,
+                      color: Colors.black,
+                    ),
                     padding: EdgeInsets.zero,
                     alignment: Alignment.centerLeft,
                   ),
@@ -136,7 +147,7 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // --- Subtitle ---
                   const Center(
                     child: Text(
@@ -146,12 +157,12 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
                         fontFamily: 'Roboto',
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF737373), 
+                        color: Color(0xFF737373),
                         height: 1.4,
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
 
                   // --- Password Inputs ---
@@ -160,10 +171,11 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
                     hint: 'Enter your temporary password',
                     controller: _currentPwController,
                     obscureText: _obscureCurrent,
-                    onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                    onToggle: () =>
+                        setState(() => _obscureCurrent = !_obscureCurrent),
                   ),
                   const SizedBox(height: 20),
-                  
+
                   _buildPasswordField(
                     label: 'New Password',
                     hint: 'Create a strong password',
@@ -172,22 +184,25 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
                     onToggle: () => setState(() => _obscureNew = !_obscureNew),
                   ),
                   const SizedBox(height: 20),
-                  
+
                   _buildPasswordField(
                     label: 'Confirm New Password',
                     hint: 'Re-enter your new password',
                     controller: _confirmPwController,
                     obscureText: _obscureConfirm,
-                    onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                    onToggle: () =>
+                        setState(() => _obscureConfirm = !_obscureConfirm),
                   ),
-                  
+
                   const SizedBox(height: 24),
 
                   const SizedBox(height: 32),
 
                   // --- Submit Button ---
                   _loading
-                      ? const Center(child: CircularProgressIndicator(color: greenColor))
+                      ? const Center(
+                          child: CircularProgressIndicator(color: greenColor),
+                        )
                       : SizedBox(
                           width: double.infinity,
                           height: 56,
@@ -195,7 +210,7 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
                             onPressed: _submit,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: greenColor,
-                              shadowColor: greenColor.withOpacity(0.5), 
+                              shadowColor: greenColor.withOpacity(0.5),
                               elevation: 6,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(30),
@@ -256,7 +271,10 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
               fontFamily: 'Roboto',
               fontSize: 15,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 18,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
               borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
@@ -275,7 +293,9 @@ class _ForcePasswordChangeScreenState extends ConsumerState<ForcePasswordChangeS
               padding: const EdgeInsets.only(right: 12.0),
               child: IconButton(
                 icon: Icon(
-                  obscureText ? PhosphorIconsRegular.eyeClosed : PhosphorIconsRegular.eye,
+                  obscureText
+                      ? PhosphorIconsRegular.eyeClosed
+                      : PhosphorIconsRegular.eye,
                   color: const Color(0xFF9CA3AF),
                   size: 22,
                 ),
@@ -294,7 +314,8 @@ class _BottomWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFC3DFCC) // Matches the light green wave color
+      ..color =
+          const Color(0xFFC3DFCC) // Matches the light green wave color
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -324,4 +345,3 @@ class _BottomWavePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

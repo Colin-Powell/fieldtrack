@@ -1984,13 +1984,11 @@ class _EmbeddedAddUserWidgetState
         }
       } else {
         ToastService.showError(
-          response.data?['error'] ?? 'Failed to create user',
+          ErrorHandler.getFriendlyErrorMessage(response.data),
         );
       }
     } on DioException catch (e) {
-      final errorMsg =
-          e.response?.data?['error'] ??
-          'Failed to create user (Status ${e.response?.statusCode})';
+      final errorMsg = ErrorHandler.getFriendlyErrorMessage(e);
       ToastService.showError(errorMsg);
     } catch (e) {
       ToastService.showError(ErrorHandler.getFriendlyErrorMessage(e));
@@ -2616,13 +2614,11 @@ class _EmbeddedEditUserWidgetState
         widget.onBack();
       } else {
         ToastService.showError(
-          response.data?['error'] ?? 'Failed to update user',
+          ErrorHandler.getFriendlyErrorMessage(response.data),
         );
       }
     } on DioException catch (e) {
-      final errorMsg =
-          e.response?.data?['error'] ??
-          'Failed to update user (Status ${e.response?.statusCode})';
+      final errorMsg = ErrorHandler.getFriendlyErrorMessage(e);
       ToastService.showError(errorMsg);
     } catch (e) {
       ToastService.showError(ErrorHandler.getFriendlyErrorMessage(e));

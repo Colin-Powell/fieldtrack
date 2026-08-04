@@ -1,10 +1,10 @@
 import { z } from 'zod';
 export const loginSchema = z.object({
     body: z.object({
-        email: z.string().email('Invalid email address').optional(),
-        registrationNo: z.string().min(1, 'Registration number is required').optional(),
+        email: z.string().trim().email('Invalid email address').nullish(),
+        registrationNo: z.string().trim().min(1, 'Registration number is required').nullish(),
         password: z.string().min(1, 'Password is required'),
-    }).refine(data => data.email || data.registrationNo, {
+    }).refine((data) => Boolean(data.email || data.registrationNo), {
         message: 'Either email or registrationNo is required',
     }),
 });

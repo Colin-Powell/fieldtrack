@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
+import '../network/error_handler.dart';
 import 'auth_provider.dart';
 import 'location_provider.dart';
 import '../utils/toast_service.dart';
@@ -53,7 +54,7 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
     try {
       final response = await _apiClient.dio.get(
         ApiEndpoints.sessionActive,
-        queryParameters: {'studentId': user.id}
+        queryParameters: {'studentId': user.id},
       );
       if (response.data['session'] != null) {
         state = state.copyWith(
@@ -63,7 +64,7 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
         );
       }
     } catch (e) {
-      print('Failed to fetch active session: $e');
+      // Ignore the session lookup failure and fall back to the default state.
     }
   }
 
@@ -84,12 +85,15 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
     state = state.copyWith(isLoading: true);
 
     try {
-      final response = await _apiClient.dio.post(ApiEndpoints.sessionCheckIn, data: {
-        'studentId': user.id,
-        'latitude': location.latitude,
-        'longitude': location.longitude,
-        'accuracy': location.accuracy,
-      });
+      final response = await _apiClient.dio.post(
+        ApiEndpoints.sessionCheckIn,
+        data: {
+          'studentId': user.id,
+          'latitude': location.latitude,
+          'longitude': location.longitude,
+          'accuracy': location.accuracy,
+        },
+      );
 
       state = state.copyWith(
         isCheckedIn: true,
@@ -100,8 +104,7 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
       return true;
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false);
-      final error = e.response?.data?['error'] ?? 'Check-in failed';
-      ToastService.showError(error);
+      ToastService.showError(ErrorHandler.getFriendlyErrorMessage(e));
       return false;
     } catch (e) {
       state = state.copyWith(isLoading: false);
@@ -119,12 +122,15 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
     state = state.copyWith(isLoading: true);
 
     try {
-      await _apiClient.dio.patch(ApiEndpoints.sessionCheckOut, data: {
-        'studentId': user.id,
-        'latitude': location.latitude,
-        'longitude': location.longitude,
-        'accuracy': location.accuracy,
-      });
+      await _apiClient.dio.patch(
+        ApiEndpoints.sessionCheckOut,
+        data: {
+          'studentId': user.id,
+          'latitude': location.latitude,
+          'longitude': location.longitude,
+          'accuracy': location.accuracy,
+        },
+      );
 
       state = CheckInState(
         isCheckedIn: false,
@@ -135,8 +141,7 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
       return true;
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false);
-      final error = e.response?.data?['error'] ?? 'Check-out failed';
-      ToastService.showError(error);
+      ToastService.showError(ErrorHandler.getFriendlyErrorMessage(e));
       return false;
     } catch (e) {
       state = state.copyWith(isLoading: false);
@@ -146,6 +151,8 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
   }
 }
 
-final checkInProvider = StateNotifierProvider<CheckInNotifier, CheckInState>((ref) {
+final checkInProvider = StateNotifierProvider<CheckInNotifier, CheckInState>((
+  ref,
+) {
   return CheckInNotifier(ref);
 });

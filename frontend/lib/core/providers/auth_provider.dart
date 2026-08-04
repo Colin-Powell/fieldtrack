@@ -197,7 +197,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: false,
-        error: e.response?.data?['error'] ?? 'Session expired',
+        error: ErrorHandler.getFriendlyErrorMessage(e),
       );
       _stopProfilePolling();
     }
@@ -212,14 +212,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final response = await _apiClient.dio.post(
-        '/auth/login',
-        data: {
-          ?'email': email,
-          ?'registrationNo': registrationNo,
-          'password': password,
-        },
-      );
+      final data = <String, dynamic>{'password': password};
+      if (email != null && email.trim().isNotEmpty) {
+        data['email'] = email.trim();
+      }
+      if (registrationNo != null && registrationNo.trim().isNotEmpty) {
+        data['registrationNo'] = registrationNo.trim();
+      }
+
+      final response = await _apiClient.dio.post('/auth/login', data: data);
 
       if (response.data['success'] == true) {
         final token = response.data['token'];
@@ -254,18 +255,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       } else {
         state = state.copyWith(
           isLoading: false,
-          error: response.data['error'] ?? 'Login failed',
+          error: ErrorHandler.getFriendlyErrorMessage(response.data),
         );
         return false;
       }
     } on DioException catch (e) {
-      final errorData = e.response?.data;
-      String errorMsg = e.message != null
-          ? 'Login failed: ${e.message}'
-          : 'Login failed: Network or Server Error';
-      if (errorData is Map<String, dynamic> && errorData['error'] != null) {
-        errorMsg = errorData['error'];
-      }
+      final errorMsg = ErrorHandler.getFriendlyErrorMessage(e);
       state = state.copyWith(isLoading: false, error: errorMsg);
       return false;
     } catch (e) {
@@ -330,7 +325,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on DioException catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.response?.data?['error'] ?? 'Failed to update profile',
+        error: ErrorHandler.getFriendlyErrorMessage(e),
       );
       return false;
     } catch (e) {
@@ -363,7 +358,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on DioException catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.response?.data?['error'] ?? 'Request failed',
+        error: ErrorHandler.getFriendlyErrorMessage(e),
       );
       return false;
     } catch (e) {
@@ -392,7 +387,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on DioException catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.response?.data?['error'] ?? 'Invalid OTP',
+        error: ErrorHandler.getFriendlyErrorMessage(e),
       );
       return false;
     } catch (e) {
@@ -418,7 +413,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on DioException catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.response?.data?['error'] ?? 'Reset failed',
+        error: ErrorHandler.getFriendlyErrorMessage(e),
       );
       return false;
     } catch (e) {

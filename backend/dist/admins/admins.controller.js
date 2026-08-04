@@ -1,6 +1,8 @@
 import bcrypt from 'bcrypt';
 import { AuditLogService } from '../services/audit-log.service.js';
+import { NotificationService } from '../notifications/notification.service.js';
 import { prisma } from '../db.js';
+const notificationService = new NotificationService();
 // Generate a random temporary password
 function generateTempPassword() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
@@ -701,17 +703,17 @@ export async function broadcastNotification(req, res) {
             select: { id: true },
         });
         const notificationType = type || 'SYSTEM_ALERT';
-        // Create notifications for all active users
-        await prisma.notification.createMany({
-            data: allUsers.map((u) => ({
-                recipientId: u.id,
+        // Create notifications and push for all active users
+        for (const user of allUsers) {
+            await notificationService.sendNotification({
+                recipientId: user.id,
                 senderId: actorId,
                 title,
                 message,
                 type: notificationType,
                 priority: 1,
-            })),
-        });
+            });
+        }
         if (actorId) {
             await AuditLogService.log({
                 actorId,

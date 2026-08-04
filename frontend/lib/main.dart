@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fieldtrack/core/router/app_router.dart';
@@ -8,8 +9,8 @@ import 'package:fieldtrack/core/app_setup.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:fieldtrack/core/services/notification_service.dart';
-import 'package:fieldtrack/core/utils/toast_service.dart';
 import 'package:fieldtrack/core/widgets/offline_banner.dart';
+import 'package:fieldtrack/firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +24,13 @@ Future<void> main() async {
   debugPrint('Frontend API URL: $apiBaseUrl');
 
   try {
-    await Firebase.initializeApp();
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
   } catch (error, stackTrace) {
     debugPrint('Firebase.initializeApp() failed: $error');
     debugPrint(stackTrace.toString());

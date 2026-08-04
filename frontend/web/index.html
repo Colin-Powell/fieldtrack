@@ -29,6 +29,17 @@
 
   <title>fieldtrack</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        } catch (error) {
+          console.warn('Firebase messaging service worker registration failed:', error);
+        }
+      });
+    }
+  </script>
   
   
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">

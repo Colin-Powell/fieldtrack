@@ -4,12 +4,7 @@ export class NotificationService {
     async sendNotification(data) {
         const recipient = await prisma.user.findUnique({
             where: { id: data.recipientId },
-            select: {
-                id: true,
-                fcmToken: true,
-                email: true,
-                preferences: true,
-            },
+            include: { preferences: true },
         });
         if (!recipient) {
             throw new Error('Notification recipient not found');
@@ -26,8 +21,10 @@ export class NotificationService {
                 priority: data.priority || 0,
             }
         });
-        const shouldSendPush = recipient.fcmToken && (recipient.preferences?.chanInApp !== false);
-        console.log(`[NOTIFICATION] Preparing to send notification. FCMToken: ${recipient.fcmToken ? 'YES' : 'NO'}, shouldSendPush: ${shouldSendPush}, Firebase initialized: ${firebaseAdmin.apps.length > 0}`);
+        const hasToken = typeof recipient.fcmToken === 'string' && recipient.fcmToken.trim().length > 0;
+        const pushEnabled = recipient.preferences?.chanInApp !== false;
+        const shouldSendPush = hasToken && pushEnabled;
+        console.log(`[NOTIFICATION] Preparing to send notification. FCMToken: ${hasToken ? 'YES' : 'NO'}, shouldSendPush: ${shouldSendPush}, pushEnabled: ${pushEnabled}, Firebase initialized: ${firebaseAdmin.apps.length > 0}`);
         if (shouldSendPush && firebaseAdmin.apps.length > 0) {
             try {
                 const tokenPreview = recipient.fcmToken.substring(0, 30);

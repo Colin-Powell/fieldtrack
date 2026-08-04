@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
+import 'package:fieldtrack/core/network/error_handler.dart';
 
 class SupervisorReportsData {
   final Map<String, dynamic> stats;
@@ -41,9 +42,7 @@ final supervisorReportsProvider = FutureProvider.autoDispose
         return SupervisorReportsData.fromJson(response.data);
       } catch (e) {
         if (e is DioException) {
-          throw Exception(
-            e.response?.data?['error'] ?? 'Failed to load reports',
-          );
+          throw Exception(ErrorHandler.getFriendlyErrorMessage(e));
         }
         throw Exception('An unexpected error occurred');
       }

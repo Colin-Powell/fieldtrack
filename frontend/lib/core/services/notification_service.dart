@@ -32,24 +32,29 @@ class NotificationService {
     if (_initialized) return;
 
     try {
-      if (kIsWeb) return;
+      if (!kIsWeb) {
+        final NotificationSettings settings = await _firebaseMessaging
+            .requestPermission(
+              alert: true,
+              badge: true,
+              sound: true,
+              provisional: false,
+            );
 
-      NotificationSettings settings = await _firebaseMessaging
-          .requestPermission(
-            alert: true,
-            badge: true,
-            sound: true,
-            provisional: false,
+        if (settings.authorizationStatus != AuthorizationStatus.authorized &&
+            settings.authorizationStatus != AuthorizationStatus.provisional) {
+          debugPrint(
+            '[FCM] Notification permission not granted; skipping token sync.',
           );
+          return;
+        }
 
-      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
-          settings.authorizationStatus == AuthorizationStatus.provisional) {
         await _firebaseMessaging.setForegroundNotificationPresentationOptions(
           alert: true,
           badge: true,
           sound: true,
         );
-        // Initialize local notifications
+
         const AndroidInitializationSettings initializationSettingsAndroid =
             AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -66,10 +71,9 @@ class NotificationService {
           },
         );
 
-        // Configure Android channel
         const AndroidNotificationChannel channel = AndroidNotificationChannel(
-          'high_importance_channel', // id
-          'High Importance Notifications', // title
+          'high_importance_channel',
+          'High Importance Notifications',
           description: 'This channel is used for important notifications.',
           importance: Importance.max,
         );
@@ -80,18 +84,6 @@ class NotificationService {
             >()
             ?.createNotificationChannel(channel);
 
-        // Get FCM Token
-        String? token = await _firebaseMessaging.getToken();
-        if (token != null) {
-          await syncTokenWithBackend(token, auth: false);
-        }
-
-        // Listen for token refresh
-        _firebaseMessaging.onTokenRefresh.listen((newToken) async {
-          await syncTokenWithBackend(newToken, force: true, auth: false);
-        });
-
-        // Listen for foreground messages
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
           final notification = message.notification;
           final android = notification?.android;
@@ -142,9 +134,18 @@ class NotificationService {
         FirebaseMessaging.onBackgroundMessage(
           _firebaseMessagingBackgroundHandler,
         );
-
-        _initialized = true;
       }
+
+      String? token = await _firebaseMessaging.getToken();
+      if (token != null) {
+        await syncTokenWithBackend(token, auth: false);
+      }
+
+      _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+        await syncTokenWithBackend(newToken, force: true, auth: false);
+      });
+
+      _initialized = true;
     } catch (e) {
       debugPrint('FCM Init Error: $e');
     }
@@ -166,7 +167,10 @@ class NotificationService {
         BaseOptions(baseUrl: AppConstants.apiUrl, headers: headers),
       );
 
-      final response = await directDio.put('/fcm-token', data: {'fcmToken': token});
+      final response = await directDio.put(
+        '/fcm-token',
+        data: {'fcmToken': token},
+      );
       final linked = response.data?['linked'] == true;
       if (!linked) {
         debugPrint('⚠ FCM token sent but NOT linked to user (no valid auth)');
@@ -195,9 +199,13 @@ class NotificationService {
 
       await prefs.setString('fcm_token', token);
       if (linked) {
-        debugPrint('✓ FCM token synced and linked to user${force ? ' (forced)' : ''}');
+        debugPrint(
+          '✓ FCM token synced and linked to user${force ? ' (forced)' : ''}',
+        );
       } else {
-        debugPrint('⚠ FCM token synced but NOT linked — will retry after login');
+        debugPrint(
+          '⚠ FCM token synced but NOT linked — will retry after login',
+        );
       }
     } catch (e) {
       debugPrint('⚠ Failed to sync FCM token: $e');

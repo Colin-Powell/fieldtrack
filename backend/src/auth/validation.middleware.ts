@@ -12,12 +12,17 @@ export function validate(schema: ZodSchema) {
       next();
     } catch (error) {
       if (error instanceof ZodError) {
+        const details = error.issues.map((e: any) => ({
+          path: e.path.join('.'),
+          message: e.message,
+        }));
+
+        const firstMessage = details[0]?.message ?? 'Please check the submitted data.';
+
         return res.status(400).json({
           error: 'Validation failed',
-          details: error.issues.map((e: any) => ({
-            path: e.path.join('.'),
-            message: e.message,
-          })),
+          message: firstMessage,
+          details,
         });
       }
       return res.status(500).json({ error: 'Internal Server Error' });

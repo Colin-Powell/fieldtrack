@@ -3,6 +3,11 @@ import 'package:dio/dio.dart';
 class ErrorHandler {
   static String getFriendlyErrorMessage(dynamic error) {
     if (error is DioException) {
+      final message = _extractMessage(error.response?.data);
+      if (message.isNotEmpty) {
+        return message;
+      }
+
       switch (error.type) {
         case DioExceptionType.connectionTimeout:
         case DioExceptionType.sendTimeout:
@@ -17,7 +22,8 @@ class ErrorHandler {
           if (statusCode == 409) return 'Conflict error. Please try again.';
           if (statusCode == 422) return 'Invalid data submitted.';
           if (statusCode == 429) return 'Too many requests. Slow down.';
-          if (statusCode != null && statusCode >= 500) return 'Server error. Try again later.';
+          if (statusCode != null && statusCode >= 500)
+            return 'Server error. Try again later.';
           return 'Network error.';
         case DioExceptionType.cancel:
           return 'Request cancelled.';
@@ -31,12 +37,46 @@ class ErrorHandler {
     } else if (error is String) {
       return error;
     }
-    
-    // If it's a standard exception that has a message, try to extract it cleanly
+
     final errorString = error.toString();
     if (errorString.startsWith('Exception: ')) {
       return errorString.substring(11);
     }
     return 'An unexpected error occurred: $errorString';
+  }
+
+  static String _extractMessage(dynamic payload) {
+    if (payload is Map<String, dynamic>) {
+      final message = payload['message']?.toString().trim();
+      if (message != null && message.isNotEmpty) {
+        return message;
+      }
+
+      final error = payload['error']?.toString().trim();
+      if (error != null && error.isNotEmpty) {
+        return error;
+      }
+
+      final details = payload['details'];
+      if (details is List) {
+        for (final detail in details) {
+          if (detail is Map) {
+            final detailMessage = detail['message']?.toString().trim();
+            if (detailMessage != null && detailMessage.isNotEmpty) {
+              return detailMessage;
+            }
+          }
+        }
+      }
+    }
+
+    if (payload is String) {
+      final trimmed = payload.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+
+    return '';
   }
 }

@@ -23,6 +23,21 @@ import { initFirebaseAdmin } from './firebase_admin.js';
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (Nginx) for accurate client IP
 const port = process.env.PORT || 3000;
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173').split(',').map((origin) => origin.trim()).filter(Boolean);
+const isLocalDevOrigin = (origin: string) => /^https?:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin);
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin || allowedOrigins.includes(origin) || isLocalDevOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(null, false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+} satisfies cors.CorsOptions;
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET must be configured before starting the backend.');
@@ -32,9 +47,64 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL must be configured before starting the backend.');
 }
 
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'none'"],
+      styleSrc: ["'self'"] ,
+      imgSrc: ["'self'", 'data:'],
+      fontSrc: ["'self'"],
+      connectSrc: ["'self'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: [],
+      workerSrc: ["'none'"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: 'same-origin' },
+  frameguard: { action: 'deny' },
+}));
+app.use(cors(corsOptions));
 app.use(express.json());
+
+app.use((req: Request, res: Response, next: express.NextFunction) => {
+  const originalJson = res.json.bind(res);
+
+  res.json = ((body: unknown) => {
+    if (body && typeof body === 'object' && !Array.isArray(body)) {
+      const payload = body as Record<string, unknown>;
+      if (typeof payload.error === 'string' && payload.error.trim().length > 0) {
+        const normalized: Record<string, unknown> = { ...payload };
+
+        if (typeof payload.message !== 'string' || payload.message.trim().length === 0) {
+          normalized.message = payload.error;
+        }
+
+        if (payload.error === 'Internal server error' || payload.error === 'Internal Server Error' || payload.error === 'Unknown error') {
+          normalized.error = 'Server error. Please try again later.';
+        }
+
+        if (payload.error === 'Unauthorized' || payload.error === 'Unauthorized: No token provided' || payload.error === 'Unauthorized: Invalid token') {
+          normalized.error = 'Session expired. Please log in again.';
+        }
+
+        if (payload.error === 'Forbidden: Insufficient role permissions' || payload.error === 'Access denied.') {
+          normalized.error = 'Access denied.';
+        }
+
+        return originalJson(normalized);
+      }
+    }
+
+    return originalJson(body as any);
+  }) as typeof res.json;
+
+  next();
+});
 
 // Log HTTP requests using Morgan and Winston
 app.use(morgan('combined', { stream: { write: (msg) => appLogger.info(msg.trim()) } }));
@@ -110,6 +180,59 @@ app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 
+// ── Health Check ──
+app.get('/health', (req: Request, res: Response) => {
+  res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
+});
+
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    status: 404,
+    error: 'Resource not found.',
+    errorCode: 'RESOURCE_NOT_FOUND',
+    message: 'The requested endpoint could not be found.',
+    path: req.originalUrl,
+  });
+});
+
+app.use((err: any, req: Request, res: Response, next: express.NextFunction) => {
+  const statusCode = Number.isFinite(err?.statusCode) ? Number(err.statusCode) : 500;
+  const serverMessage = typeof err?.message === 'string' && err.message.trim().length > 0
+    ? err.message
+    : 'Something went wrong.';
+
+  const response: Record<string, unknown> = {
+    error: statusCode >= 500 ? 'Server error. Please try again later.' : serverMessage,
+  };
+
+  if (statusCode === 400 && Array.isArray(err?.details) && err.details.length > 0) {
+    response.details = err.details;
+    response.message = err.details[0]?.message ?? 'Please check the submitted data.';
+  }
+
+  if (statusCode === 401) {
+    response.error = 'Session expired. Please log in again.';
+  }
+
+  if (statusCode === 403) {
+    response.error = 'Access denied.';
+  }
+
+  if (statusCode === 404) {
+    response.error = 'Resource not found.';
+  }
+
+  if (statusCode === 409) {
+    response.error = 'Conflict detected. Please try again.';
+  }
+
+  if (statusCode === 422) {
+    response.error = 'Invalid data submitted.';
+  }
+
+  return res.status(statusCode).json(response);
+});
+
 import { BASE_STORAGE_DIR } from './media/storage.service.js';
 import { ensureEnvAdminAccount } from './admin-sync.js';
 
@@ -117,7 +240,6 @@ import { ensureEnvAdminAccount } from './admin-sync.js';
 app.use('/storage', express.static(BASE_STORAGE_DIR, {
   maxAge: '30d',
   setHeaders: (res, path, stat) => {
-    res.set('Access-Control-Allow-Origin', '*');
     // Ensure media files indicate they support byte range requests for streaming
     if (path.endsWith('.mp4') || path.endsWith('.mp3') || path.endsWith('.m4a')) {
       res.set('Accept-Ranges', 'bytes');
@@ -128,11 +250,6 @@ app.use('/storage', express.static(BASE_STORAGE_DIR, {
 }));
 
 
-
-// ── Health Check ──
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
-});
 
 import { authenticate, authorizeRole } from './auth/auth.middleware.js';
 

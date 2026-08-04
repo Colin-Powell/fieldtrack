@@ -7,6 +7,9 @@ const notificationService = new NotificationService();
 
 const INACTIVE_SESSION_THRESHOLD_MINUTES = 30;
 const OVERDUE_SESSION_THRESHOLD_HOURS = 12;
+const STUDENT_ACTIVITY_REMINDER_HOURS = 24;
+const STUDENT_SUBMISSION_REMINDER_HOURS = 12;
+const STUDENT_CHECKIN_REMINDER_MINUTES = 30;
 
 function formatRelativeTime(date: Date) {
   const minutes = Math.max(1, Math.round((Date.now() - date.getTime()) / 60000));
@@ -34,6 +37,32 @@ async function sendSupervisorNotification(supervisorId: string, title: string, m
       console.error('Failed to send supervisor alert email:', error);
     }
   }
+}
+
+async function sendStudentNotification(studentId: string, title: string, message: string, preferences: any | null) {
+  if (preferences?.chanInApp === false) {
+    return;
+  }
+
+  await notificationService.sendNotification({
+    recipientId: studentId,
+    title,
+    message,
+    type: 'SYSTEM_ALERT',
+    priority: 1,
+  });
+}
+
+async function hasRecentStudentReminder(studentId: string, title: string, lookbackHours: number) {
+  const since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000);
+  return prisma.notification.findFirst({
+    where: {
+      recipientId: studentId,
+      title,
+      type: 'SYSTEM_ALERT',
+      createdAt: { gte: since },
+    },
+  });
 }
 
 export async function checkInactiveStudentSessions() {
@@ -132,6 +161,112 @@ export async function checkOverdueFieldSessions() {
   }
 }
 
+export async function checkStudentActivityReminders() {
+  const cutoff = new Date(Date.now() - STUDENT_ACTIVITY_REMINDER_HOURS * 60 * 60 * 1000);
+
+  const activities = await prisma.fieldLog.findMany({
+    where: {
+      status: 'DRAFT',
+      timestamp: { lt: cutoff },
+    },
+    include: {
+      user: {
+        include: {
+          preferences: true,
+        },
+      },
+    },
+  });
+
+  for (const activity of activities) {
+    const student = activity.user;
+    const studentPrefs = student.preferences;
+
+    if (studentPrefs?.notifNewActivity === false) continue;
+
+    const title = 'Activity reminder';
+    const message = `Please complete your activity "${activity.title}" before it becomes overdue.`;
+
+    const recent = await hasRecentStudentReminder(student.id, title, 6);
+    if (recent) continue;
+
+    await sendStudentNotification(student.id, title, message, studentPrefs);
+  }
+}
+
+export async function checkStudentCheckInReminders() {
+  const cutoff = new Date(Date.now() - STUDENT_CHECKIN_REMINDER_MINUTES * 60 * 1000);
+
+  const sessions = await prisma.fieldSession.findMany({
+    where: {
+      checkOutTime: null,
+    },
+    include: {
+      user: {
+        include: {
+          preferences: true,
+        },
+      },
+      locationPings: {
+        orderBy: { timestamp: 'desc' },
+        take: 1,
+      },
+    },
+  });
+
+  for (const session of sessions) {
+    const student = session.user;
+    const lastPing = session.locationPings?.[0]?.timestamp;
+    const studentPrefs = student.preferences;
+
+    if (studentPrefs?.notifCheckInOut === false) continue;
+    if (!lastPing || lastPing >= cutoff) continue;
+
+    const title = 'Check-in reminder';
+    const message = 'Please send a fresh location ping to confirm your field session is still active.';
+
+    const recent = await hasRecentStudentReminder(student.id, title, 2);
+    if (recent) continue;
+
+    await sendStudentNotification(student.id, title, message, studentPrefs);
+  }
+}
+
+export async function checkStudentSubmissionReminders() {
+  const cutoff = new Date(Date.now() - STUDENT_SUBMISSION_REMINDER_HOURS * 60 * 60 * 1000);
+
+  const submissions = await prisma.fieldLog.findMany({
+    where: {
+      status: {
+        in: ['SUBMITTED', 'UNDER_REVIEW', 'RESUBMITTED'],
+      },
+      timestamp: { lt: cutoff },
+    },
+    include: {
+      user: {
+        include: {
+          preferences: true,
+        },
+      },
+    },
+  });
+
+  for (const submission of submissions) {
+    const student = submission.user;
+    const studentPrefs = student.preferences;
+
+    if (studentPrefs?.notifReview === false) continue;
+
+    const title = 'Submission reminder';
+    const message = `Your activity report "${submission.title}" is still waiting for a review update. Please check your dashboard for the latest status.`;
+
+    const recent = await hasRecentStudentReminder(student.id, title, 6);
+    if (recent) continue;
+
+    await sendStudentNotification(student.id, title, message, studentPrefs);
+  }
+}
+
 export async function sendDailySupervisorSummaries() {
   const supervisors = await prisma.user.findMany({
     where: { role: 'SUPERVISOR' },
@@ -211,6 +346,33 @@ export function startScheduler() {
       await checkOverdueFieldSessions();
     } catch (error) {
       console.error('[scheduler] Overdue session alert job failed:', error);
+    }
+  });
+
+  cron.schedule('*/15 * * * *', async () => {
+    console.log('[scheduler] Running student check-in reminder job.');
+    try {
+      await checkStudentCheckInReminders();
+    } catch (error) {
+      console.error('[scheduler] Student check-in reminder job failed:', error);
+    }
+  });
+
+  cron.schedule('0 */6 * * *', async () => {
+    console.log('[scheduler] Running student activity reminder job.');
+    try {
+      await checkStudentActivityReminders();
+    } catch (error) {
+      console.error('[scheduler] Student activity reminder job failed:', error);
+    }
+  });
+
+  cron.schedule('0 */6 * * *', async () => {
+    console.log('[scheduler] Running student submission reminder job.');
+    try {
+      await checkStudentSubmissionReminders();
+    } catch (error) {
+      console.error('[scheduler] Student submission reminder job failed:', error);
     }
   });
 

@@ -3,9 +3,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
-import jwt from 'jsonwebtoken';
 import { appLogger } from './utils/logger.js';
 import { prisma } from './db.js';
+import { verifyToken } from './auth/jwt.js';
 import authRoutes from './auth/auth.routes.js';
 import adminRoutes from './admins/admins.routes.js';
 import dashboardRoutes from './dashboard/dashboard.routes.js';
@@ -21,15 +21,75 @@ import { initFirebaseAdmin } from './firebase_admin.js';
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (Nginx) for accurate client IP
 const port = process.env.PORT || 3000;
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173').split(',').map((origin) => origin.trim()).filter(Boolean);
+const isLocalDevOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin);
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || isLocalDevOrigin(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(null, false);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
 if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET must be configured before starting the backend.');
 }
 if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL must be configured before starting the backend.');
 }
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            baseUri: ["'self'"],
+            objectSrc: ["'none'"],
+            scriptSrc: ["'self'"],
+            scriptSrcAttr: ["'none'"],
+            styleSrc: ["'self'"],
+            imgSrc: ["'self'", 'data:'],
+            fontSrc: ["'self'"],
+            connectSrc: ["'self'"],
+            frameAncestors: ["'none'"],
+            formAction: ["'self'"],
+            upgradeInsecureRequests: [],
+            workerSrc: ["'none'"],
+        },
+    },
+    crossOriginResourcePolicy: { policy: 'same-origin' },
+    frameguard: { action: 'deny' },
+}));
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use((req, res, next) => {
+    const originalJson = res.json.bind(res);
+    res.json = ((body) => {
+        if (body && typeof body === 'object' && !Array.isArray(body)) {
+            const payload = body;
+            if (typeof payload.error === 'string' && payload.error.trim().length > 0) {
+                const normalized = { ...payload };
+                if (typeof payload.message !== 'string' || payload.message.trim().length === 0) {
+                    normalized.message = payload.error;
+                }
+                if (payload.error === 'Internal server error' || payload.error === 'Internal Server Error' || payload.error === 'Unknown error') {
+                    normalized.error = 'Server error. Please try again later.';
+                }
+                if (payload.error === 'Unauthorized' || payload.error === 'Unauthorized: No token provided' || payload.error === 'Unauthorized: Invalid token') {
+                    normalized.error = 'Session expired. Please log in again.';
+                }
+                if (payload.error === 'Forbidden: Insufficient role permissions' || payload.error === 'Access denied.') {
+                    normalized.error = 'Access denied.';
+                }
+                return originalJson(normalized);
+            }
+        }
+        return originalJson(body);
+    });
+    next();
+});
 // Log HTTP requests using Morgan and Winston
 app.use(morgan('combined', { stream: { write: (msg) => appLogger.info(msg.trim()) } }));
 // Global Rate Limiter
@@ -53,26 +113,35 @@ app.put('/api/v1/fcm-token', async (req, res) => {
         console.log('[FCM] FCM token received:', fcmToken.substring(0, 20) + '...');
         // Check if user is authenticated via JWT token
         const authHeader = req.headers.authorization;
+        let linked = false;
         if (authHeader) {
-            try {
-                const token = authHeader.replace('Bearer ', '');
-                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-                // Update user's FCM token in database
-                await prisma.user.update({
-                    where: { id: decoded.userId },
-                    data: { fcmToken },
-                });
-                appLogger.info(`FCM token updated for user ${decoded.userId}`);
+            const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+            if (token) {
+                try {
+                    const decoded = verifyToken(token);
+                    // Update user's FCM token in database
+                    await prisma.user.update({
+                        where: { id: decoded.userId },
+                        data: { fcmToken },
+                    });
+                    linked = true;
+                    appLogger.info(`FCM token updated for user ${decoded.userId}`);
+                }
+                catch (jwtErr) {
+                    // Invalid/expired JWT - token cannot be linked to a user
+                    appLogger.warn('Invalid JWT for FCM token registration, token NOT linked to user', {
+                        error: jwtErr.message,
+                    });
+                }
             }
-            catch (jwtErr) {
-                // Invalid/expired JWT - just register device token anyway
-                appLogger.warn('Invalid JWT for FCM token registration, proceeding without user update');
+            else {
+                appLogger.warn('Empty Bearer token received for FCM token registration');
             }
         }
         else {
-            appLogger.info('FCM token registered (pre-auth device registration)');
+            appLogger.info('FCM token received without auth header - token NOT linked to any user');
         }
-        res.json({ success: true, message: 'FCM token registered' });
+        res.json({ success: true, linked, message: linked ? 'FCM token linked to user' : 'FCM token received but not linked to user (no valid auth)' });
     }
     catch (error) {
         appLogger.error('Error updating FCM token:', error);
@@ -89,13 +158,54 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/settings', settingsRoutes);
+// ── Health Check ──
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
+});
+app.use((req, res) => {
+    res.status(404).json({
+        status: 404,
+        error: 'Resource not found.',
+        errorCode: 'RESOURCE_NOT_FOUND',
+        message: 'The requested endpoint could not be found.',
+        path: req.originalUrl,
+    });
+});
+app.use((err, req, res, next) => {
+    const statusCode = Number.isFinite(err?.statusCode) ? Number(err.statusCode) : 500;
+    const serverMessage = typeof err?.message === 'string' && err.message.trim().length > 0
+        ? err.message
+        : 'Something went wrong.';
+    const response = {
+        error: statusCode >= 500 ? 'Server error. Please try again later.' : serverMessage,
+    };
+    if (statusCode === 400 && Array.isArray(err?.details) && err.details.length > 0) {
+        response.details = err.details;
+        response.message = err.details[0]?.message ?? 'Please check the submitted data.';
+    }
+    if (statusCode === 401) {
+        response.error = 'Session expired. Please log in again.';
+    }
+    if (statusCode === 403) {
+        response.error = 'Access denied.';
+    }
+    if (statusCode === 404) {
+        response.error = 'Resource not found.';
+    }
+    if (statusCode === 409) {
+        response.error = 'Conflict detected. Please try again.';
+    }
+    if (statusCode === 422) {
+        response.error = 'Invalid data submitted.';
+    }
+    return res.status(statusCode).json(response);
+});
 import { BASE_STORAGE_DIR } from './media/storage.service.js';
 import { ensureEnvAdminAccount } from './admin-sync.js';
 // Serve the storage folder statically with caching and media streaming support
 app.use('/storage', express.static(BASE_STORAGE_DIR, {
     maxAge: '30d',
     setHeaders: (res, path, stat) => {
-        res.set('Access-Control-Allow-Origin', '*');
         // Ensure media files indicate they support byte range requests for streaming
         if (path.endsWith('.mp4') || path.endsWith('.mp3') || path.endsWith('.m4a')) {
             res.set('Accept-Ranges', 'bytes');
@@ -104,10 +214,6 @@ app.use('/storage', express.static(BASE_STORAGE_DIR, {
         res.set('Cache-Control', 'public, max-age=2592000, immutable');
     }
 }));
-// ── Health Check ──
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
-});
 import { authenticate, authorizeRole } from './auth/auth.middleware.js';
 // ── Supervisor Routes ──
 app.get('/api/v1/supervisor/dashboard/stats', authenticate, authorizeRole(['SUPERVISOR', 'ADMIN']), async (req, res) => {

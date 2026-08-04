@@ -291,7 +291,15 @@ export async function getSupervisorDashboard(req, res) {
             where: { studentId: { in: assignedStudentIds } },
             take: 10,
             orderBy: { timestamp: 'desc' },
-            include: { user: true }
+            include: {
+                user: true,
+                evidence: {
+                    where: { mimeType: { startsWith: 'image/' } },
+                    take: 1,
+                    orderBy: { uploadedAt: 'desc' },
+                    select: { storagePath: true, thumbnailPath: true },
+                },
+            }
         });
         const logsToday = await prisma.fieldLog.count({
             where: { studentId: { in: assignedStudentIds }, timestamp: { gte: today } }
@@ -347,9 +355,18 @@ export async function getSupervisorDashboard(req, res) {
 export async function getStudentDashboard(req, res) {
     try {
         const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
         const profile = await prisma.studentProfile.findUnique({ where: { userId } });
+        const totalActivities = await prisma.fieldLog.count({ where: { studentId: userId } });
+        const evidenceFiles = await prisma.evidence.count({ where: { log: { studentId: userId } } });
         res.json({
             status: profile?.status ?? 'IDLE',
+            totalActivities,
+            evidenceFiles,
+            syncStatus: 'Synced',
+            // Legacy fields
             hoursLogged: 42,
             approvals: 12,
             recentLogs: []
