@@ -1,9 +1,12 @@
 import admin from 'firebase-admin';
 import { cert } from 'firebase-admin/app';
+import { getStorage } from 'firebase-admin/storage';
+import { getMessaging } from 'firebase-admin/messaging';
 
 export const firebaseAdmin = admin as any;
 
-export const getStorageBucket = () => firebaseAdmin.storage().bucket();
+export const getStorageBucket = () => getStorage().bucket();
+export const getMessagingClient = () => getMessaging();
 
 function normalizeServiceAccountJson(value: string | undefined): string | undefined {
   if (!value) return undefined;

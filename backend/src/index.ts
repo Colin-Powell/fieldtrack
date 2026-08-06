@@ -157,9 +157,9 @@ app.put('/api/v1/fcm-token', authenticate, async (req: Request, res: Response) =
 
       if (unreadCount > 0) {
         try {
-          const { firebaseAdmin } = await import('./firebase_admin.js');
+          const { firebaseAdmin, getMessagingClient } = await import('./firebase_admin.js');
           if (firebaseAdmin?.apps?.length) {
-            await firebaseAdmin.messaging().send({
+            await getMessagingClient().send({
               token: trimmedToken,
               notification: {
                 title: 'Notifications waiting',
