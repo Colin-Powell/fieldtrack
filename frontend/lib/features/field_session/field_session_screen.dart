@@ -290,6 +290,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   final picked = await picker.pickImage(
                     source: ImageSource.camera,
                     imageQuality: 80,
+                    maxWidth: 1920,
+                    maxHeight: 1920,
                   );
                   if (picked != null) {
                     _addEvidenceItem(
@@ -336,6 +338,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   final picked = await picker.pickImage(
                     source: ImageSource.gallery,
                     imageQuality: 80,
+                    maxWidth: 1920,
+                    maxHeight: 1920,
                   );
                   if (picked != null) {
                     _addEvidenceItem(

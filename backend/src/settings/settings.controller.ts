@@ -320,14 +320,13 @@ export const uploadAvatar = async (req: Request, res: Response): Promise<void> =
     
     await bucket.upload(outputPath, {
       destination: firebasePath,
-      metadata: { contentType: 'image/webp', cacheControl: 'public, max-age=31536000' },
-      public: true,
+      metadata: { contentType: 'image/webp', cacheControl: 'public, max-age=31536000' }
     });
     
     await fs.unlink(outputPath);
 
     // Public Firebase URL
-    const avatarPath = `https://storage.googleapis.com/${bucket.name}/${firebasePath}`;
+    const avatarPath = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(firebasePath)}?alt=media`;
 
     // Fetch existing avatar to delete later
     const existingUser = await prisma.user.findUnique({

@@ -65,7 +65,9 @@ export async function initFirebaseAdmin() {
     }
     
     // Fallback
-    firebaseAdmin.initializeApp();
+    firebaseAdmin.initializeApp({
+      storageBucket,
+    });
     console.log('Firebase Admin initialized using GOOGLE_APPLICATION_CREDENTIALS implicit.');
     return;
   }
