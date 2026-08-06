@@ -1029,59 +1029,59 @@ class _SupervisorEvidenceScreenState
               return FutureBuilder<VideoPlayerController>(
                 future: initializeController(),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    if (snapshot.hasError) {
-                      return SizedBox(
-                        height: 320,
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                PhosphorIconsRegular.warning,
-                                color: Colors.white,
-                                size: 48,
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Unable to load video.',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: 'Poppins',
-                                  fontSize: 16,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                snapshot.error.toString(),
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontFamily: 'Poppins',
-                                  fontSize: 12,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 24),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.pop(ctx);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _C.green,
-                                  ),
-                                  child: const Text('Close'),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }
-
+                  if (snapshot.connectionState == ConnectionState.waiting) {
                     return const SizedBox(
                       height: 320,
                       child: Center(
                         child: CircularProgressIndicator(color: _C.green),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return SizedBox(
+                      height: 320,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              PhosphorIconsRegular.warning,
+                              color: Colors.white,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Unable to load video.',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'Poppins',
+                                fontSize: 16,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              snapshot.error?.toString() ?? 'Unknown error',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontFamily: 'Poppins',
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _C.green,
+                              ),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }

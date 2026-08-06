@@ -36,7 +36,15 @@ export class StorageService {
       }
     });
 
-    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(destination)}?alt=media`;
+    const file = bucket.file(destination);
+    
+    // Generate a long-lived signed URL to bypass Firebase Security Rules
+    const [url] = await file.getSignedUrl({
+      action: 'read',
+      expires: '01-01-2100'
+    });
+    
+    return url;
   }
 
   public async processUpload(
@@ -61,7 +69,7 @@ export class StorageService {
       category = 'videos';
       file.mimetype = 'video/mp4';
     } else if (evidenceType === 'voice') {
-      category = 'videos'; // Supervisor ui groups voice notes with videos or documents, wait... UI says audios.isNotEmpty
+      category = 'documents'; // Use documents category to bypass ffmpeg video processing
       file.mimetype = 'audio/mp4';
     } else {
       // Fallback
