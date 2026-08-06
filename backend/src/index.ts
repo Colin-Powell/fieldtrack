@@ -1,11 +1,12 @@
 import express, { Request, Response } from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import { appLogger } from './utils/logger.js';
 import { prisma } from './db.js';
-import { verifyToken } from './auth/jwt.js';
+import { authenticate } from './auth/auth.middleware.js';
 
 import authRoutes from './auth/auth.routes.js';
 import adminRoutes from './admins/admins.routes.js';
@@ -17,6 +18,8 @@ import notificationRoutes from './notifications/notification.routes.js';
 import reviewRoutes from './reviews/review.routes.js';
 import reportRoutes from './reports/reports.routes.js';
 import settingsRoutes from './settings/settings.routes.js';
+import developerRoutes from './developer/developer.routes.js';
+import { initializeDashboardSocket, broadcastDashboardEvent } from './developer/dashboard_events.js';
 import { startScheduler } from './background/scheduler.js';
 import { initFirebaseAdmin } from './firebase_admin.js';
 
@@ -53,11 +56,11 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       baseUri: ["'self'"],
       objectSrc: ["'none'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
       scriptSrcAttr: ["'none'"],
-      styleSrc: ["'self'"] ,
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
       imgSrc: ["'self'", 'data:'],
-      fontSrc: ["'self'"],
+      fontSrc: ["'self'", 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com'],
       connectSrc: ["'self'"],
       frameAncestors: ["'none'"],
       formAction: ["'self'"],
@@ -119,50 +122,76 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
-// Public FCM token endpoint (no authentication required)
-app.put('/api/v1/fcm-token', async (req: Request, res: Response) => {
+app.put('/api/v1/fcm-token', authenticate, async (req: Request, res: Response) => {
   try {
-    console.log('[FCM] Received FCM token sync request from', req.ip);
     const { fcmToken } = req.body;
-    
-    if (!fcmToken) {
-      console.log('[FCM] No FCM token provided in request');
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (typeof fcmToken !== 'string' || fcmToken.trim().length === 0) {
       return res.status(400).json({ error: 'FCM token is required' });
     }
-    
-    console.log('[FCM] FCM token received:', fcmToken.substring(0, 20) + '...');
 
-    // Check if user is authenticated via JWT token
-    const authHeader = req.headers.authorization as string | undefined;
-    let linked = false;
+    const trimmedToken = fcmToken.trim();
 
-    if (authHeader) {
-      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-      if (token) {
+    // Check if user previously had no token (new registration vs refresh)
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { fcmToken: true },
+    });
+    const isNewToken = !existingUser?.fcmToken || existingUser.fcmToken !== trimmedToken;
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { fcmToken: trimmedToken },
+    });
+
+    // Send a single summary push for unread notifications (only on new token registration)
+    if (isNewToken) {
+      const unreadCount = await prisma.notification.count({
+        where: { recipientId: userId, isRead: false },
+      });
+
+      if (unreadCount > 0) {
         try {
-          const decoded = verifyToken(token);
-
-          // Update user's FCM token in database
-          await prisma.user.update({
-            where: { id: decoded.userId },
-            data: { fcmToken },
-          });
-          linked = true;
-          appLogger.info(`FCM token updated for user ${decoded.userId}`);
-        } catch (jwtErr) {
-          // Invalid/expired JWT - token cannot be linked to a user
-          appLogger.warn('Invalid JWT for FCM token registration, token NOT linked to user', {
-            error: (jwtErr as Error).message,
-          });
+          const { firebaseAdmin } = await import('./firebase_admin.js');
+          if (firebaseAdmin?.apps?.length) {
+            await firebaseAdmin.messaging().send({
+              token: trimmedToken,
+              notification: {
+                title: 'Notifications waiting',
+                body: `You have ${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}. Tap to view.`,
+              },
+              android: {
+                priority: 'high',
+                notification: {
+                  channelId: 'high_importance_channel',
+                  sound: 'default',
+                },
+              },
+              apns: {
+                headers: { 'apns-priority': '10' },
+                payload: { aps: { sound: 'default', badge: unreadCount } },
+              },
+              data: {
+                notificationType: 'UNREAD_SUMMARY',
+                unreadCount: unreadCount.toString(),
+              },
+            });
+            appLogger.info('Sent unread summary push', { userId, unreadCount });
+          }
+        } catch (pushError) {
+          // Non-critical — don't fail the token registration
+          appLogger.error('Failed to send unread summary push:', pushError);
         }
-      } else {
-        appLogger.warn('Empty Bearer token received for FCM token registration');
       }
-    } else {
-      appLogger.info('FCM token received without auth header - token NOT linked to any user');
     }
 
-    res.json({ success: true, linked, message: linked ? 'FCM token linked to user' : 'FCM token received but not linked to user (no valid auth)' });
+    appLogger.info('FCM token updated', { userId });
+    res.json({ success: true, linked: true, message: 'FCM token linked to user' });
   } catch (error) {
     appLogger.error('Error updating FCM token:', error);
     res.status(500).json({ error: 'Failed to register FCM token' });
@@ -179,69 +208,41 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/settings', settingsRoutes);
+app.use('/api/v1/developer', developerRoutes);
 
 // ── Health Check ──
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
 });
 
-app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    status: 404,
-    error: 'Resource not found.',
-    errorCode: 'RESOURCE_NOT_FOUND',
-    message: 'The requested endpoint could not be found.',
-    path: req.originalUrl,
-  });
+app.get(/^\/developer-dashboard(\/.*)?$/, authenticate, async (req: Request, res: Response) => {
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Access denied.' });
+  }
+
+  res.sendFile(path.resolve(process.cwd(), 'src/developer/developer.html'));
 });
 
-app.use((err: any, req: Request, res: Response, next: express.NextFunction) => {
-  const statusCode = Number.isFinite(err?.statusCode) ? Number(err.statusCode) : 500;
-  const serverMessage = typeof err?.message === 'string' && err.message.trim().length > 0
-    ? err.message
-    : 'Something went wrong.';
-
-  const response: Record<string, unknown> = {
-    error: statusCode >= 500 ? 'Server error. Please try again later.' : serverMessage,
-  };
-
-  if (statusCode === 400 && Array.isArray(err?.details) && err.details.length > 0) {
-    response.details = err.details;
-    response.message = err.details[0]?.message ?? 'Please check the submitted data.';
-  }
-
-  if (statusCode === 401) {
-    response.error = 'Session expired. Please log in again.';
-  }
-
-  if (statusCode === 403) {
-    response.error = 'Access denied.';
-  }
-
-  if (statusCode === 404) {
-    response.error = 'Resource not found.';
-  }
-
-  if (statusCode === 409) {
-    response.error = 'Conflict detected. Please try again.';
-  }
-
-  if (statusCode === 422) {
-    response.error = 'Invalid data submitted.';
-  }
-
-  return res.status(statusCode).json(response);
+app.get('/developer-login', (_req: Request, res: Response) => {
+  res.sendFile(path.resolve(process.cwd(), 'src/developer/developer-login.html'));
 });
 
-import { BASE_STORAGE_DIR } from './media/storage.service.js';
-import { ensureEnvAdminAccount } from './admin-sync.js';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const BASE_STORAGE_DIR = process.env.STORAGE_DIR
+  ? path.resolve(process.env.STORAGE_DIR)
+  : path.resolve(__dirname, '../storage');
 
 // Serve the storage folder statically with caching and media streaming support
+// IMPORTANT: This MUST come before the catch-all 404 handler
 app.use('/storage', express.static(BASE_STORAGE_DIR, {
   maxAge: '30d',
-  setHeaders: (res, path, stat) => {
+  setHeaders: (res, filePath) => {
     // Ensure media files indicate they support byte range requests for streaming
-    if (path.endsWith('.mp4') || path.endsWith('.mp3') || path.endsWith('.m4a')) {
+    if (filePath.endsWith('.mp4') || filePath.endsWith('.mp3') || filePath.endsWith('.m4a')) {
       res.set('Accept-Ranges', 'bytes');
     }
     // Set proper cache headers
@@ -249,9 +250,13 @@ app.use('/storage', express.static(BASE_STORAGE_DIR, {
   }
 }));
 
+// 404 and Error handlers moved to end of file
+
+import { ensureEnvAdminAccount } from './admin-sync.js';
 
 
-import { authenticate, authorizeRole } from './auth/auth.middleware.js';
+
+import { authorizeRole } from './auth/auth.middleware.js';
 
 // ── Supervisor Routes ──
 app.get('/api/v1/supervisor/dashboard/stats', authenticate, authorizeRole(['SUPERVISOR', 'ADMIN']), async (req: Request, res: Response) => {
@@ -547,13 +552,63 @@ app.get('/api/v1/admin/users', async (req: Request, res: Response) => {
   }
 });
 
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    status: 404,
+    error: 'Resource not found.',
+    errorCode: 'RESOURCE_NOT_FOUND',
+    message: 'The requested endpoint could not be found.',
+    path: req.originalUrl,
+  });
+});
+
+app.use((err: any, req: Request, res: Response, next: express.NextFunction) => {
+  const statusCode = Number.isFinite(err?.statusCode) ? Number(err.statusCode) : 500;
+  const serverMessage = typeof err?.message === 'string' && err.message.trim().length > 0
+    ? err.message
+    : 'Something went wrong.';
+
+  const response: Record<string, unknown> = {
+    error: statusCode >= 500 ? 'Server error. Please try again later.' : serverMessage,
+  };
+
+  if (statusCode === 400 && Array.isArray(err?.details) && err.details.length > 0) {
+    response.details = err.details;
+    response.message = err.details[0]?.message ?? 'Please check the submitted data.';
+  }
+
+  if (statusCode === 401) {
+    response.error = 'Session expired. Please log in again.';
+  }
+
+  if (statusCode === 403) {
+    response.error = 'Access denied.';
+  }
+
+  if (statusCode === 404) {
+    response.error = 'Resource not found.';
+  }
+
+  if (statusCode === 409) {
+    response.error = 'Conflict detected. Please try again.';
+  }
+
+  if (statusCode === 422) {
+    response.error = 'Invalid data submitted.';
+  }
+
+  return res.status(statusCode).json(response);
+});
+
 ensureEnvAdminAccount()
   .then(async () => {
     await initFirebaseAdmin();
     startScheduler();
-    app.listen(Number(port), '0.0.0.0', () => {
+    const server = app.listen(Number(port), '0.0.0.0', () => {
       console.log(`[server]: Unified Server is running at http://0.0.0.0:${port}`);
     });
+
+initializeDashboardSocket(server);
   })
   .catch((error) => {
     console.error('Failed to ensure admin account from env:', error);

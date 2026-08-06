@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:fieldtrack/features/notifications/providers/notifications_provider.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 
@@ -14,10 +15,69 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   int _selectedFilterIndex = 0;
   final List<String> _filters = ['All', 'Unread', 'Mentions'];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  Set<String> _selectedIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.trim().toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _showSnackbar(String message, Color backgroundColor) {
+    final textWidth = message.length * 10.0 + 60.0; // rough estimation of text width + padding
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalMargin = ((screenWidth - textWidth) / 2).clamp(24.0, screenWidth).toDouble();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(
+            fontFamily: 'Roboto',
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        backgroundColor: backgroundColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+        margin: EdgeInsets.only(bottom: 40, left: horizontalMargin, right: horizontalMargin),
+        duration: const Duration(seconds: 2),
+        elevation: 4,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final notificationsState = ref.watch(notificationsProvider);
+    
+    // Compute filtered list first so we can use it for "Select All"
+    List<NotificationModel> filtered = [];
+    if (notificationsState.hasValue) {
+      filtered = notificationsState.value!.where((n) {
+        if (_selectedFilterIndex == 1 && n.isRead) return false;
+        if (_selectedFilterIndex == 2) return false;
+        if (_searchQuery.isNotEmpty) {
+          return n.title.toLowerCase().contains(_searchQuery) ||
+                 n.message.toLowerCase().contains(_searchQuery);
+        }
+        return true;
+      }).toList();
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -29,7 +89,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             padding: const EdgeInsets.only(bottom: 24),
             child: Column(
               children: [
-                _buildHeaderTitle(),
+                _buildHeaderTitle(filtered),
                 _buildSearchBar(),
                 _buildFilters(),
                 
@@ -38,17 +98,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     padding: EdgeInsets.only(top: 64),
                     child: CircularProgressIndicator(color: Color(0xFF1BA654)),
                   ),
-                  error: (error, stack) => Padding(
-                    padding: const EdgeInsets.only(top: 64),
-                    child: Text('Error loading notifications', style: const TextStyle(color: Colors.red)),
+                  error: (error, stack) => const Padding(
+                    padding: EdgeInsets.only(top: 64),
+                    child: Text('Error loading notifications', style: TextStyle(color: Colors.red)),
                   ),
                   data: (notifications) {
-                    final filtered = notifications.where((n) {
-                      if (_selectedFilterIndex == 1) return !n.isRead;
-                      if (_selectedFilterIndex == 2) return false; // Mentions not yet implemented on backend
-                      return true; // All
-                    }).toList();
-
                     if (filtered.isEmpty) {
                       return _buildEmptyState();
                     }
@@ -62,20 +116,49 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         final timeString = _formatTime(n.createdAt);
                         
                         return GestureDetector(
+                          onLongPress: () {
+                            setState(() {
+                              if (_selectedIds.contains(n.id)) {
+                                _selectedIds.remove(n.id);
+                              } else {
+                                _selectedIds.add(n.id);
+                              }
+                            });
+                          },
                           onTap: () {
+                            if (_selectedIds.isNotEmpty) {
+                              setState(() {
+                                if (_selectedIds.contains(n.id)) {
+                                  _selectedIds.remove(n.id);
+                                } else {
+                                  _selectedIds.add(n.id);
+                                }
+                              });
+                              return;
+                            }
+                            
                             if (!n.isRead) {
                               ref.read(notificationsProvider.notifier).markAsRead(n.id);
+                              _showSnackbar('Marked as read', const Color(0xFF1BA654));
+                            }
+                            
+                            // Intent Routing
+                            if (n.type == 'CHECKED_IN' || n.type == 'CHECKED_OUT') {
+                              context.push('/checkin');
+                            } else if ((n.type == 'REVIEW_RECEIVED' || n.type == 'ACTIVITY_APPROVED') && n.entityId != null) {
+                              context.push('/activity-detail/${n.entityId}');
+                            } else if (n.type == 'NEW_SUBMISSION') {
+                              context.push('/activities');
                             }
                           },
-                          child: Opacity(
-                            opacity: n.isRead ? 0.6 : 1.0,
-                            child: _buildNotificationCard(
-                              title: n.title,
-                              subtitle: n.message,
-                              time: timeString,
-                              icon: _getIconForType(n.type),
-                              iconColor: _getColorForType(n.type),
-                            ),
+                          child: _buildNotificationCard(
+                            title: n.title,
+                            subtitle: n.message,
+                            time: timeString,
+                            isRead: n.isRead,
+                            isSelected: _selectedIds.contains(n.id),
+                            icon: _getIconForType(n.type),
+                            iconColor: _getColorForType(n.type),
                           ),
                         );
                       },
@@ -117,24 +200,143 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   // --- WIDGET COMPONENTS ---
 
-  Widget _buildHeaderTitle() {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.only(top: 24, bottom: 32),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFCBE5D2),
-          borderRadius: BorderRadius.circular(30),
+  Widget _buildHeaderTitle(List<NotificationModel> filtered) {
+    if (_selectedIds.isNotEmpty) {
+      final bool isAllSelected = filtered.isNotEmpty && _selectedIds.length == filtered.length;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(PhosphorIconsRegular.x, color: Colors.black),
+              onPressed: () {
+                setState(() => _selectedIds.clear());
+              },
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${_selectedIds.length} Selected',
+              style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+              ),
+            ),
+            const Spacer(),
+            IconButton(
+              icon: Icon(
+                isAllSelected ? PhosphorIconsFill.checkSquareOffset : PhosphorIconsRegular.checkSquareOffset, 
+                color: isAllSelected ? const Color(0xFF1BA654) : Colors.black
+              ),
+              tooltip: isAllSelected ? 'Deselect All' : 'Select All',
+              onPressed: () {
+                setState(() {
+                  if (isAllSelected) {
+                    _selectedIds.clear();
+                  } else {
+                    _selectedIds = filtered.map((n) => n.id).toSet();
+                  }
+                });
+              },
+            ),
+            IconButton(
+              icon: const Icon(PhosphorIconsRegular.checks, color: Color(0xFF1BA654)),
+              onPressed: () {
+                ref.read(notificationsProvider.notifier).markBulkAsRead(_selectedIds.toList());
+                _showSnackbar('${_selectedIds.length} marked as read', const Color(0xFF1BA654));
+                setState(() => _selectedIds.clear());
+              },
+            ),
+            IconButton(
+              icon: const Icon(PhosphorIconsRegular.trash, color: Colors.red),
+              onPressed: () {
+                ref.read(notificationsProvider.notifier).deleteBulkNotifications(_selectedIds.toList());
+                _showSnackbar('${_selectedIds.length} deleted', Colors.redAccent);
+                setState(() => _selectedIds.clear());
+              },
+            ),
+          ],
         ),
-        child: const Text(
-          'Notifications',
-          style: TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(width: 44), // Placeholder to perfectly balance the right-side menu
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFCBE5D2),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: const Text(
+              'Notifications',
+              style: TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+              ),
+            ),
           ),
-        ),
+          const Spacer(),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: Color(0xFFCBE5D2),
+              shape: BoxShape.circle,
+            ),
+            child: PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              icon: const Icon(PhosphorIconsRegular.dotsThreeVertical, color: Colors.black),
+              onSelected: (value) {
+                if (value == 'select_all') {
+                  setState(() {
+                    _selectedIds = filtered.map((n) => n.id).toSet();
+                  });
+                } else if (value == 'read_all') {
+                  ref.read(notificationsProvider.notifier).markAllAsRead();
+                  _showSnackbar('All marked as read', const Color(0xFF1BA654));
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'select_all',
+                  child: Row(
+                    children: const [
+                      Icon(PhosphorIconsRegular.checkSquareOffset, color: Colors.black, size: 20),
+                      SizedBox(width: 12),
+                      Text(
+                        'Select All',
+                        style: TextStyle(fontFamily: 'Roboto', fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'read_all',
+                  child: Row(
+                    children: [
+                      Icon(PhosphorIconsRegular.checks, color: Color(0xFF1BA654), size: 20),
+                      SizedBox(width: 12),
+                      Text(
+                        'Mark all as read',
+                        style: TextStyle(fontFamily: 'Roboto', fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -143,6 +345,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: TextField(
+        controller: _searchController,
         decoration: InputDecoration(
           filled: true,
           fillColor: Colors.white,
@@ -219,6 +422,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     required String title,
     required String subtitle,
     required String time,
+    required bool isRead,
+    bool isSelected = false,
     String? imageUrl,
     IconData? icon,
     Color? iconColor,
@@ -227,9 +432,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       margin: const EdgeInsets.only(bottom: 16, left: 24, right: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isSelected 
+            ? const Color(0xFFE8F5E9) 
+            : (isRead ? Colors.white : const Color(0xFFF4FDF7)),
         borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: isSelected 
+              ? const Color(0xFF1BA654) 
+              : (isRead ? const Color(0xFFE5E7EB) : const Color(0xFF1BA654).withOpacity(0.3)),
+          width: isSelected ? 2.0 : 1.0,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -240,31 +452,35 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               child: imageUrl.isNotEmpty
                   ? Image.network(
                       ImageUtils.getFullImageUrl(imageUrl),
-                      width: 64,
-                      height: 64,
+                      width: 56,
+                      height: 56,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
-                          width: 64,
-                          height: 64,
+                          width: 56,
+                          height: 56,
                           color: const Color(0xFFF3F4F6),
-                          child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 32),
+                          child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 28),
                         );
                       },
                     )
                   : Container(
-                      width: 64,
-                      height: 64,
+                      width: 56,
+                      height: 56,
                       color: const Color(0xFFF3F4F6),
-                      child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 32),
+                      child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 28),
                     ),
             )
           else if (icon != null)
-            SizedBox(
-              width: 64,
-              height: 64,
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: (iconColor ?? const Color(0xFF1BA654)).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
               child: Center(
-                child: Icon(icon, color: iconColor, size: 48),
+                child: Icon(icon, color: iconColor, size: 28),
               ),
             ),
             
@@ -281,23 +497,33 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     Expanded(
                       child: Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Roboto',
                           fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: isRead ? FontWeight.w600 : FontWeight.w700,
                           color: Colors.black,
                           height: 1.3,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
+                    if (!isRead)
+                      Container(
+                        margin: const EdgeInsets.only(right: 6, top: 2),
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF1BA654),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                     Text(
                       time,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Roboto',
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF9CA3AF),
+                        fontWeight: isRead ? FontWeight.w500 : FontWeight.w600,
+                        color: isRead ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
                       ),
                     ),
                   ],

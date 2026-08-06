@@ -1,35 +1,43 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '../db.js';
 import dotenv from 'dotenv';
+import { getStorageBucket } from '../firebase_admin.js';
 
 dotenv.config();
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
-export const BASE_STORAGE_DIR = process.env.STORAGE_DIR 
-  ? path.resolve(process.env.STORAGE_DIR) 
-  : path.join(process.cwd(), 'storage');
-
 export class StorageService {
-  constructor() {
-    this.ensureDirectory(BASE_STORAGE_DIR);
-  }
-
-  private ensureDirectory(dirPath: string) {
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-    }
-  }
+  constructor() {}
 
   private getRelativeStoragePath(date: Date, type: 'images' | 'videos' | 'documents') {
     const year = date.getFullYear().toString();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    return path.join(type, year, month);
+    return path.posix.join(type, year, month);
+  }
+
+  private async uploadToFirebase(localPath: string, destination: string, contentType: string): Promise<string> {
+    const bucket = getStorageBucket();
+    if (!bucket) {
+      throw new Error('Firebase Storage Bucket is not configured.');
+    }
+    
+    await bucket.upload(localPath, {
+      destination,
+      metadata: {
+        contentType,
+        cacheControl: 'public, max-age=31536000',
+      },
+      public: true,
+    });
+
+    return `https://storage.googleapis.com/${bucket.name}/${destination}`;
   }
 
   public async processUpload(
@@ -49,57 +57,71 @@ export class StorageService {
     else if (file.mimetype.startsWith('video/')) category = 'videos';
 
     const relDir = this.getRelativeStoragePath(date, category);
-    const absDir = path.join(BASE_STORAGE_DIR, relDir);
-    this.ensureDirectory(absDir);
-
+    
     const ext = path.extname(file.originalname);
     const filename = `${uuidv4()}${ext}`;
-    const absFilePath = path.join(absDir, filename);
-    const relativeStoragePath = path.join(relDir, filename).replace(/\\/g, '/');
-    let thumbnailPath: string | undefined;
+    const firebasePath = path.posix.join(relDir, filename);
+    
+    let storagePath: string = '';
+    let thumbnailPath: string | undefined = undefined;
 
     let width: number | undefined;
     let height: number | undefined;
     let duration: number | undefined;
 
+    const tmpDir = os.tmpdir();
+    const absTmpFilePath = path.join(tmpDir, filename);
+
     try {
-      // 1. Write the base file
       if (category === 'images') {
-        // Compress and resize image using Sharp
         const imageInfo = await sharp(file.path)
           .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
           .jpeg({ quality: 80 })
-          .toFile(absFilePath);
+          .toFile(absTmpFilePath);
           
         width = imageInfo.width;
         height = imageInfo.height;
 
-        // Generate thumbnail
+        storagePath = await this.uploadToFirebase(absTmpFilePath, firebasePath, 'image/jpeg');
+
         const thumbName = `thumb_${filename}`;
+        const absThumbTmpFilePath = path.join(tmpDir, thumbName);
+        
         await sharp(file.path)
           .resize({ width: 256, height: 256, fit: 'cover' })
           .jpeg({ quality: 60 })
-          .toFile(path.join(absDir, thumbName));
+          .toFile(absThumbTmpFilePath);
         
-        thumbnailPath = path.join(relDir, thumbName).replace(/\\/g, '/');
+        const firebaseThumbPath = path.posix.join(relDir, thumbName);
+        thumbnailPath = await this.uploadToFirebase(absThumbTmpFilePath, firebaseThumbPath, 'image/jpeg');
+        
+        if (fs.existsSync(absThumbTmpFilePath)) fs.unlinkSync(absThumbTmpFilePath);
+
       } else if (category === 'videos') {
-        fs.copyFileSync(file.path, absFilePath);
+        fs.copyFileSync(file.path, absTmpFilePath);
         
-        // Extract metadata using FFmpeg
-        const meta = await this.getVideoMetadata(absFilePath);
+        const meta = await this.getVideoMetadata(absTmpFilePath);
         duration = meta.duration;
         width = meta.width;
         height = meta.height;
 
-        // Generate thumbnail for video
+        storagePath = await this.uploadToFirebase(absTmpFilePath, firebasePath, file.mimetype);
+
         const thumbName = `thumb_${uuidv4()}.jpg`;
-        await this.generateVideoThumbnail(absFilePath, absDir, thumbName);
-        thumbnailPath = path.join(relDir, thumbName).replace(/\\/g, '/');
+        const absThumbTmpFilePath = path.join(tmpDir, thumbName);
+        
+        await this.generateVideoThumbnail(absTmpFilePath, tmpDir, thumbName);
+        const firebaseThumbPath = path.posix.join(relDir, thumbName);
+        thumbnailPath = await this.uploadToFirebase(absThumbTmpFilePath, firebaseThumbPath, 'image/jpeg');
+        
+        if (fs.existsSync(absThumbTmpFilePath)) fs.unlinkSync(absThumbTmpFilePath);
+
       } else {
-        fs.copyFileSync(file.path, absFilePath);
+        fs.copyFileSync(file.path, absTmpFilePath);
+        storagePath = await this.uploadToFirebase(absTmpFilePath, firebasePath, file.mimetype);
       }
 
-      // 2. Save Evidence to Database
+      // Save Evidence to Database
       const evidence = await prisma.evidence.create({
         data: {
           activityId,
@@ -107,13 +129,13 @@ export class StorageService {
           originalName: file.originalname,
           storedName: filename,
           fileExtension: ext,
-          mimeType: file.mimetype,
-          fileSize: fs.statSync(absFilePath).size,
+          mimeType: category === 'images' ? 'image/jpeg' : file.mimetype,
+          fileSize: fs.statSync(absTmpFilePath).size,
           width,
           height,
           duration,
-          storagePath: relativeStoragePath,
-          thumbnailPath,
+          storagePath, // Contains public Firebase URL
+          thumbnailPath, // Contains public Firebase URL
           uploadStatus: 'SUCCESS',
           gpsLatitude,
           gpsLongitude,
@@ -128,10 +150,8 @@ export class StorageService {
       console.error('Error processing upload:', error);
       throw new Error('Failed to process and store media file');
     } finally {
-      // Clean up multer temp file
-      if (fs.existsSync(file.path)) {
-        fs.unlinkSync(file.path);
-      }
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      if (fs.existsSync(absTmpFilePath)) fs.unlinkSync(absTmpFilePath);
     }
   }
 

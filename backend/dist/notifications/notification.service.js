@@ -24,8 +24,9 @@ export class NotificationService {
         const hasToken = typeof recipient.fcmToken === 'string' && recipient.fcmToken.trim().length > 0;
         const pushEnabled = recipient.preferences?.chanInApp !== false;
         const shouldSendPush = hasToken && pushEnabled;
-        console.log(`[NOTIFICATION] Preparing to send notification. FCMToken: ${hasToken ? 'YES' : 'NO'}, shouldSendPush: ${shouldSendPush}, pushEnabled: ${pushEnabled}, Firebase initialized: ${firebaseAdmin.apps.length > 0}`);
-        if (shouldSendPush && firebaseAdmin.apps.length > 0) {
+        const firebaseReady = Boolean(firebaseAdmin?.apps?.length);
+        console.log(`[NOTIFICATION] Preparing to send notification. FCMToken: ${hasToken ? 'YES' : 'NO'}, shouldSendPush: ${shouldSendPush}, pushEnabled: ${pushEnabled}, Firebase initialized: ${firebaseReady}`);
+        if (shouldSendPush && firebaseReady) {
             try {
                 const tokenPreview = recipient.fcmToken.substring(0, 30);
                 console.log(`[NOTIFICATION] Sending FCM push to token: ${tokenPreview}...`);
@@ -66,7 +67,7 @@ export class NotificationService {
             }
         }
         else {
-            console.log(`[NOTIFICATION] Skipping FCM push. Reason: ${!recipient.fcmToken ? 'No FCM token' : !firebaseAdmin.apps.length ? 'Firebase not initialized' : 'User disabled push'}`);
+            console.log(`[NOTIFICATION] Skipping FCM push. Reason: ${!recipient.fcmToken ? 'No FCM token' : !firebaseReady ? 'Firebase not initialized' : 'User disabled push'}`);
         }
         return notification;
     }

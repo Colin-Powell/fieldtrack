@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -180,13 +181,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
         user: user,
       );
 
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      if (fcmToken != null && fcmToken.isNotEmpty) {
-        await NotificationService().syncTokenWithBackend(
-          fcmToken,
-          force: true,
-          auth: true,
-        );
+      try {
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null && fcmToken.isNotEmpty) {
+          await NotificationService().syncTokenWithBackend(
+            fcmToken,
+            force: true,
+            auth: true,
+          );
+        }
+      } catch (e) {
+        debugPrint('FCM getToken failed: $e');
       }
 
       if (!isPolling) {
@@ -240,13 +245,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
           user: user,
         );
 
-        final fcmToken = await FirebaseMessaging.instance.getToken();
-        if (fcmToken != null && fcmToken.isNotEmpty) {
-          await NotificationService().syncTokenWithBackend(
-            fcmToken,
-            force: true,
-            auth: true,
-          );
+        try {
+          final fcmToken = await FirebaseMessaging.instance.getToken();
+          if (fcmToken != null && fcmToken.isNotEmpty) {
+            await NotificationService().syncTokenWithBackend(
+              fcmToken,
+              force: true,
+              auth: true,
+            );
+          }
+        } catch (e) {
+          debugPrint('FCM getToken failed on login: $e');
         }
 
         await checkAuthStatus(isPolling: false);

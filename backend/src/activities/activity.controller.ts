@@ -7,8 +7,10 @@ export class ActivityController {
   
   async create(req: Request, res: Response) {
     try {
-      const { studentId, title, description, latitude, longitude, gpsAccuracy, methodology, objectives, findings, remarks } = req.body;
+      const { title, description, latitude, longitude, gpsAccuracy, methodology, objectives, findings, remarks } = req.body;
       
+      const studentId = req.user?.role === 'STUDENT' ? req.user.userId : req.body.studentId;
+
       if (!studentId || !title) {
         return res.status(400).json({ error: 'Missing required fields: studentId, title' });
       }
@@ -28,7 +30,7 @@ export class ActivityController {
     try {
       const id = req.params.id as string;
       const { title, description, methodology, objectives, findings, remarks } = req.body;
-      const studentId = req.body.studentId as string;
+      const studentId = req.user?.role === 'STUDENT' ? req.user.userId : req.body.studentId as string;
 
       if (!studentId) {
         return res.status(400).json({ error: 'Missing studentId' });
@@ -51,7 +53,7 @@ export class ActivityController {
   async submit(req: Request, res: Response) {
     try {
       const id = req.params.id as string;
-      const studentId = req.body.studentId as string;
+      const studentId = req.user?.role === 'STUDENT' ? req.user.userId : req.body.studentId as string;
 
       if (!studentId) {
         return res.status(400).json({ error: 'Missing studentId' });

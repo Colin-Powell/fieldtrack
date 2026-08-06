@@ -12,7 +12,8 @@ function normalizeServiceAccountJson(value) {
     return trimmed.replace(/\\n/g, '\n');
 }
 export async function initFirebaseAdmin() {
-    if (firebaseAdmin.apps.length > 0) {
+    const existingApps = Array.isArray(firebaseAdmin.apps) ? firebaseAdmin.apps : [];
+    if (existingApps.length > 0) {
         return;
     }
     const rawServiceAccountJson = normalizeServiceAccountJson(process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT_JSON);

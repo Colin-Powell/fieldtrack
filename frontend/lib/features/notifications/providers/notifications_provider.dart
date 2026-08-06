@@ -11,6 +11,8 @@ class NotificationModel {
   final String type;
   final bool isRead;
   final DateTime createdAt;
+  final String? entityId;
+  final String? entityType;
 
   NotificationModel({
     required this.id,
@@ -19,6 +21,8 @@ class NotificationModel {
     required this.type,
     required this.isRead,
     required this.createdAt,
+    this.entityId,
+    this.entityType,
   });
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +35,8 @@ class NotificationModel {
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
+      entityId: json['entityId'] as String?,
+      entityType: json['entityType'] as String?,
     );
   }
 }
@@ -91,6 +97,75 @@ class NotificationsNotifier
     } catch (e) {
       // Revert or show error silently
     }
+  }
+
+  Future<void> markAllAsRead() async {
+    try {
+      await _api.dio.patch('/notifications/read-all');
+      if (state.hasValue) {
+        final currentList = state.value!;
+        final updatedList = currentList.map((n) {
+          return NotificationModel(
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            type: n.type,
+            isRead: true,
+            createdAt: n.createdAt,
+            entityId: n.entityId,
+            entityType: n.entityType,
+          );
+        }).toList();
+        state = AsyncValue.data(updatedList);
+      }
+    } catch (e) {
+      // Show error silently
+    }
+  }
+
+  Future<void> markBulkAsRead(List<String> ids) async {
+    try {
+      await _api.dio.post('/notifications/read-bulk', data: {'ids': ids});
+      if (state.hasValue) {
+        final currentList = state.value!;
+        final updatedList = currentList.map((n) {
+          if (ids.contains(n.id)) {
+            return NotificationModel(
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              type: n.type,
+              isRead: true,
+              createdAt: n.createdAt,
+              entityId: n.entityId,
+              entityType: n.entityType,
+            );
+          }
+          return n;
+        }).toList();
+        state = AsyncValue.data(updatedList);
+      }
+    } catch (e) {}
+  }
+
+  Future<void> deleteNotification(String id) async {
+    try {
+      await _api.dio.delete('/notifications/$id');
+      if (state.hasValue) {
+        final currentList = state.value!;
+        state = AsyncValue.data(currentList.where((n) => n.id != id).toList());
+      }
+    } catch (e) {}
+  }
+
+  Future<void> deleteBulkNotifications(List<String> ids) async {
+    try {
+      await _api.dio.post('/notifications/delete-bulk', data: {'ids': ids});
+      if (state.hasValue) {
+        final currentList = state.value!;
+        state = AsyncValue.data(currentList.where((n) => !ids.contains(n.id)).toList());
+      }
+    } catch (e) {}
   }
 }
 

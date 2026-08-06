@@ -26,11 +26,20 @@ export function generateRefreshToken(payload: { userId: string }): string {
 }
 
 export function verifyToken(token: string): TokenPayload {
-  const decoded = jwt.verify(token, jwtSecret) as jwt.JwtPayload & { userId?: string; role?: string; email?: string; permissions?: string[] };
+  const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as jwt.JwtPayload & { userId?: string; role?: string; email?: string; permissions?: string[] };
+
+  if (typeof decoded.userId !== 'string' || decoded.userId.trim().length === 0) {
+    throw new Error('Invalid token payload: missing userId');
+  }
+
+  if (typeof decoded.role !== 'string' || decoded.role.trim().length === 0) {
+    throw new Error('Invalid token payload: missing role');
+  }
+
   return {
-    userId: decoded.userId ?? '',
-    role: decoded.role ?? 'USER',
-    email: decoded.email,
-    permissions: decoded.permissions,
+    userId: decoded.userId,
+    role: decoded.role,
+    email: typeof decoded.email === 'string' ? decoded.email : undefined,
+    permissions: Array.isArray(decoded.permissions) ? decoded.permissions.filter((value): value is string => typeof value === 'string') : undefined,
   };
 }

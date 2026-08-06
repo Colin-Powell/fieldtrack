@@ -4,3 +4,9 @@ node_modules
 
 /generated/prisma
 /backend/storage
+firebase_service_account_key.json
+**/firebase*.json
+**/service-account*.json
+**/service_account*.json
+**/*.pem
+**/*.p12

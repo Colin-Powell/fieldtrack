@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // ==========================================
 // DESIGN TOKENS
@@ -439,14 +440,18 @@ class _SupervisorEvidenceScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        time,
-                        style: const TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 9,
-                          color: _C.textFaint,
+                      Expanded(
+                        child: Text(
+                          time,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 9,
+                            color: _C.textFaint,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 4),
                       Text(
                         accuracy,
                         style: const TextStyle(
@@ -992,9 +997,23 @@ class _SupervisorEvidenceScreenState
       return;
     }
 
-    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
-    final initializeFuture = controller.initialize();
-    controller.setLooping(false);
+    Future<VideoPlayerController> initializeController() async {
+      final secureStorage = const FlutterSecureStorage();
+      final token = await secureStorage.read(key: 'jwt_token');
+
+      final headers = <String, String>{};
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        httpHeaders: headers,
+      );
+      await controller.initialize();
+      controller.setLooping(false);
+      return controller;
+    }
 
     showDialog(
       context: context,
@@ -1007,8 +1026,8 @@ class _SupervisorEvidenceScreenState
           ),
           child: StatefulBuilder(
             builder: (context, setState) {
-              return FutureBuilder<void>(
-                future: initializeFuture,
+              return FutureBuilder<VideoPlayerController>(
+                future: initializeController(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
                     if (snapshot.hasError) {
@@ -1044,16 +1063,15 @@ class _SupervisorEvidenceScreenState
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 24),
-                              ElevatedButton(
-                                onPressed: () {
-                                  controller.dispose();
-                                  Navigator.pop(ctx);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _C.green,
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _C.green,
+                                  ),
+                                  child: const Text('Close'),
                                 ),
-                                child: const Text('Close'),
-                              ),
                             ],
                           ),
                         ),
@@ -1073,8 +1091,8 @@ class _SupervisorEvidenceScreenState
                       ClipRRect(
                         borderRadius: BorderRadius.circular(24),
                         child: AspectRatio(
-                          aspectRatio: controller.value.aspectRatio,
-                          child: VideoPlayer(controller),
+                          aspectRatio: snapshot.data!.value.aspectRatio,
+                          child: VideoPlayer(snapshot.data!),
                         ),
                       ),
                       Positioned(
@@ -1100,11 +1118,10 @@ class _SupervisorEvidenceScreenState
                               icon: const Icon(
                                 PhosphorIconsRegular.x,
                                 color: Colors.white,
-                                size: 28,
+                                size: 24,
                               ),
                               onPressed: () {
-                                controller.pause();
-                                controller.dispose();
+                                snapshot.data?.dispose();
                                 Navigator.pop(ctx);
                               },
                             ),
@@ -1118,7 +1135,7 @@ class _SupervisorEvidenceScreenState
                         child: Column(
                           children: [
                             VideoProgressIndicator(
-                              controller,
+                              snapshot.data!,
                               allowScrubbing: true,
                               colors: const VideoProgressColors(
                                 playedColor: _C.green,
@@ -1128,40 +1145,37 @@ class _SupervisorEvidenceScreenState
                             ),
                             const SizedBox(height: 12),
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                IconButton(
-                                  icon: Icon(
-                                    controller.value.isPlaying
-                                        ? PhosphorIconsFill.pause
-                                        : PhosphorIconsFill.play,
-                                    color: Colors.white,
-                                  ),
-                                  onPressed: () {
+                                GestureDetector(
+                                  onTap: () {
                                     setState(() {
-                                      if (controller.value.isPlaying) {
-                                        controller.pause();
-                                      } else {
-                                        controller.play();
-                                      }
+                                      snapshot.data!.value.isPlaying
+                                          ? snapshot.data!.pause()
+                                          : snapshot.data!.play();
                                     });
                                   },
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    '${_formatDuration(controller.value.position)} / ${_formatDuration(controller.value.duration)}',
-                                    style: const TextStyle(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: _C.green,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: _C.green.withOpacity(0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      snapshot.data!.value.isPlaying
+                                          ? PhosphorIconsFill.pause
+                                          : PhosphorIconsFill.play,
                                       color: Colors.white,
-                                      fontFamily: 'Poppins',
-                                      fontSize: 12,
+                                      size: 24,
                                     ),
                                   ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    PhosphorIconsRegular.cornersOut,
-                                    color: Colors.white,
-                                  ),
-                                  onPressed: () {},
                                 ),
                               ],
                             ),

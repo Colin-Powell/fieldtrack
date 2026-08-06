@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../main_supervisor.dart';
 import '../../../core/providers/auth_provider.dart';
 
@@ -23,6 +24,23 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
   bool _rememberMe = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadRememberMe();
+  }
+
+  Future<void> _loadRememberMe() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getString('saved_supervisor_identifier');
+    if (savedId != null && savedId.isNotEmpty) {
+      setState(() {
+        _emailController.text = savedId;
+        _rememberMe = true;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _pwController.dispose();
@@ -41,6 +59,13 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
       if (!mounted) return;
 
       if (success) {
+        final prefs = await SharedPreferences.getInstance();
+        if (_rememberMe) {
+          await prefs.setString('saved_supervisor_identifier', _emailController.text.trim());
+        } else {
+          await prefs.remove('saved_supervisor_identifier');
+        }
+
         final user = ref.read(authProvider).user;
         if (user?.role == 'SUPERVISOR' || user?.role == 'ADMIN') {
           context.go('/supervisor/dashboard');

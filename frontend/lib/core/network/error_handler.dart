@@ -12,27 +12,26 @@ class ErrorHandler {
         case DioExceptionType.connectionTimeout:
         case DioExceptionType.sendTimeout:
         case DioExceptionType.receiveTimeout:
-          return 'Connection timed out. Please try again.';
+          return 'Connection timeout';
         case DioExceptionType.badResponse:
           final statusCode = error.response?.statusCode;
-          if (statusCode == 400) return 'Invalid request.';
-          if (statusCode == 401) return 'Session expired. Please log in.';
-          if (statusCode == 403) return 'Access denied.';
-          if (statusCode == 404) return 'Resource not found.';
-          if (statusCode == 409) return 'Conflict error. Please try again.';
-          if (statusCode == 422) return 'Invalid data submitted.';
-          if (statusCode == 429) return 'Too many requests. Slow down.';
-          if (statusCode != null && statusCode >= 500)
-            return 'Server error. Try again later.';
-          return 'Network error.';
+          if (statusCode == 400) return 'Invalid request';
+          if (statusCode == 401) return 'Session expired';
+          if (statusCode == 403) return 'Access denied';
+          if (statusCode == 404) return 'Not found';
+          if (statusCode == 409) return 'Conflict';
+          if (statusCode == 422) return 'Invalid data';
+          if (statusCode == 429) return 'Rate limited';
+          if (statusCode != null && statusCode >= 500) return 'Server error';
+          return 'Network error';
         case DioExceptionType.cancel:
-          return 'Request cancelled.';
+          return 'Request cancelled';
         case DioExceptionType.connectionError:
-          return 'No internet connection.';
+          return 'No internet';
         case DioExceptionType.unknown:
-          return 'Unexpected error occurred.';
+          return 'Unexpected error';
         default:
-          return 'Unknown network error.';
+          return 'Unknown error';
       }
     } else if (error is String) {
       return error;

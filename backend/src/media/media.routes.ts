@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { StorageService } from './storage.service.js';
 import { uploadsLogger } from '../utils/logger.js';
+import { authenticate } from '../auth/auth.middleware.js';
+import { prisma } from '../db.js';
 
 const router = Router();
 const storageService = new StorageService();
@@ -25,23 +27,41 @@ const upload = multer({
   }
 });
 
-router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/upload', authenticate, upload.single('file'), async (req: Request, res: Response) => {
   try {
     const file = req.file;
     if (!file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const { activityId, uploaderId, gpsLatitude, gpsLongitude, gpsAccuracy, capturedAt } = req.body;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-    if (!activityId || !uploaderId) {
-      return res.status(400).json({ error: 'Missing activityId or uploaderId' });
+    const { activityId, gpsLatitude, gpsLongitude, gpsAccuracy, capturedAt } = req.body;
+
+    if (!activityId) {
+      return res.status(400).json({ error: 'Missing activityId' });
+    }
+
+    const activity = await prisma.fieldLog.findUnique({
+      where: { id: activityId },
+      select: { id: true, studentId: true },
+    });
+
+    if (!activity) {
+      return res.status(404).json({ error: 'Activity not found' });
+    }
+
+    if (req.user?.role === 'STUDENT' && activity.studentId !== userId) {
+      return res.status(403).json({ error: 'You can only upload evidence to your own activities' });
     }
 
     const evidence = await storageService.processUpload(
       file,
-      activityId,
-      uploaderId,
+      activity.id,
+      userId,
       gpsLatitude ? parseFloat(gpsLatitude) : undefined,
       gpsLongitude ? parseFloat(gpsLongitude) : undefined,
       gpsAccuracy ? parseFloat(gpsAccuracy) : undefined,
@@ -50,7 +70,7 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
 
     res.status(201).json(evidence);
   } catch (error) {
-    uploadsLogger.error('Upload media failed:', { error, body: req.body });
+    uploadsLogger.error('Upload media failed:', { error, activityId: req.body?.activityId });
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });

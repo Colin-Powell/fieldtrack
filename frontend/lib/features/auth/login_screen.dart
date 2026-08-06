@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/utils/toast_service.dart';
 
@@ -20,6 +21,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loading = false;
   bool _obscurePassword = true;
   bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberMe();
+  }
+
+  Future<void> _loadRememberMe() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getString('saved_student_identifier');
+    if (savedId != null && savedId.isNotEmpty) {
+      setState(() {
+        _regController.text = savedId;
+        _rememberMe = true;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -48,6 +66,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberMe) {
+        await prefs.setString('saved_student_identifier', identifier);
+      } else {
+        await prefs.remove('saved_student_identifier');
+      }
+
       final user = ref.read(authProvider).user;
       if (user?.mustChangePassword == true) {
         context.go('/force-password-change');

@@ -19,6 +19,11 @@
 /backend/storage/
 /backend/.env
 /backend/firebase_service_account_key.json
+/backend/**/firebase*.json
+/backend/**/service-account*.json
+/backend/**/service_account*.json
+/backend/**/*.pem
+/backend/**/*.p12
 
 # IDE and editor files
 .idea/

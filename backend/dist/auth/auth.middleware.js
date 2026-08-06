@@ -1,10 +1,27 @@
 import { verifyToken } from './jwt.js';
+function parseCookieHeader(cookieHeader) {
+    if (!cookieHeader) {
+        return {};
+    }
+    return cookieHeader.split(';').reduce((accumulator, part) => {
+        const [rawName, ...rawValue] = part.trim().split('=');
+        if (!rawName) {
+            return accumulator;
+        }
+        const name = decodeURIComponent(rawName);
+        const value = rawValue.join('=').trim();
+        accumulator[name] = value ? decodeURIComponent(value) : '';
+        return accumulator;
+    }, {});
+}
 export function authenticate(req, res, next) {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const cookies = parseCookieHeader(req.headers.cookie);
+    const cookieToken = cookies.fieldtrack_developer_token;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : cookieToken?.trim();
+    if (!token) {
         return res.status(401).json({ error: 'Unauthorized: No token provided' });
     }
-    const token = authHeader.split(' ')[1];
     try {
         const payload = verifyToken(token);
         req.user = payload;

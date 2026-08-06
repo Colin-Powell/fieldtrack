@@ -11,7 +11,12 @@ export async function login(req: Request, res: Response) {
     const ipAddress = req.ip;
     const userAgent = req.headers['user-agent'];
     
-    authLogger.info(`Login attempt from IP: ${ipAddress} - Email: ${email || 'N/A'}, RegNo: ${registrationNo || 'N/A'}`);
+    authLogger.info('Login attempt received', {
+      ipAddress,
+      loginMethod: email ? 'email' : registrationNo ? 'registrationNo' : 'unknown',
+      emailProvided: Boolean(email),
+      registrationNoProvided: Boolean(registrationNo),
+    });
 
     if (!password) {
       return res.status(400).json({ error: 'Password is required' });
@@ -35,7 +40,9 @@ export async function login(req: Request, res: Response) {
     }
 
     if (!user) {
-      authLogger.warn(`Login failed: User not found for email/registrationNo: ${email || registrationNo}`);
+      authLogger.warn('Login failed: user not found', {
+        loginMethod: email ? 'email' : registrationNo ? 'registrationNo' : 'unknown',
+      });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -64,7 +71,7 @@ export async function login(req: Request, res: Response) {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      authLogger.warn(`Login failed: Incorrect password for user ${user.id} (${user.email})`);
+      authLogger.warn('Login failed: incorrect password', { userId: user.id });
       // Increment failed attempts
       const attempts = user.failedLoginAttempts + 1;
       const updates: any = { failedLoginAttempts: attempts };
@@ -125,7 +132,7 @@ export async function login(req: Request, res: Response) {
       userAgent,
     });
     
-    authLogger.info(`Login successful for user ${user.id} (${user.email})`);
+    authLogger.info('Login successful', { userId: user.id, role: user.role });
 
     return res.json({
       success: true,
@@ -244,9 +251,8 @@ export async function changePassword(req: Request, res: Response) {
       return res.status(400).json({ error: 'Incorrect current password' });
     }
     
-    // Eased password policy check (Min 6 characters, no strict complexity requirements)
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long' });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
@@ -405,8 +411,8 @@ export async function resetPassword(req: Request, res: Response) {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
     const { newPassword } = req.body;
 
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long' });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
@@ -447,9 +453,17 @@ export async function updateFcmToken(req: Request, res: Response) {
     const { fcmToken } = req.body;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     
+    // If setting a valid token, remove it from any other user who might have logged in on this device
+    if (fcmToken && typeof fcmToken === 'string' && fcmToken.trim() !== '') {
+      await prisma.user.updateMany({
+        where: { fcmToken, id: { not: userId } },
+        data: { fcmToken: null },
+      });
+    }
+
     await prisma.user.update({
       where: { id: userId },
-      data: { fcmToken },
+      data: { fcmToken: fcmToken || null },
     });
     
     return res.json({ success: true });

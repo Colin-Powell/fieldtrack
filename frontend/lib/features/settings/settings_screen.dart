@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'dart:convert';
 import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:fieldtrack/features/auth/login_screen.dart';
 import 'package:fieldtrack/core/network/error_handler.dart';
@@ -1052,14 +1053,61 @@ class _SettingsPreferencesScreenState extends State<SettingsPreferencesScreen> {
   }
 }
 
-class HelpSupportScreen extends StatelessWidget {
+class HelpSupportScreen extends StatefulWidget {
   final Map<String, dynamic> helpInfo;
   const HelpSupportScreen({super.key, required this.helpInfo});
 
   @override
+  State<HelpSupportScreen> createState() => _HelpSupportScreenState();
+}
+
+class _HelpSupportScreenState extends State<HelpSupportScreen> {
+  final _formKey = GlobalKey<FormState>();
+  String _category = 'bug_report';
+  String _title = '';
+  String _description = '';
+  String _severity = 'medium';
+  String _email = '';
+  bool _isSubmitting = false;
+
+  Future<void> _submitSupportRequest() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await ApiClient().dio.post(
+        '/developer/support-request',
+        data: {
+          'category': _category,
+          'title': _title.trim(),
+          'description': _description.trim(),
+          'contactEmail': _email.trim(),
+          'severity': _severity,
+        },
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Support request submitted successfully.'),
+        ),
+      );
+      Navigator.pop(context);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to submit support request.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final faqs =
-        (helpInfo['faqs'] as List<dynamic>?)
+        (widget.helpInfo['faqs'] as List<dynamic>?)
             ?.map((item) => item as Map<String, dynamic>)
             .toList() ??
         [
@@ -1075,7 +1123,7 @@ class HelpSupportScreen extends StatelessWidget {
           },
         ];
     final supportEmail =
-        helpInfo['supportEmail'] as String? ?? 'support@fieldtrack.com';
+        widget.helpInfo['supportEmail'] as String? ?? 'support@fieldtrack.com';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -1131,6 +1179,96 @@ class HelpSupportScreen extends StatelessWidget {
             onTap: () {
               // TODO: launchUrl to email client
             },
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Send a Help Request',
+            style: TextStyle(
+              fontFamily: _fontFamily,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: _primaryGreen,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                DropdownButtonFormField<String>(
+                  value: _category,
+                  decoration: const InputDecoration(labelText: 'Request type'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'bug_report',
+                      child: Text('Bug report'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'feature_request',
+                      child: Text('Feature request'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'support',
+                      child: Text('Support request'),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _category = value ?? 'bug_report'),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Title'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Please enter a title'
+                      : null,
+                  onChanged: (value) => _title = value,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Email (optional)',
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  onChanged: (value) => _email = value,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _severity,
+                  decoration: const InputDecoration(labelText: 'Severity'),
+                  items: const [
+                    DropdownMenuItem(value: 'low', child: Text('Low')),
+                    DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                    DropdownMenuItem(value: 'high', child: Text('High')),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _severity = value ?? 'medium'),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Describe the issue',
+                  ),
+                  maxLines: 4,
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Please describe the issue'
+                      : null,
+                  onChanged: (value) => _description = value,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isSubmitting ? null : _submitSupportRequest,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primaryGreen,
+                    ),
+                    child: _isSubmitting
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('Submit request'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

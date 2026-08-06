@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FieldTrack Developer Dashboard</title>
+  
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Design Tokens */
+    :root {
+      --bg: #F3F4F6;
+      --green: #16A34A;
+      --green-light: #C5E8D2;
+      --green-dark: #115E2E;
+      --teal: #42B3B0;
+      --orange: #F97316;
+      --orange-light: #FDD3BF;
+      --text-dark: #111827;
+      --text-muted: #6B7280;
+      --text-faint: #9CA3AF;
+      --card-radius: 24px;
+      --control-height: 52px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background-color: var(--bg);
+      color: var(--text-dark);
+      font-family: 'Poppins', sans-serif;
+      display: flex;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Sidebar Layout */
+    .sidebar {
+      width: 280px;
+      background: #FFFFFF;
+      padding: 32px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      border-right: 1px solid rgba(0,0,0,0.05);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 1000;
+      transition: left 0.3s ease;
+    }
+    
+    .sidebar::-webkit-scrollbar { width: 6px; }
+    .sidebar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+
+    /* Mobile Overlay */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 999;
+      backdrop-filter: blur(2px);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .sidebar-overlay.open { display: block; opacity: 1; }
+
+    /* Main Area */
+    .main-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 32px 40px;
+      max-width: calc(100vw - 280px);
+      height: 100vh;
+      overflow-y: auto;
+      transition: padding 0.3s;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: var(--text-dark);
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    .sidebar-close-btn {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: var(--text-dark);
+      cursor: pointer;
+      position: absolute;
+      top: 24px;
+      right: 24px;
+    }
+
+    .content-layout { display: flex; gap: 24px; align-items: flex-start; }
+    .main-column { flex: 7; display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+    .right-sidebar { flex: 3; display: flex; flex-direction: column; gap: 24px; min-width: 320px; }
+
+    /* Components */
+    h1 { font-size: 1.8rem; font-weight: 700; color: var(--text-dark); line-height: 1.2; }
+    h2 { font-size: 1.15rem; font-weight: 700; color: var(--text-dark); margin-bottom: 20px; }
+    .subtitle { color: var(--text-muted); font-size: 0.95rem; font-weight: 500; margin-top: 4px; }
+    
+    .card { background: #FFFFFF; border-radius: var(--card-radius); padding: 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
+    .card.highlight-bg { background: var(--green-light); }
+
+    /* Stat Cards */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+    .stat-card { background: var(--green-light); border-radius: var(--card-radius); display: flex; flex-direction: column; }
+    .stat-card-inner { background: #FFFFFF; border-radius: var(--card-radius); padding: 16px 20px; display: flex; align-items: center; gap: 16px; }
+    .stat-icon { width: 48px; height: 48px; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; }
+    .stat-title { font-size: 0.85rem; font-weight: 700; color: var(--text-dark); line-height: 1.2; }
+    .stat-value { font-size: 2.8rem; font-weight: 800; color: var(--text-dark); padding: 20px 24px 10px; line-height: 1; }
+
+    /* Tables */
+    .table-container { overflow-x: auto; margin-top: 10px; border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th { text-align: left; padding: 12px 16px; color: var(--text-faint); font-weight: 600; font-size: 0.85rem; border-bottom: 2px solid rgba(0,0,0,0.05); white-space: nowrap; }
+    td { padding: 16px; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.9rem; font-weight: 500; color: var(--text-dark); }
+    tr:last-child td { border-bottom: none; }
+    
+    .pill { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--green-light); color: var(--green-dark); font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+    .pill.warn { background: var(--orange-light); color: var(--orange); }
+    .pill.danger { background: #FEE2E2; color: #B91C1C; }
+    .pill.neutral { background: var(--bg); color: var(--text-muted); }
+
+    /* Forms & Buttons */
+    .form-group { margin-bottom: 16px; }
+    input, select, textarea {
+      width: 100%; background: var(--bg); border: 2px solid transparent; border-radius: 16px;
+      padding: 14px 16px; font-family: 'Poppins', sans-serif; font-size: 0.95rem; color: var(--text-dark);
+      outline: none; transition: border-color 0.2s ease;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--green); }
+    textarea { resize: vertical; min-height: 100px; }
+
+    button {
+      height: var(--control-height); padding: 0 24px; border-radius: 26px; border: none;
+      font-family: 'Poppins', sans-serif; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+    }
+    button:active { transform: scale(0.98); }
+    .btn-primary { background: var(--green); color: white; }
+    .btn-secondary { background: white; color: var(--text-dark); border: 2px solid rgba(0,0,0,0.08); }
+    .btn-secondary:hover { border-color: var(--text-faint); }
+    
+    /* Toggle Switch */
+    .toggle-switch { position: relative; width: 48px; height: 26px; background: var(--text-faint); border-radius: 13px; cursor: pointer; transition: 0.3s; }
+    .toggle-switch.on { background: var(--green); }
+    .toggle-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .toggle-switch.on::after { transform: translateX(22px); }
+
+    /* Custom UIs */
+    .page-hero { background: linear-gradient(135deg, #E7F7EE 0%, #F7FCFA 100%); border-radius: 28px; padding: 32px; margin-bottom: 24px; display: flex; align-items: center; gap: 24px; }
+    .page-hero-icon { width: 64px; height: 64px; background: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: var(--green); box-shadow: 0 4px 20px rgba(0,0,0,0.05); flex-shrink:0; }
+    .page-hero h2 { margin-bottom: 8px; font-size: 1.4rem; }
+
+    .page-grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .terminal { background: #0F172A; color: #E2E8F0; font-family: 'Courier New', Courier, monospace; padding: 24px; border-radius: 16px; height: 500px; overflow-y: auto; font-size: 0.85rem; line-height: 1.6; }
+    .term-error { color: #F87171; }
+    .term-warn { color: #FBBF24; }
+    .term-info { color: #38BDF8; }
+    
+    .terminal-input-wrapper { display: flex; background: #1E293B; border-radius: 8px; margin-top: 12px; padding: 4px; }
+    .terminal-input-wrapper input { background: transparent; border: none; color: #E2E8F0; font-family: monospace; flex: 1; padding: 8px 12px; font-size: 0.9rem; outline: none; }
+    .terminal-input-wrapper button { background: var(--green); border-radius: 6px; padding: 0 16px; height: 36px; }
+    
+    .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; }
+    .media-card { background: var(--bg); border-radius: 16px; padding: 16px; text-align: center; }
+
+    /* Nav links */
+    .nav-brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 1.4rem; color: var(--green-dark); margin-bottom: 12px; padding: 0 16px; }
+    .nav-section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-faint); font-weight: 700; margin: 16px 0 8px 16px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 14px; padding: 14px 16px; width: 100%;
+      border-radius: 16px; color: var(--text-muted); font-weight: 600; text-decoration: none;
+      transition: all 0.2s; background: transparent; border: none; outline: none; text-align: left; cursor: pointer; font-size: 0.95rem;
+    }
+    .nav-item i { font-size: 18px; width: 24px; text-align: center; transition: 0.2s; }
+    .nav-item:hover { background: var(--bg); color: var(--text-dark); }
+    .nav-item.active { background: var(--green-light); color: var(--green-dark); }
+    .nav-item.active i { color: var(--green); }
+
+    /* Auth Toast */
+    #authStatus { font-size: 0.85rem; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+    .text-error { color: #DC2626 !important; }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      .content-layout { flex-direction: column; }
+      .right-sidebar, .main-column { width: 100%; flex: none; }
+    }
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        left: -300px; /* Hidden initially */
+      }
+      .sidebar.open {
+        left: 0;
+      }
+      .mobile-menu-btn { display: block; }
+      .sidebar-close-btn { display: block; }
+      
+      .main-wrapper { max-width: 100vw; padding: 20px; }
+      .header { flex-direction: column; align-items: flex-start; gap: 20px; }
+      .header .actions { width: 100%; display: flex; gap: 12px; }
+      .header .actions button { flex: 1; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-close-btn" onclick="toggleSidebar()">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="nav-brand">
+      <i class="fa-solid fa-leaf" style="color: var(--green);"></i>
+      FieldTrack
+    </div>
+    
+    <nav id="moduleNav">
+      <!-- Generated via JS -->
+    </nav>
+    
+    <div style="margin-top: auto; padding: 0 16px; padding-bottom: 24px;">
+      <div id="authStatus" style="margin-bottom: 16px; color: var(--text-muted);">Signed in.</div>
+      <button class="btn-secondary" style="width: 100%; justify-content: center;" onclick="logout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Sign out
+      </button>
+    </div>
+  </aside>
+
+  <main class="main-wrapper">
+    <header class="header">
+      <div class="header-left">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div>
+          <h1 id="pageTitle">Developer Dashboard</h1>
+          <p id="pageSubtitle" class="subtitle">Monitoring logs, requests, incidents, and live system activity.</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-secondary" onclick="exportReport()">
+          <i class="fa-solid fa-file-export"></i> Export JSON
+        </button>
+        <button class="btn-primary" onclick="loadData()">
+          <i class="fa-solid fa-rotate"></i> Sync Live
+        </button>
+      </div>
+    </header>
+
+    <div id="pageContent">
+      <!-- Injected Content -->
+    </div>
+  </main>
+
+  <script>
+    // --- Mobile Sidebar Logic ---
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      sidebar.classList.toggle('open');
+      if (sidebar.classList.contains('open')) {
+        overlay.classList.add('open');
+      } else {
+        overlay.classList.remove('open');
+      }
+    }
+
+    // --- API & State Setup ---
+    const AUTH_TOKEN_KEY = 'fieldtrack_developer_token';
+    let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || '';
+    let socket = null;
+    let currentView = 'overview';
+    
+    let dashboardState = {
+      health: { status: 'Loading', uptime: 0, timestamp: new Date().toISOString() },
+      metrics: { users: 0, activeSessions: 0, pendingReviews: 0, failedLogins: 0 },
+      trend: [],
+      logs: [],
+      requests: [],
+      issues: [],
+      dynamicModules: {} 
+    };
+
+    // Navigation config
+    const navGroups = [
+      {
+        title: "Main",
+        items: [
+          { key: 'overview', label: 'Dashboard', icon: 'table-cells-large', title: 'System Dashboard', subtitle: 'Quick overview of the entire ecosystem.' },
+          { key: 'live-api-monitor', label: 'API Monitor', icon: 'network-wired', title: 'Live API Monitor', subtitle: 'Observe the latest API traffic in real time.' },
+          { key: 'error-center', label: 'Error Center', icon: 'circle-exclamation', title: 'Error Center', subtitle: 'Centralize exceptions and repeat failures.' },
+        ]
+      },
+      {
+        title: "Data & Storage",
+        items: [
+          { key: 'database-explorer', label: 'Database', icon: 'database', title: 'Database Explorer', subtitle: 'Read-only browsing for core business records.' },
+          { key: 'media-manager', label: 'Media & Assets', icon: 'images', title: 'Media Manager', subtitle: 'Preview, replace, and manage uploaded assets.' },
+          { key: 'storage-analytics', label: 'Storage Analytics', icon: 'hard-drive', title: 'Storage Analytics', subtitle: 'Review storage growth and file distribution.' },
+        ]
+      },
+      {
+        title: "Operations",
+        items: [
+          { key: 'background-jobs', label: 'Background Jobs', icon: 'clock-rotate-left', title: 'Background Jobs', subtitle: 'Monitor queue activity and job health.' },
+          { key: 'security-center', label: 'Security Center', icon: 'shield-halved', title: 'Security Center', subtitle: 'Monitor failed logins, suspicious activity, and lockouts.' },
+          { key: 'server-monitor', label: 'Server Monitor', icon: 'server', title: 'Server Monitor', subtitle: 'CPU, memory, disk, network, and process telemetry.' },
+          { key: 'logs-viewer', label: 'System Logs', icon: 'terminal', title: 'Logs Viewer', subtitle: 'Split application, auth, upload, and audit log views.' },
+        ]
+      },
+      {
+        title: "Configuration",
+        items: [
+          { key: 'feature-flags', label: 'Feature Flags', icon: 'toggle-on', title: 'Feature Flags', subtitle: 'Enable and disable modules without a deployment.' },
+          { key: 'maintenance-mode', label: 'Maintenance Mode', icon: 'wrench', title: 'Maintenance Mode', subtitle: 'Toggle maintenance and control access windows.' },
+          { key: 'api-testing-console', label: 'API Console', icon: 'code', title: 'API Testing Console', subtitle: 'Run debug requests against the platform APIs.' }
+        ]
+      }
+    ];
+
+    const moduleConfig = navGroups.reduce((acc, group) => acc.concat(group.items), []);
+
+    // --- Authentication & Networking ---
+
+    function setAuthStatus(message, isError = false) {
+      const status = document.getElementById('authStatus');
+      if (status) {
+        status.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i> ${message}`;
+        status.className = isError ? 'text-error' : '';
+      }
+    }
+
+    function renderAuthUI() {
+      if (!authToken) window.location.href = '/developer-login';
+    }
+
+    function getAuthHeaders(extraHeaders = {}) {
+      return { ...extraHeaders, ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) };
+    }
+
+    function clearAuthSession() {
+      authToken = '';
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      document.cookie = `${AUTH_TOKEN_KEY}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; SameSite=Lax;`;
+    }
+
+function expireSession(message = 'Session expired.') {
+      clearAuthSession();
+      setAuthStatus(message, true);
+      if (socket) { socket.close(); socket = null; }
+      window.location.replace('/developer-login');
+    }
+
+    function logout() {
+      clearAuthSession();
+      if (socket) { socket.close(); socket = null; }
+      window.location.replace('/developer-login');
+    }
+
+    async function loadJson(url, options = {}) {
+      const response = await fetch(url, { ...options, headers: getAuthHeaders(options.headers || {}) });
+      if (response.status === 401 || response.status === 403) { expireSession(); throw new Error('Session expired'); }
+      if (!response.ok) {
+        const bodyText = await response.text();
+        throw new Error(bodyText || 'Request failed');
+      }
+      return response.json();
+    }
+
+    async function loadData() {
+      if (!authToken) { setAuthStatus('Sign in to load data.', true); return; }
+      setAuthStatus('Syncing data...');
+      try {
+        const aggregateData = await loadJson('/api/v1/developer/dashboard-aggregate');
+
+        dashboardState.health = aggregateData.health || { status: 'Offline', timestamp: new Date().toISOString(), uptime: 0 };
+        dashboardState.metrics = aggregateData.metrics?.metrics || dashboardState.metrics;
+        dashboardState.trend = aggregateData.metrics?.trend || [];
+        dashboardState.logs = aggregateData.logs || [];
+        dashboardState.requests = aggregateData.requests || [];
+        dashboardState.issues = aggregateData.issues || [];
+        dashboardState.overviewData = aggregateData.overviewData || null;
+
+        setAuthStatus('Live Sync Active');
+        
+        if (currentView !== 'overview' && currentView !== 'live-api-monitor') {
+          await loadModuleData(currentView);
+        } else if (currentView === 'live-api-monitor') {
+          await loadModuleData('live-api-monitor');
+        } else {
+          renderPage();
+        }
+      } catch (err) {
+        setAuthStatus('Failed to load real data.', true);
+        renderPage(); 
+      }
+    }
+
+    async function loadModuleData(view) {
+      if (view === 'overview') return; 
+      if (!authToken) return;
+      try {
+        const payload = await loadJson(`/api/v1/developer/modules/${view}`);
+        dashboardState.dynamicModules[view] = payload;
+        renderPage();
+      } catch (e) {
+        console.warn(`No API data for ${view}, falling back to template.`);
+        renderPage();
+      }
+    }
+
+    async function submitTicket(event) {
+      event.preventDefault();
+      const payload = {
+        type: document.getElementById('ticketType').value,
+        title: document.getElementById('ticketTitle').value,
+        severity: document.getElementById('ticketSeverity').value,
+        description: document.getElementById('ticketDescription').value,
+      };
+      try {
+        await loadJson('/api/v1/developer/tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        document.getElementById('ticketForm').reset();
+        alert('Ticket submitted');
+        await loadData();
+      } catch(e) {
+        alert('Failed to submit ticket: ' + e.message);
+      }
+    }
+
+    async function exportReport() {
+      if (!authToken) return;
+      try {
+        const response = await fetch('/api/v1/developer/export', { headers: getAuthHeaders() });
+        if (response.status === 401 || response.status === 403) { expireSession(); return; }
+        if (!response.ok) throw new Error('Export failed');
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url; link.download = 'developer-report.json'; link.click();
+        URL.revokeObjectURL(url);
+      } catch(e) { alert(e.message); }
+    }
+
+    function connectSocket() {
+      if (socket) socket.close();
+      if (!authToken) return;
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      socket = new WebSocket(`${protocol}//${window.location.host}/api/v1/developer/ws?token=${encodeURIComponent(authToken)}`);
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'ticket_created' || data.type === 'metrics_updated') loadData();
+        } catch(e){}
+      };
+    }
+
+    // --- Smart Dynamic Data Extractors ---
+
+    // Safely extract a list of objects or key-value pairs from ANY JSON payload
+    function extractItems(data) {
+      if (!data) return null;
+      if (Array.isArray(data)) return data;
+      
+      const commonListKeys = ['items', 'data', 'logs', 'requests', 'issues', 'collections', 'jobs', 'files', 'events', 'metrics', 'users'];
+      for (let key of commonListKeys) {
+        if (data[key] && Array.isArray(data[key])) return data[key];
+      }
+
+      // If it's a flat object (like server stats or storage info), convert to an array of Key-Value pairs
+      if (typeof data === 'object' && Object.keys(data).length > 0) {
+        return Object.entries(data).map(([key, value]) => ({ 
+          Property: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()), 
+          Value: value 
+        }));
+      }
+
+      return null;
+    }
+
+    function generateDynamicTable(items, emptyMessage = 'No data available.') {
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return `<div class="card"><p class="subtitle" style="text-align:center;">${emptyMessage}</p></div>`;
+      }
+      
+      const keys = Object.keys(items[0]).filter(k => k !== 'id' && k !== '_id').slice(0, 6);
+      
+      let tableHtml = `<div class="card" style="padding: 16px;"><div class="table-container"><table><thead><tr>`;
+      keys.forEach(k => { tableHtml += `<th>${k.replace(/_/g, ' ').toUpperCase()}</th>`; });
+      tableHtml += `</tr></thead><tbody>`;
+      
+      items.forEach(item => {
+        tableHtml += `<tr>`;
+        keys.forEach(k => {
+          let val = item[k];
+          if (val === null || val === undefined) {
+            tableHtml += `<td><span style="opacity:0.4;">-</span></td>`;
+          } else if (typeof val === 'boolean') {
+            tableHtml += `<td><span class="pill ${val ? '' : 'neutral'}">${val ? 'True' : 'False'}</span></td>`;
+          } else if (typeof val === 'object') {
+            tableHtml += `<td><code style="background:var(--bg); padding:4px 8px; border-radius:6px; font-size:0.8rem;">${JSON.stringify(val).substring(0, 25)}...</code></td>`;
+          } else {
+            let strVal = String(val);
+            if (strVal.length > 18 && strVal.includes('T') && strVal.endsWith('Z')) {
+               let date = new Date(strVal);
+               if (!isNaN(date.getTime())) strVal = date.toLocaleString();
+            }
+            // Basic status coloring heuristic
+            let colorCls = '';
+            if (k.toLowerCase() === 'status' || k.toLowerCase() === 'severity') {
+               if (['error', 'high', 'failed', 'critical', 'danger'].includes(strVal.toLowerCase())) colorCls = 'danger';
+               else if (['warn', 'medium', 'queued'].includes(strVal.toLowerCase())) colorCls = 'warn';
+               else colorCls = ''; // green-light
+               tableHtml += `<td><span class="pill ${colorCls}">${strVal}</span></td>`;
+            } else {
+               tableHtml += `<td>${strVal.length > 50 ? strVal.substring(0,50) + '...' : strVal}</td>`;
+            }
+          }
+        });
+        tableHtml += `</tr>`;
+      });
+      
+      tableHtml += `</tbody></table></div></div>`;
+      return tableHtml;
+    }
+
+    // --- View Routing ---
+
+    function getCurrentModule() { return moduleConfig.find(m => m.key === currentView) || moduleConfig[0]; }
+    function getRouteView() {
+      const path = window.location.pathname.replace(/^\/developer-dashboard\/?/, '').split('/')[0];
+      if (!path || path === '') return 'overview';
+      return moduleConfig.some((module) => module.key === path) ? path : 'overview';
+    }
+
+    function navigateTo(view, event, replaceState = false) {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+
+      currentView = view;
+      if (window.innerWidth <= 768) toggleSidebar(); // Close sidebar on mobile navigation
+      
+      renderNav(); 
+      setPageMeta(); 
+      renderPage();
+
+      const routePath = view === 'overview' ? '/developer-dashboard' : `/developer-dashboard/${view}`;
+      if (replaceState) window.history.replaceState({ view }, '', routePath);
+      else window.history.pushState({ view }, '', routePath);
+
+      loadModuleData(view);
+    }
+
+    function renderNav() {
+      const nav = document.getElementById('moduleNav');
+      nav.innerHTML = navGroups.map(group => `
+        <div class="nav-section-title">${group.title}</div>
+        ${group.items.map(item => `
+          <a href="/developer-dashboard/${item.key}" class="nav-item ${currentView === item.key ? 'active' : ''}" onclick="navigateTo('${item.key}', event)">
+            <i class="fa-solid fa-${item.icon}"></i>
+            <span>${item.label}</span>
+          </a>
+        `).join('')}
+      `).join('');
+    }
+
+    function setPageMeta() {
+      const currentModule = getCurrentModule();
+      document.getElementById('pageTitle').textContent = currentModule.title;
+      document.getElementById('pageSubtitle').textContent = currentModule.subtitle;
+      
+      // Cleanup existing charts if any
+      if (window.sysChart) { window.sysChart.destroy(); window.sysChart = null; }
+      if (window.trendChart) { window.trendChart.destroy(); window.trendChart = null; }
+      if (window.storageChart) { window.storageChart.destroy(); window.storageChart = null; }
+      if (window.errorPieChart) { window.errorPieChart.destroy(); window.errorPieChart = null; }
+      if (window.endpointsChart) { window.endpointsChart.destroy(); window.endpointsChart = null; }
+    }
+
+    function renderPageHero(title, subtitle, icon) {
+      return `
+        <div class="page-hero">
+          <div class="page-hero-icon"><i class="fa-solid fa-${icon}"></i></div>
+          <div><h2>${title}</h2><p class="subtitle" style="margin:0;">${subtitle}</p></div>
+        </div>
+      `;
+    }
+
+    function renderLoadingState() {
+      return `<div class="card"><p class="subtitle" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Loading data...</p></div>`;
+    }
+
+    // --- Page Renderers ---
+
+    function renderOverviewPage() {
+      const { health, metrics, logs, issues, overviewData } = dashboardState;
+      const isHealthy = health.status.toLowerCase() === 'ok' || health.status.toLowerCase() === 'healthy';
+
+      let html = `
+        ${renderPageHero('System Overview', 'A high-level look at platform health and usage.', 'chart-pie')}
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-card-inner"><div class="stat-icon"><i class="fa-solid fa-clipboard"></i></div><div class="stat-title">Total Activities</div></div><div class="stat-value">${metrics.totalActivities || 0}</div></div>
+          <div class="stat-card"><div class="stat-card-inner"><div class="stat-icon" style="background:var(--teal);"><i class="fa-solid fa-folder"></i></div><div class="stat-title">Evidence Files</div></div><div class="stat-value">${metrics.evidenceFiles || 0}</div></div>
+          <div class="stat-card" style="background:#D1F0E0;"><div class="stat-card-inner"><div class="stat-icon" style="background:#111827;"><i class="fa-solid fa-cloud-check"></i></div><div class="stat-title">Sync Status</div></div><div class="stat-value">${metrics.syncStatus || '100%'}</div></div>
+          <div class="stat-card" style="background:var(--orange-light);"><div class="stat-card-inner"><div class="stat-icon" style="background:var(--orange);"><i class="fa-solid fa-cart-shopping"></i></div><div class="stat-title">Checkout Status</div></div><div class="stat-value">${metrics.checkoutStatus || 'OK'}</div></div>
+        </div>
+        
+        <div class="content-layout" style="margin-top: 28px;">
+          <div class="main-column">
+            <div class="card">
+              <h2 style="padding:12px;">7-Day Activity Trend</h2>
+              <div style="height: 250px; padding: 0 16px 16px;">
+                <canvas id="overviewTrendCanvas"></canvas>
+              </div>
+            </div>
+            
+            <div class="card" style="padding:16px;">
+              <h2 style="padding:12px;">Recent Audit Logs</h2>
+              <div class="table-container">
+                <table>
+                  <thead><tr><th>Action</th><th>Time</th><th>Details</th></tr></thead>
+                  <tbody>
+                    ${logs.slice(0,6).map(l => `
+                      <tr>
+                        <td><strong>${l.action}</strong></td>
+                        <td style="color:var(--text-muted);">${new Date(l.timestamp).toLocaleString()}</td>
+                        <td><code class="pill neutral" style="max-width:200px; overflow:hidden; text-overflow:ellipsis;">${JSON.stringify(l.details || {}).substring(0, 30)}</code></td>
+                      </tr>
+                    `).join('')}
+                    ${logs.length === 0 ? '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">No recent logs</td></tr>' : ''}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          
+          <div class="right-sidebar">
+            <div class="card highlight-bg">
+              <h2>System Health</h2>
+              <div style="display:flex; align-items:center; gap:12px; background:white; padding:16px; border-radius:16px;">
+                <div style="width:14px; height:14px; border-radius:50%; background:${isHealthy ? 'var(--green)' : '#DC2626'}; box-shadow:0 0 0 4px ${isHealthy ? 'var(--green-light)' : '#FDD3BF'};"></div>
+                <div style="flex:1;">
+                  <strong style="display:block;">${String(health.status).toUpperCase()}</strong>
+                  <span style="font-size:0.8rem; color:var(--text-muted);">Uptime: ${health.uptime}s • Updated: ${new Date(health.timestamp).toLocaleTimeString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="padding:16px;">
+              <h2 style="padding:12px;">Storage Distribution</h2>
+              <div style="height: 200px; padding: 0 16px 16px;">
+                <canvas id="storagePieCanvas"></canvas>
+              </div>
+            </div>
+            
+            
+            <div class="card" style="padding:16px;">
+              <h2 style="padding:12px;">Issues & Feedback</h2>
+              <div class="table-container">
+                <table style="min-width: 100%;">
+                  <thead><tr><th>Category</th><th>Severity</th></tr></thead>
+                  <tbody>
+                    ${issues.slice(0,4).map(iss => `
+                      <tr>
+                        <td><div style="font-weight:600;">${iss.title}</div><div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">${iss.category}</div></td>
+                        <td><span class="pill ${iss.severity === 'high' ? 'danger' : (iss.severity === 'medium' ? 'warn' : '')}">${iss.severity.toUpperCase()}</span></td>
+                      </tr>
+                    `).join('')}
+                    ${issues.length === 0 ? '<tr><td colspan="2" style="text-align:center; color:var(--text-muted);">No issues reported</td></tr>' : ''}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Create Support Ticket</h2>
+              <form id="ticketForm" onsubmit="submitTicket(event)">
+                <div class="form-group"><input id="ticketTitle" placeholder="Title" required></div>
+                <div class="form-group">
+                  <select id="ticketType" required>
+                    <option value="" disabled selected>Category...</option>
+                    <option value="bug_report">Bug Report</option>
+                    <option value="feature_request">Feature Request</option>
+                    <option value="incident">Incident</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <select id="ticketSeverity" required>
+                    <option value="low">Low Priority</option>
+                    <option value="medium" selected>Medium Priority</option>
+                    <option value="high">High Priority</option>
+                  </select>
+                </div>
+                <div class="form-group"><textarea id="ticketDescription" placeholder="Details..." required></textarea></div>
+                <button type="submit" class="btn-primary" style="width:100%;">Submit Ticket <i class="fa-solid fa-paper-plane"></i></button>
+              </form>
+            </div>
+          </div>
+        </div>
+      `;
+
+      setTimeout(() => {
+        if (overviewData && overviewData.chartData) {
+           initOverviewCharts(overviewData.chartData);
+        }
+      }, 50);
+
+      return html;
+    }
+
+    function renderApiMonitorPage() {
+      const dynData = dashboardState.dynamicModules[currentView];
+      if (!dynData) return renderPageHero('Live API Monitor', 'Real-time traffic inspection based on recent requests.', 'network-wired') + renderLoadingState();
+
+      const items = dynData.items || [];
+      let html = `
+        ${renderPageHero('Live API Monitor', 'Real-time traffic inspection based on recent requests.', 'network-wired')}
+        
+        <div class="content-layout" style="margin-bottom: 24px;">
+           <div class="main-column" style="flex: 7;">
+              <div class="card" style="padding:16px;">
+                <h2 style="padding:12px;">Top Endpoints</h2>
+                <div style="height: 250px; padding: 0 16px 16px;">
+                  <canvas id="apiEndpointsCanvas"></canvas>
+                </div>
+              </div>
+           </div>
+           <div class="right-sidebar" style="flex: 3;">
+              <div class="card" style="padding:16px;">
+                <h2 style="padding:12px;">Error Rates</h2>
+                <div style="height: 200px; padding: 0 16px 16px;">
+                  <canvas id="apiErrorsCanvas"></canvas>
+                </div>
+              </div>
+           </div>
+        </div>
+
+        <div class="card" style="padding:16px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:16px; padding:12px;">
+            <h2>Recent Requests</h2>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr><th>Status</th><th>Method</th><th>Endpoint</th><th>Duration</th><th>User</th><th>Tenant</th><th>Device</th></tr>
+              </thead>
+              <tbody>
+                ${items.map(req => `
+                  <tr>
+                    <td><span class="pill ${req.status.toString().startsWith('2') ? '' : 'danger'}">${req.status}</span></td>
+                    <td><strong style="color:var(--green);">${req.method}</strong></td>
+                    <td>${req.endpoint}</td>
+                    <td>${req.duration}</td>
+                    <td>${req.user || '-'}</td>
+                    <td>${req.tenant || '-'}</td>
+                    <td>${req.device || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      setTimeout(() => {
+        if (dynData && dynData.chartData) {
+           initApiCharts(dynData.chartData);
+        }
+      }, 50);
+
+      return html;
+    }
+
+    function renderErrorCenterPage() {
+      const module = getCurrentModule();
+      const dynData = dashboardState.dynamicModules[currentView];
+      let html = renderPageHero(module.title, module.subtitle, module.icon);
+
+      if (!dynData) return html + renderLoadingState();
+
+      const items = extractItems(dynData);
+      if (!items || items.length === 0) return html + `<div class="card"><p class="subtitle" style="text-align:center;">No errors logged.</p></div>`;
+
+      html += `<div class="card" style="padding:16px;">
+        <h2 style="padding:12px;">Reported Errors</h2>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Issue Title</th><th>Endpoint</th><th>User Affected</th><th>Frequency & Time</th></tr></thead>
+            <tbody>
+              ${items.map(err => `
+                <tr>
+                  <td>
+                    <strong style="color: #DC2626;">${err.title || err.type || err.Property || 'Error'}</strong>
+                    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">App: ${err.appVersion || 'N/A'} | Device: ${err.device || 'N/A'}</div>
+                  </td>
+                  <td><code style="background:var(--bg); padding:4px 8px; border-radius:6px; font-size:0.85rem;">${err.endpoint || err.Value || '-'}</code></td>
+                  <td><span class="pill neutral"><i class="fa-solid fa-user" style="margin-right:6px; opacity:0.5;"></i> ${err.user || 'Unknown'}</span></td>
+                  <td>
+                    <div style="margin-bottom:6px;"><span class="pill danger">${err.frequency || err.count || '1x'}</span></div>
+                    <div style="color:var(--text-muted); font-size:0.85rem;">${err.timestamp ? new Date(err.timestamp).toLocaleString() : '-'}</div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+      return html;
+    }
+
+    function renderLogsViewerPage() {
+      const module = getCurrentModule();
+      const dynData = dashboardState.dynamicModules[currentView];
+      let html = renderPageHero(module.title, module.subtitle, module.icon);
+
+      if (!dynData) return html + renderLoadingState();
+
+      const logs = extractItems(dynData) || [];
+      
+      html += `<div class="card" style="padding: 16px;">
+        <div class="terminal">`;
+      
+      if (logs.length === 0) {
+         html += `<div class="term-info">> Waiting for new logs... <i class="fa-solid fa-circle-notch fa-spin"></i></div>`;
+      } else {
+         html += logs.map(l => {
+            let text = typeof l === 'string' ? l : JSON.stringify(l);
+            let cls = 'term-info';
+            if (text.toLowerCase().includes('error') || text.toLowerCase().includes('fail')) cls = 'term-error';
+            else if (text.toLowerCase().includes('warn')) cls = 'term-warn';
+            else if (text.toLowerCase().includes('success') || text.toLowerCase().includes('ok')) cls = 'term-success';
+            return `<div class="${cls}" style="margin-bottom:6px;">${text}</div>`;
+         }).join('');
+      }
+      html += `</div></div>`;
+      return html;
+    }
+
+    function renderMediaManagerPage() {
+      const module = getCurrentModule();
+      const dynData = dashboardState.dynamicModules[currentView];
+      let html = renderPageHero(module.title, module.subtitle, module.icon);
+
+      if (!dynData) return html + renderLoadingState();
+
+      const items = extractItems(dynData);
+      if (!items || items.length === 0) return html + generateDynamicTable(items, 'No media assets found.');
+
+      // If it resembles media objects, try to make a grid
+      const isMedia = items[0].url || items[0].filename || items[0].path;
+      if (isMedia) {
+        html += `<div class="card"><h2>Asset Library</h2><div class="media-grid">`;
+        items.forEach((item, i) => {
+          const name = item.filename || item.name || `File ${i}`;
+          html += `
+            <div class="media-card">
+              <div style="height:80px; background:var(--green-light); border-radius:12px; margin-bottom:12px; display:flex; align-items:center; justify-content:center; font-size:28px; color:var(--green);">
+                <i class="fa-solid fa-${item.type && item.type.includes('image') ? 'image' : 'file'}"></i>
+              </div>
+              <div style="font-size:0.75rem; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${name}</div>
+            </div>`;
+        });
+        html += `</div></div>`;
+        return html;
+      }
+
+      // Fallback
+      return html + generateDynamicTable(items);
+    }
+
+    function renderServerMonitorPage() {
+      const module = getCurrentModule();
+      const dynData = dashboardState.dynamicModules[currentView];
+      let html = renderPageHero(module.title, module.subtitle, module.icon);
+
+      if (!dynData) return html + renderLoadingState();
+
+      const items = extractItems(dynData);
+      
+      html += `
+        <div class="content-layout">
+          <div class="main-column" style="flex: 6;">
+            <div class="card" style="padding:16px;">
+              <h2 style="padding:12px;">Live Hardware Metrics</h2>
+              <div style="height: 250px; padding: 0 16px 16px;">
+                <canvas id="sysChartCanvas"></canvas>
+              </div>
+            </div>
+            
+            <div class="card" style="padding:16px;">
+              <h2 style="padding:12px;">VPS Terminal</h2>
+              <div class="terminal" id="vpsTerminal" style="height: 350px;">
+                <div class="term-info">FieldTrack VPS Terminal v1.0</div>
+                <div style="color:var(--text-muted); margin-bottom: 12px;">Use this console to execute commands directly on the host server.</div>
+                <div id="vpsOutput"></div>
+              </div>
+              <form class="terminal-input-wrapper" onsubmit="executeVpsCommand(event)">
+                <span style="color:var(--green); padding: 8px 0 8px 12px;">root@vps:~#</span>
+                <input type="text" id="vpsInput" placeholder="Enter command..." autocomplete="off">
+                <button type="submit"><i class="fa-solid fa-play"></i></button>
+              </form>
+            </div>
+          </div>
+          
+          <div class="right-sidebar" style="flex: 4;">
+            <div class="card highlight-bg">
+              <h2>Quick Actions</h2>
+              <div style="display:flex; flex-direction:column; gap:12px;">
+                <button class="btn-secondary" style="width:100%; justify-content:flex-start;" onclick="triggerAction('maintenance')">
+                  <i class="fa-solid fa-wrench" style="width:24px;"></i> Toggle Maintenance
+                </button>
+                <button class="btn-secondary" style="width:100%; justify-content:flex-start;" onclick="triggerAction('clear-logs')">
+                  <i class="fa-solid fa-broom" style="width:24px;"></i> Clear Old Logs
+                </button>
+                <button class="btn-secondary" style="width:100%; justify-content:flex-start; color:#DC2626; border-color:#FEE2E2;" onclick="triggerAction('restart')">
+                  <i class="fa-solid fa-power-off" style="width:24px;"></i> Restart Server
+                </button>
+              </div>
+            </div>
+            ${generateDynamicTable(items)}
+          </div>
+        </div>
+      `;
+      
+      // Delay chart initialization until DOM is updated
+      setTimeout(() => {
+        if (dynData.chartData) initSysChart(dynData.chartData);
+      }, 50);
+
+      return html;
+    }
+
+    async function triggerAction(action) {
+      if (!confirm(`Are you sure you want to execute action: ${action}?`)) return;
+      try {
+        const payload = action === 'maintenance' ? { enabled: true } : {};
+        const res = await loadJson(`/api/v1/developer/actions/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        alert(res.message || 'Action executed successfully');
+      } catch(e) {
+        alert('Action failed: ' + e.message);
+      }
+    }
+
+    async function executeVpsCommand(e) {
+      e.preventDefault();
+      const input = document.getElementById('vpsInput');
+      const cmd = input.value.trim();
+      if (!cmd) return;
+      
+      const out = document.getElementById('vpsOutput');
+      out.innerHTML += `<div><span style="color:var(--green);">root@vps:~#</span> ${cmd}</div>`;
+      input.value = '';
+      
+      try {
+        const res = await loadJson('/api/v1/developer/actions/vps-command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: cmd })
+        });
+        if (res.stdout) out.innerHTML += `<div style="white-space:pre-wrap; margin-bottom:8px;">${res.stdout}</div>`;
+        if (res.stderr) out.innerHTML += `<div class="term-error" style="white-space:pre-wrap; margin-bottom:8px;">${res.stderr}</div>`;
+      } catch (err) {
+        out.innerHTML += `<div class="term-error">Error: ${err.message}</div>`;
+      }
+      
+      const term = document.getElementById('vpsTerminal');
+      term.scrollTop = term.scrollHeight;
+    }
+
+    // Chart.js initialization
+    window.sysChart = null;
+    function initSysChart(data) {
+      const ctx = document.getElementById('sysChartCanvas');
+      if (!ctx) return;
+      window.sysChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['CPU Load (%)', 'Memory Used (%)'],
+          datasets: [{ label: 'System Load', data: [data.cpuLoad * 10, data.memUsed], backgroundColor: ['rgba(66, 179, 176, 0.7)', 'rgba(249, 115, 22, 0.7)'], borderRadius: 8 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100 } } }
+      });
+    }
+
+    window.trendChart = null;
+    window.storageChart = null;
+    function initOverviewCharts(data) {
+      const trendCtx = document.getElementById('overviewTrendCanvas');
+      if (trendCtx) {
+        window.trendChart = new Chart(trendCtx, {
+          type: 'line',
+          data: {
+            labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Today'],
+            datasets: [{ label: 'Auditable Events', data: data.activityTrend, borderColor: '#42B3B0', tension: 0.3, fill: true, backgroundColor: 'rgba(66, 179, 176, 0.1)' }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+      const storageCtx = document.getElementById('storagePieCanvas');
+      if (storageCtx) {
+        window.storageChart = new Chart(storageCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Media/Evidence (MB)', 'PostgreSQL Data (MB)'],
+            datasets: [{ data: data.storageSizes, backgroundColor: ['#F97316', '#42B3B0'] }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+    }
+
+    window.errorPieChart = null;
+    window.endpointsChart = null;
+    function initApiCharts(data) {
+      const endpointsCtx = document.getElementById('apiEndpointsCanvas');
+      if (endpointsCtx) {
+        window.endpointsChart = new Chart(endpointsCtx, {
+          type: 'bar',
+          data: {
+            labels: data.endpoints.labels,
+            datasets: [{ label: 'Hits', data: data.endpoints.data, backgroundColor: '#42B3B0', borderRadius: 6 }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+      const errCtx = document.getElementById('apiErrorsCanvas');
+      if (errCtx) {
+        window.errorPieChart = new Chart(errCtx, {
+          type: 'pie',
+          data: {
+            labels: ['Errors', 'Success'],
+            datasets: [{ data: data.errorRates, backgroundColor: ['#DC2626', '#10B981'] }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+    }
+
+    function renderSecurityCenterPage() {
+      const module = getCurrentModule();
+      const dynData = dashboardState.dynamicModules[currentView];
+      let html = renderPageHero(module.title, module.subtitle, module.icon);
+
+      if (!dynData) return html + renderLoadingState();
+
+      const items = extractItems(dynData);
+      
+      html += `
+        <div class="content-layout">
+          <div class="main-column" style="flex: 7;">
+            ${generateDynamicTable(items)}
+          </div>
+          <div class="right-sidebar" style="flex: 3;">
+            <div class="card highlight-bg">
+              <h2>Security Actions</h2>
+              <div style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">
+                <button class="btn-secondary" style="width:100%; justify-content:flex-start; color:#DC2626; border-color:#FEE2E2;" onclick="triggerAction('security-revoke')">
+                  <i class="fa-solid fa-user-shield" style="width:24px;"></i> Revoke All Sessions
+                </button>
+                <button class="btn-secondary" style="width:100%; justify-content:flex-start; color:#DC2626; border-color:#FEE2E2;" onclick="triggerAction('security-lock')">
+                  <i class="fa-solid fa-lock" style="width:24px;"></i> Lock Suspicious Accounts
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      return html;
+    }
+
+    function renderBackgroundJobsPage() {
+      const module = getCurrentModule();
+      const dynData = dashboardState.dynamicModules[currentView];
+      let html = renderPageHero(module.title, module.subtitle, module.icon);
+
+      if (!dynData) return html + renderLoadingState();
+
+      const items = extractItems(dynData);
+      
+      html += `
+        <div class="content-layout">
+          <div class="main-column" style="flex: 7;">
+            ${generateDynamicTable(items)}
+          </div>
+          <div class="right-sidebar" style="flex: 3;">
+            <div class="card highlight-bg">
+              <h2>Job Controls</h2>
+              <div style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">
+                <button class="btn-secondary" style="width:100%; justify-content:flex-start;" onclick="triggerAction('jobs-clear')">
+                  <i class="fa-solid fa-trash-can" style="width:24px;"></i> Clear Failed Uploads
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      return html;
+    }
+
+    // --- The Master Automatic Data Mapper ---
+    // Safely handles ALL other pages (Database, Feature Flags, Maintenance Mode, Server Monitor, Background Jobs, API Console, Storage Analytics)
+    function renderGenericMappedPage() {
+      const module = getCurrentModule();
+      const dynData = dashboardState.dynamicModules[currentView];
+      
+      let html = renderPageHero(module.title, module.subtitle, module.icon);
+      if (!dynData) return html + renderLoadingState();
+
+      const itemsArray = extractItems(dynData);
+      
+      if (itemsArray && itemsArray.length > 0) {
+        html += `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h2>Data Viewer</h2>
+            <span class="pill"><i class="fa-solid fa-table" style="margin-right:6px;"></i> Auto-Mapped</span>
+          </div>
+          ${generateDynamicTable(itemsArray, 'No records found.')}
+        `;
+        return html;
+      }
+
+      // Absolute last resort fallback (Empty object or totally unrecognizable structure)
+      html += `
+        <div class="card" style="margin-top:24px;">
+          <h2>API Payload Response <span class="pill warn" style="float:right; font-size:0.7rem;">Raw</span></h2>
+          <pre style="background:var(--bg); padding:16px; border-radius:12px; overflow-x:auto; font-size:0.85rem; color:var(--text-dark);">${JSON.stringify(dynData, null, 2)}</pre>
+        </div>
+      `;
+      return html;
+    }
+
+    async function toggleFeatureFlag(key, currentStatus) {
+      try {
+        await loadJson(`/api/v1/developer/actions/feature-flags/${key}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: currentStatus !== 'ON' })
+        });
+        await loadModuleData('feature-flags');
+      } catch (err) {
+        alert('Failed to toggle flag: ' + err.message);
+      }
+    }
+
+    function renderFeatureFlagsPage() {
+      const module = getCurrentModule();
+      const dynData = dashboardState.dynamicModules[currentView];
+      let html = renderPageHero(module.title, module.subtitle, module.icon);
+      
+      if (!dynData) return html + renderLoadingState();
+      
+      html += `<div class="card" style="padding:16px;">
+        <h2 style="padding:12px;">Active Modules</h2>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Feature</th><th>Description</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+              ${(dynData.cards || []).map(f => `
+                <tr>
+                  <td><strong>${f.title}</strong></td>
+                  <td>${f.detail}</td>
+                  <td><span class="pill ${f.status === 'ON' ? 'green' : 'neutral'}">${f.status}</span></td>
+                  <td>
+                    <button class="btn-secondary" onclick="toggleFeatureFlag('${encodeURIComponent(f.title)}', '${f.status}')">
+                      ${f.status === 'ON' ? 'Disable' : 'Enable'}
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+      return html;
+    }
+
+    async function executeDbAction(category, key, id, action) {
+      if (!confirm(`Are you sure you want to ${action} ${key}?`)) return;
+      try {
+        await loadJson('/api/v1/developer/actions/database', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category, key, id, action })
+        });
+        alert(`${action} successful on ${key}`);
+        await loadModuleData('database-explorer');
+      } catch (err) {
+        alert('Database action failed: ' + err.message);
+      }
+    }
+
+    function renderDatabaseExplorerPage() {
+      const module = getCurrentModule();
+      const dynData = dashboardState.dynamicModules[currentView];
+      let html = renderPageHero(module.title, module.subtitle, module.icon);
+      
+      if (!dynData) return html + renderLoadingState();
+      
+      const rows = dynData.rows || [];
+      html += `<div class="card" style="padding:16px;">
+        <h2 style="padding:12px;">Recent Database Records</h2>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Category</th><th>Identifier</th><th>Status</th><th>Timestamp</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td><strong>${r.category}</strong></td>
+                  <td>${r.key}</td>
+                  <td><span class="pill">${r.status || 'Active'}</span></td>
+                  <td>${new Date(r.timestamp).toLocaleString()}</td>
+                  <td>
+                    <button class="btn-secondary" style="color:var(--orange);" onclick="executeDbAction('${r.category}', '${r.key}', '${r.id}', 'suspend')">Suspend</button>
+                    <button class="btn-secondary" style="color:#DC2626;" onclick="executeDbAction('${r.category}', '${r.key}', '${r.id}', 'delete')">Delete</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+      return html;
+    }
+
+    function renderPage() {
+      const container = document.getElementById('pageContent');
+      switch (currentView) {
+        case 'overview': container.innerHTML = renderOverviewPage(); break;
+        case 'live-api-monitor': container.innerHTML = renderApiMonitorPage(); break;
+        case 'error-center': container.innerHTML = renderErrorCenterPage(); break;
+        case 'logs-viewer': container.innerHTML = renderLogsViewerPage(); break;
+        case 'media-manager': container.innerHTML = renderMediaManagerPage(); break;
+        case 'server-monitor': container.innerHTML = renderServerMonitorPage(); break;
+        case 'security-center': container.innerHTML = renderSecurityCenterPage(); break;
+        case 'background-jobs': container.innerHTML = renderBackgroundJobsPage(); break;
+        case 'feature-flags': container.innerHTML = renderFeatureFlagsPage(); break;
+        case 'database-explorer': container.innerHTML = renderDatabaseExplorerPage(); break;
+        default: container.innerHTML = renderGenericMappedPage(); break;
+      }
+    }
+
+    // --- Init ---
+    function init() {
+      renderAuthUI();
+      if (authToken) {
+        setAuthStatus('Starting session...');
+        connectSocket();
+
+        currentView = getRouteView();
+        renderNav();
+        setPageMeta();
+        renderPage();
+        
+        window.history.replaceState({ view: currentView }, '', currentView === 'overview' ? '/developer-dashboard' : `/developer-dashboard/${currentView}`);
+
+        loadData(); 
+      }
+    }
+
+    window.addEventListener('popstate', (event) => {
+      const view = event.state?.view || getRouteView();
+      navigateTo(view, undefined, true);
+    });
+
+    init();
+  </script>
+</body>
+</html>

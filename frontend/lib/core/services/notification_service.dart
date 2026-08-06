@@ -72,10 +72,12 @@ class NotificationService {
         );
 
         const AndroidNotificationChannel channel = AndroidNotificationChannel(
-          'high_importance_channel',
-          'High Importance Notifications',
-          description: 'This channel is used for important notifications.',
+          'high_importance_channel_v2',
+          'Urgent Alerts',
+          description: 'This channel is used for high priority alerts that vibrate and ring.',
           importance: Importance.max,
+          enableVibration: true,
+          playSound: true,
         );
 
         await _localNotificationsPlugin
@@ -109,6 +111,8 @@ class NotificationService {
                   icon: android.smallIcon ?? '@mipmap/ic_launcher',
                   importance: Importance.max,
                   priority: Priority.high,
+                  enableVibration: true,
+                  playSound: true,
                 ),
               ),
             );
@@ -125,6 +129,8 @@ class NotificationService {
                   icon: '@mipmap/ic_launcher',
                   importance: Importance.max,
                   priority: Priority.high,
+                  enableVibration: true,
+                  playSound: true,
                 ),
               ),
             );

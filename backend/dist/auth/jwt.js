@@ -13,11 +13,17 @@ export function generateRefreshToken(payload) {
     return jwt.sign(payload, jwtSecret, { expiresIn: REFRESH_EXPIRES_IN });
 }
 export function verifyToken(token) {
-    const decoded = jwt.verify(token, jwtSecret);
+    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] });
+    if (typeof decoded.userId !== 'string' || decoded.userId.trim().length === 0) {
+        throw new Error('Invalid token payload: missing userId');
+    }
+    if (typeof decoded.role !== 'string' || decoded.role.trim().length === 0) {
+        throw new Error('Invalid token payload: missing role');
+    }
     return {
-        userId: decoded.userId ?? '',
-        role: decoded.role ?? 'USER',
-        email: decoded.email,
-        permissions: decoded.permissions,
+        userId: decoded.userId,
+        role: decoded.role,
+        email: typeof decoded.email === 'string' ? decoded.email : undefined,
+        permissions: Array.isArray(decoded.permissions) ? decoded.permissions.filter((value) => typeof value === 'string') : undefined,
     };
 }

@@ -1,11 +1,12 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import { appLogger } from './utils/logger.js';
 import { prisma } from './db.js';
-import { verifyToken } from './auth/jwt.js';
+import { authenticate } from './auth/auth.middleware.js';
 import authRoutes from './auth/auth.routes.js';
 import adminRoutes from './admins/admins.routes.js';
 import dashboardRoutes from './dashboard/dashboard.routes.js';
@@ -16,6 +17,8 @@ import notificationRoutes from './notifications/notification.routes.js';
 import reviewRoutes from './reviews/review.routes.js';
 import reportRoutes from './reports/reports.routes.js';
 import settingsRoutes from './settings/settings.routes.js';
+import developerRoutes from './developer/developer.routes.js';
+import { initializeDashboardSocket } from './developer/dashboard_events.js';
 import { startScheduler } from './background/scheduler.js';
 import { initFirebaseAdmin } from './firebase_admin.js';
 const app = express();
@@ -47,9 +50,9 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             baseUri: ["'self'"],
             objectSrc: ["'none'"],
-            scriptSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
             scriptSrcAttr: ["'none'"],
-            styleSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", 'data:'],
             fontSrc: ["'self'"],
             connectSrc: ["'self'"],
@@ -101,47 +104,22 @@ const globalLimiter = rateLimit({
     message: 'Too many requests from this IP, please try again after 15 minutes',
 });
 app.use('/api', globalLimiter);
-// Public FCM token endpoint (no authentication required)
-app.put('/api/v1/fcm-token', async (req, res) => {
+app.put('/api/v1/fcm-token', authenticate, async (req, res) => {
     try {
-        console.log('[FCM] Received FCM token sync request from', req.ip);
         const { fcmToken } = req.body;
-        if (!fcmToken) {
-            console.log('[FCM] No FCM token provided in request');
+        const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        if (typeof fcmToken !== 'string' || fcmToken.trim().length === 0) {
             return res.status(400).json({ error: 'FCM token is required' });
         }
-        console.log('[FCM] FCM token received:', fcmToken.substring(0, 20) + '...');
-        // Check if user is authenticated via JWT token
-        const authHeader = req.headers.authorization;
-        let linked = false;
-        if (authHeader) {
-            const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-            if (token) {
-                try {
-                    const decoded = verifyToken(token);
-                    // Update user's FCM token in database
-                    await prisma.user.update({
-                        where: { id: decoded.userId },
-                        data: { fcmToken },
-                    });
-                    linked = true;
-                    appLogger.info(`FCM token updated for user ${decoded.userId}`);
-                }
-                catch (jwtErr) {
-                    // Invalid/expired JWT - token cannot be linked to a user
-                    appLogger.warn('Invalid JWT for FCM token registration, token NOT linked to user', {
-                        error: jwtErr.message,
-                    });
-                }
-            }
-            else {
-                appLogger.warn('Empty Bearer token received for FCM token registration');
-            }
-        }
-        else {
-            appLogger.info('FCM token received without auth header - token NOT linked to any user');
-        }
-        res.json({ success: true, linked, message: linked ? 'FCM token linked to user' : 'FCM token received but not linked to user (no valid auth)' });
+        await prisma.user.update({
+            where: { id: userId },
+            data: { fcmToken: fcmToken.trim() },
+        });
+        appLogger.info('FCM token updated', { userId });
+        res.json({ success: true, linked: true, message: 'FCM token linked to user' });
     }
     catch (error) {
         appLogger.error('Error updating FCM token:', error);
@@ -158,9 +136,19 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/settings', settingsRoutes);
+app.use('/api/v1/developer', developerRoutes);
 // ── Health Check ──
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
+});
+app.get('/developer-dashboard', authenticate, async (req, res) => {
+    if (req.user?.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Access denied.' });
+    }
+    res.sendFile(path.resolve(process.cwd(), 'src/developer/developer.html'));
+});
+app.get('/developer-login', (_req, res) => {
+    res.sendFile(path.resolve(process.cwd(), 'src/developer/developer-login.html'));
 });
 app.use((req, res) => {
     res.status(404).json({
@@ -214,7 +202,7 @@ app.use('/storage', express.static(BASE_STORAGE_DIR, {
         res.set('Cache-Control', 'public, max-age=2592000, immutable');
     }
 }));
-import { authenticate, authorizeRole } from './auth/auth.middleware.js';
+import { authorizeRole } from './auth/auth.middleware.js';
 // ── Supervisor Routes ──
 app.get('/api/v1/supervisor/dashboard/stats', authenticate, authorizeRole(['SUPERVISOR', 'ADMIN']), async (req, res) => {
     try {
@@ -498,9 +486,10 @@ ensureEnvAdminAccount()
     .then(async () => {
     await initFirebaseAdmin();
     startScheduler();
-    app.listen(Number(port), '0.0.0.0', () => {
+    const server = app.listen(Number(port), '0.0.0.0', () => {
         console.log(`[server]: Unified Server is running at http://0.0.0.0:${port}`);
     });
+    initializeDashboardSocket(server);
 })
     .catch((error) => {
     console.error('Failed to ensure admin account from env:', error);

@@ -30,7 +30,7 @@ class AppConstants {
 
     try {
       if (defaultTargetPlatform == TargetPlatform.android) {
-        return 'http://192.168.18.5:3000/api/v1';
+        return 'http://192.168.18.4:3000/api/v1';
       }
     } catch (_) {}
 

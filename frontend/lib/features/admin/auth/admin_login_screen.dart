@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../main_admin.dart';
 import '../../../core/providers/auth_provider.dart';
 
@@ -18,6 +19,24 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
   final _pwController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberMe();
+  }
+
+  Future<void> _loadRememberMe() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getString('saved_admin_identifier');
+    if (savedId != null && savedId.isNotEmpty) {
+      setState(() {
+        _emailController.text = savedId;
+        _rememberMe = true;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -38,6 +57,13 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       if (!mounted) return;
 
       if (success) {
+        final prefs = await SharedPreferences.getInstance();
+        if (_rememberMe) {
+          await prefs.setString('saved_admin_identifier', _emailController.text.trim());
+        } else {
+          await prefs.remove('saved_admin_identifier');
+        }
+
         final user = ref.read(authProvider).user;
         if (user?.role == 'ADMIN') {
           context.go('/admin/dashboard');
@@ -360,26 +386,57 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // --- Forgot Password ---
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => context.push('/admin/forgot-password'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: greenColor,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  // --- Options Row (Remember me & Forgot Password) ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: Checkbox(
+                              value: _rememberMe,
+                              activeColor: greenColor,
+                              onChanged: (value) {
+                                setState(() {
+                                  _rememberMe = value ?? false;
+                                });
+                              },
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Remember me',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 14,
+                              color: Color(0xFF4B5563),
+                            ),
+                          ),
+                        ],
                       ),
-                      child: const Text(
-                        'Forgot Password?',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                      TextButton(
+                        onPressed: () => context.push('/admin/forgot-password'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: greenColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'Forgot Password?',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                   
                   const SizedBox(height: 32),

@@ -21,10 +21,23 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   // State variables for our tabs and loading skeleton
   int _selectedFilterIndex = 0;
   final List<String> _filters = ['All', 'Today', 'Drafts', 'Submitted', 'Needs Revision'];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.trim().toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   // Simulating a network delay to show the skeleton loader
@@ -86,6 +99,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: TextField(
+        controller: _searchController,
         decoration: InputDecoration(
           filled: true,
           fillColor: Colors.white,
@@ -189,6 +203,14 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
         // Apply filter based on _selectedFilterIndex
         // 0: 'All', 1: 'Today', 2: 'Drafts', 3: 'Submitted', 4: 'Needs Revision'
         final filteredActivities = activities.where((activity) {
+          if (_searchQuery.isNotEmpty) {
+            final title = (activity['title'] as String?)?.toLowerCase() ?? '';
+            final description = (activity['description'] as String?)?.toLowerCase() ?? '';
+            if (!title.contains(_searchQuery) && !description.contains(_searchQuery)) {
+              return false;
+            }
+          }
+
           if (_selectedFilterIndex == 0) return true;
           
           final status = activity['status'] ?? '';

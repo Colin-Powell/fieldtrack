@@ -1,6 +1,9 @@
 import admin from 'firebase-admin';
+import { cert } from 'firebase-admin/app';
 
-export const firebaseAdmin = admin;
+export const firebaseAdmin = admin as any;
+
+export const getStorageBucket = () => firebaseAdmin.storage().bucket();
 
 function normalizeServiceAccountJson(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -16,7 +19,8 @@ function normalizeServiceAccountJson(value: string | undefined): string | undefi
 }
 
 export async function initFirebaseAdmin() {
-  if (firebaseAdmin.apps.length > 0) {
+  const existingApps = Array.isArray(firebaseAdmin.apps) ? firebaseAdmin.apps : [];
+  if (existingApps.length > 0) {
     return;
   }
 
@@ -24,12 +28,14 @@ export async function initFirebaseAdmin() {
     process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
   );
   const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
 
   if (rawServiceAccountJson) {
     try {
       const serviceAccount = JSON.parse(rawServiceAccountJson);
       firebaseAdmin.initializeApp({
-        credential: firebaseAdmin.credential.cert(serviceAccount),
+        credential: cert(serviceAccount),
+        storageBucket,
       });
       console.log('Firebase Admin initialized using service account JSON from env.');
       return;
@@ -40,8 +46,24 @@ export async function initFirebaseAdmin() {
   }
 
   if (credentialsPath) {
+    try {
+      const fs = await import('fs');
+      if (fs.existsSync(credentialsPath)) {
+        const serviceAccount = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+        firebaseAdmin.initializeApp({
+          credential: cert(serviceAccount),
+          storageBucket,
+        });
+        console.log('Firebase Admin initialized using GOOGLE_APPLICATION_CREDENTIALS explicit cert.');
+        return;
+      }
+    } catch (e) {
+      console.warn('Failed to explicitly load GOOGLE_APPLICATION_CREDENTIALS cert:', e);
+    }
+    
+    // Fallback
     firebaseAdmin.initializeApp();
-    console.log('Firebase Admin initialized using GOOGLE_APPLICATION_CREDENTIALS.');
+    console.log('Firebase Admin initialized using GOOGLE_APPLICATION_CREDENTIALS implicit.');
     return;
   }
 
