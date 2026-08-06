@@ -75,6 +75,7 @@ class ActivityService {
     required double latitude,
     required double longitude,
     required double gpsAccuracy,
+    required String evidenceType,
   }) async {
     try {
       final file = File(filePath);
@@ -91,6 +92,7 @@ class ActivityService {
         'gpsLongitude': longitude.toString(),
         'gpsAccuracy': gpsAccuracy.toString(),
         'capturedAt': DateTime.now().toIso8601String(),
+        'evidenceType': evidenceType,
         'file': await MultipartFile.fromFile(
           file.path,
           filename: fileName,

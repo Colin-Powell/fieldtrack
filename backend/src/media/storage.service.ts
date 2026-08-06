@@ -46,14 +46,29 @@ export class StorageService {
     gpsLatitude?: number, 
     gpsLongitude?: number, 
     gpsAccuracy?: number,
-    capturedAt?: Date
+    capturedAt?: Date,
+    evidenceType?: string
   ) {
     const date = new Date();
     
-    // Determine category
+    // Determine category based on explicitly passed evidenceType
     let category: 'images' | 'videos' | 'documents' = 'documents';
-    if (file.mimetype.startsWith('image/')) category = 'images';
-    else if (file.mimetype.startsWith('video/')) category = 'videos';
+    
+    if (evidenceType === 'photo') {
+      category = 'images';
+      file.mimetype = 'image/jpeg';
+    } else if (evidenceType === 'video') {
+      category = 'videos';
+      file.mimetype = 'video/mp4';
+    } else if (evidenceType === 'voice') {
+      category = 'videos'; // Supervisor ui groups voice notes with videos or documents, wait... UI says audios.isNotEmpty
+      file.mimetype = 'audio/mp4';
+    } else {
+      // Fallback
+      if (file.mimetype.startsWith('image/')) category = 'images';
+      else if (file.mimetype.startsWith('video/')) category = 'videos';
+      else if (file.mimetype.startsWith('audio/')) category = 'videos'; // Voice notes
+    }
 
     const relDir = this.getRelativeStoragePath(date, category);
     

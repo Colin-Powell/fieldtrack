@@ -1090,9 +1090,17 @@ class _SupervisorEvidenceScreenState
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(24),
-                        child: AspectRatio(
-                          aspectRatio: snapshot.data!.value.aspectRatio,
-                          child: VideoPlayer(snapshot.data!),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxHeight: 600,
+                            maxWidth: 800,
+                          ),
+                          child: Center(
+                            child: AspectRatio(
+                              aspectRatio: snapshot.data!.value.aspectRatio,
+                              child: VideoPlayer(snapshot.data!),
+                            ),
+                          ),
                         ),
                       ),
                       Positioned(

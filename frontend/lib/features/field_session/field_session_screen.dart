@@ -527,6 +527,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   }
 
   Future<void> _submitActivity() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
 
     try {
@@ -579,6 +580,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           latitude: locationState.latitude,
           longitude: locationState.longitude,
           gpsAccuracy: locationState.accuracy,
+          evidenceType: item.type.name,
         );
       }
 
@@ -587,6 +589,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         activityId: activityId,
         studentId: user.id,
       );
+
+      // Invalidate the cache so the activities list refreshes when the user returns
+      ref.invalidate(studentActivitiesProvider);
 
       if (mounted) {
         setState(() {
@@ -605,6 +610,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   }
 
   Future<void> _saveDraft() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
 
     try {
@@ -651,6 +657,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           latitude: locationState.latitude,
           longitude: locationState.longitude,
           gpsAccuracy: locationState.accuracy,
+          evidenceType: item.type.name,
         );
       }
 

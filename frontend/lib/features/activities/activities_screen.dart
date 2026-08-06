@@ -50,15 +50,24 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
         children: [
           // Main Scrollable Content
           SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 100),
-              child: Column(
-                children: [
-                  _buildHeaderTitle(),
-                  _buildSearchBar(),
-                  _buildFilters(),
-                  _buildContent(), // Displays Loading, Empty State, or List
-                ],
+            child: RefreshIndicator(
+              color: const Color(0xFF1BA654),
+              onRefresh: () async {
+                ref.invalidate(studentActivitiesProvider);
+                // Wait for the new provider state to settle
+                await ref.read(studentActivitiesProvider.future);
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 100),
+                child: Column(
+                  children: [
+                    _buildHeaderTitle(),
+                    _buildSearchBar(),
+                    _buildFilters(),
+                    _buildContent(), // Displays Loading, Empty State, or List
+                  ],
+                ),
               ),
             ),
           ),
