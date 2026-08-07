@@ -32,17 +32,23 @@ enum LogStep { general, evidence, review, success, error }
 
 enum EvidenceType { photo, video, voice, document }
 
+enum UploadStatus { pending, uploading, success, failed }
+
 class _EvidenceItem {
   final EvidenceType type;
   final String path;
   final String name;
   final Duration? duration;
+  UploadStatus uploadStatus;
+  String? storageUrl;
 
   _EvidenceItem({
     required this.type,
     required this.path,
     required this.name,
     this.duration,
+    this.uploadStatus = UploadStatus.pending,
+    this.storageUrl,
   });
 }
 
@@ -63,6 +69,10 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   Duration _voicePosition = Duration.zero;
   Duration _voiceDuration = Duration.zero;
 
+  // New states for background uploads
+  String? _draftActivityId;
+  bool _isCreatingDraft = false;
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +86,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
 
     if (widget.activityId != null) {
       _loadActivityDetails();
+    } else {
+      _ensureDraftActivity();
     }
 
     // Location is now handled by the shared locationProvider (Riverpod)
@@ -119,6 +131,47 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<String?> _ensureDraftActivity() async {
+    if (_draftActivityId != null) return _draftActivityId;
+    if (widget.activityId != null) {
+      _draftActivityId = widget.activityId;
+      return _draftActivityId;
+    }
+    if (_isCreatingDraft) {
+      while (_isCreatingDraft) {
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      return _draftActivityId;
+    }
+    
+    _isCreatingDraft = true;
+    try {
+      final user = ref.read(authProvider).user;
+      final locationState = ref.read(locationProvider);
+      if (user == null) return null;
+
+      final activityService = ref.read(activityServiceProvider);
+      final draftRes = await activityService.createDraftActivity(
+        studentId: user.id,
+        title: _titleController.text.isNotEmpty ? _titleController.text : 'Draft Activity',
+        description: _descController.text,
+        methodology: _methodController.text,
+        latitude: locationState.latitude != 0 ? locationState.latitude : 0.0,
+        longitude: locationState.longitude != 0 ? locationState.longitude : 0.0,
+        gpsAccuracy: locationState.accuracy != 0 ? locationState.accuracy : 0.0,
+      );
+
+      if (draftRes is Success) {
+        _draftActivityId = (draftRes as Success).data['id'];
+      }
+    } catch (e) {
+      debugPrint('Failed to create draft: $e');
+    } finally {
+      _isCreatingDraft = false;
+    }
+    return _draftActivityId;
   }
 
   @override
@@ -245,8 +298,55 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
 
   void _addEvidenceItem(_EvidenceItem item) {
     setState(() {
+      item.uploadStatus = UploadStatus.uploading;
       _evidenceItems.add(item);
     });
+    _uploadEvidenceInBackground(item);
+  }
+
+  Future<void> _uploadEvidenceInBackground(_EvidenceItem item) async {
+    try {
+      final user = ref.read(authProvider).user;
+      final locationState = ref.read(locationProvider);
+      if (user == null) {
+        if (mounted) setState(() => item.uploadStatus = UploadStatus.failed);
+        return;
+      }
+
+      final activityId = await _ensureDraftActivity();
+      if (activityId == null) {
+        if (mounted) setState(() => item.uploadStatus = UploadStatus.failed);
+        return;
+      }
+
+      final activityService = ref.read(activityServiceProvider);
+      final result = await activityService.uploadEvidence(
+        activityId: activityId,
+        uploaderId: user.id,
+        filePath: item.path,
+        latitude: locationState.latitude != 0 ? locationState.latitude : 0.0,
+        longitude: locationState.longitude != 0 ? locationState.longitude : 0.0,
+        gpsAccuracy: locationState.accuracy != 0 ? locationState.accuracy : 0.0,
+        evidenceType: item.type.name,
+      );
+
+      if (mounted) {
+        setState(() {
+          if (result is Success) {
+            item.uploadStatus = UploadStatus.success;
+            item.storageUrl = (result as Success).data['storagePath'];
+          } else {
+            item.uploadStatus = UploadStatus.failed;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          item.uploadStatus = UploadStatus.failed;
+        });
+      }
+    }
   }
 
   void _removeEvidenceItem(_EvidenceItem item) {
@@ -571,17 +671,19 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         activityId = draftData['id'];
       }
 
-      // 2. Upload Evidence (Ideally only upload new ones, but for now we upload all items that are new)
-      for (final item in _evidenceItems) {
-        await activityService.uploadEvidence(
-          activityId: activityId,
-          uploaderId: user.id,
-          filePath: item.path,
-          latitude: locationState.latitude,
-          longitude: locationState.longitude,
-          gpsAccuracy: locationState.accuracy,
-          evidenceType: item.type.name,
-        );
+      // 2. Background uploads are already handling evidence!
+      // We just need to check if any are still pending/uploading, or failed.
+      final isUploading = _evidenceItems.any((e) => e.uploadStatus == UploadStatus.uploading);
+      if (isUploading) {
+        // Wait for uploads to complete
+        while (_evidenceItems.any((e) => e.uploadStatus == UploadStatus.uploading)) {
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+      }
+
+      final hasFailedUploads = _evidenceItems.any((e) => e.uploadStatus == UploadStatus.failed);
+      if (hasFailedUploads) {
+        throw Exception('Some evidence items failed to upload. Please remove them and try again.');
       }
 
       // 3. Submit Activity
@@ -1359,18 +1461,24 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           child: GestureDetector(
             onTap: () => _removeEvidenceItem(item),
             child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.black54,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 PhosphorIconsBold.x,
                 color: Colors.white,
-                size: 12,
+                size: 14,
               ),
             ),
           ),
+        ),
+        // Upload Status Indicator
+        Positioned(
+          bottom: 6,
+          right: 6,
+          child: _buildUploadStatusIndicator(item),
         ),
       ],
     );
@@ -1418,7 +1526,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  '1.2 MB', // Hardcoded mock to match Figma look, you can derive actual size using File(item.path).lengthSync() if needed
+                  '1.2 MB',
                   style: TextStyle(
                     fontFamily: 'Roboto',
                     fontSize: 12,
@@ -1429,6 +1537,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
               ],
             ),
           ),
+          _buildUploadStatusIndicator(item),
           IconButton(
             icon: const Icon(
               PhosphorIconsRegular.x,
@@ -1519,6 +1628,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 ),
               ),
               const SizedBox(width: 12),
+              _buildUploadStatusIndicator(item),
               GestureDetector(
                 onTap: () {
                   if (_playingVoicePath == item.path) {
@@ -1591,6 +1701,56 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
       ),
     );
   }
+
+  // --- WIDGET BUILDERS ---
+
+  Widget _buildUploadStatusIndicator(_EvidenceItem item) {
+    if (item.uploadStatus == UploadStatus.uploading) {
+      return Container(
+        padding: const EdgeInsets.all(4),
+        decoration: const BoxDecoration(
+          color: Colors.black54,
+          shape: BoxShape.circle,
+        ),
+        child: const SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+      );
+    } else if (item.uploadStatus == UploadStatus.success) {
+      return Container(
+        padding: const EdgeInsets.all(4),
+        decoration: const BoxDecoration(
+          color: Colors.green,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          PhosphorIconsBold.check,
+          color: Colors.white,
+          size: 14,
+        ),
+      );
+    } else if (item.uploadStatus == UploadStatus.failed) {
+      return Container(
+        padding: const EdgeInsets.all(4),
+        decoration: const BoxDecoration(
+          color: Colors.red,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          PhosphorIconsBold.warning,
+          color: Colors.white,
+          size: 14,
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
 
   // --- STEP 3: REVIEW & SUBMIT ---
   Widget _buildStep3Review() {
