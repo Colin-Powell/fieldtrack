@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -56,11 +56,33 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   Future<void> _resetPassword() async {
+    final passController = TextEditingController();
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Reset Password', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to reset this user\'s password?', style: TextStyle(fontFamily: 'Poppins')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to reset this user\'s password?', style: TextStyle(fontFamily: 'Poppins')),
+            const SizedBox(height: 16),
+            const Text('Custom Password (Optional):', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 12)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: passController,
+              decoration: InputDecoration(
+                hintText: 'Leave blank to auto-generate',
+                hintStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 14, color: _C.textMuted),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.border)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _C.green)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel', style: TextStyle(color: _C.textMuted))),
@@ -69,11 +91,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       ),
     );
 
-    if (confirm != true) return;
+    if (confirm != true) {
+      passController.dispose();
+      return;
+    }
+
+    final newPassword = passController.text.trim();
+    passController.dispose();
 
     try {
       final apiClient = ApiClient();
-      final response = await apiClient.dio.post('/admin/users/${widget.userId}/reset-password');
+      final response = await apiClient.dio.post(
+        '/admin/users/${widget.userId}/reset-password',
+        data: newPassword.isNotEmpty ? {'newPassword': newPassword} : {},
+      );
       if (response.statusCode == 200) {
         final tempPassword = response.data['tempPassword'];
         if (mounted) {
@@ -85,13 +116,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('The user\'s password has been reset. Please share this temporary password with them securely:', style: TextStyle(fontFamily: 'Poppins')),
+                  Text(newPassword.isNotEmpty 
+                    ? 'The user\'s password has been reset to your custom password. Please share this password with them securely:'
+                    : 'The user\'s password has been reset. Please share this temporary password with them securely:', 
+                    style: const TextStyle(fontFamily: 'Poppins')),
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _C.border)),
                     child: Center(
-                      child: SelectableText(tempPassword, style: const TextStyle(fontFamily: 'Courier', fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                      child: SelectableText(tempPassword ?? newPassword, style: const TextStyle(fontFamily: 'Courier', fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
                     ),
                   )
                 ],
@@ -314,10 +348,21 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        onPressed: _resetPassword,
+                        icon: Icon(PhosphorIcons.key(), size: 18, color: Colors.orange),
+                        label: const Text('Reset Password', style: TextStyle(color: Colors.orange)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.orange,
+                          side: const BorderSide(color: Colors.orange),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
                       PopupMenuButton<String>(
                         onSelected: (value) {
-                          if (value == 'reset') _resetPassword();
-                          else if (value == 'delete') _deleteUser();
+                          if (value == 'delete') _deleteUser();
                           else _updateStatus(value);
                         },
                         itemBuilder: (context) => [
@@ -325,7 +370,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                             const PopupMenuItem(value: 'SUSPENDED', child: Text('Suspend User', style: TextStyle(color: Colors.red))),
                           if (_user!['status'] == 'SUSPENDED')
                             const PopupMenuItem(value: 'ACTIVE', child: Text('Reactivate User', style: TextStyle(color: _C.green))),
-                          const PopupMenuItem(value: 'reset', child: Text('Reset Password')),
                           const PopupMenuDivider(),
                           const PopupMenuItem(value: 'delete', child: Text('Archive User', style: TextStyle(color: Colors.red))),
                         ],
