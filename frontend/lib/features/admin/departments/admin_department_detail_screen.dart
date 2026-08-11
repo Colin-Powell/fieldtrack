@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
 
@@ -132,10 +134,11 @@ class AdminDepartmentDetailScreen extends ConsumerWidget {
         final item = items[index];
         final user = item['user'];
         return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: const Color(0xFF1BA654).withValues(alpha: 0.1),
-            backgroundImage: user['avatar'] != null ? NetworkImage(user['avatar']) : null,
-            child: user['avatar'] == null ? Text(user['name']?.substring(0, 1) ?? 'U', style: const TextStyle(color: Color(0xFF1BA654))) : null,
+          leading: AppAvatar(
+            imagePath: user['avatar'] as String?,
+            initials: user['name']?.substring(0, 1) ?? 'U',
+            size: 40,
+            shape: AvatarShape.circle,
           ),
           title: Text(user['name'] ?? 'Unknown', style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
           subtitle: Text(user['email'] ?? '', style: const TextStyle(fontFamily: 'Inter')),

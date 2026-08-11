@@ -174,17 +174,6 @@ class _AdminNotificationsScreenState
                     ),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: _titleController,
-                    decoration: InputDecoration(
-                      labelText: 'Title',
-                      hintText: 'e.g. System Update',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: _selectedType,
                     items: () {
@@ -389,32 +378,40 @@ class _AdminNotificationsScreenState
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: const Color(0xFFE5E7EB)),
                         ),
-                        child: notifications.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      PhosphorIcons.tray(),
-                                      size: 64,
-                                      color: const Color(0xFFD1D5DB),
+                        child: () {
+                          final filteredList = _selectedCategory == 0 
+                            ? notifications 
+                            : notifications.where((n) => n.category == _categories[_selectedCategory]).toList();
+                            
+                          if (filteredList.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    PhosphorIcons.tray(),
+                                    size: 64,
+                                    color: const Color(0xFFD1D5DB),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'No notifications yet',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      color: Color(0xFF6B7280),
                                     ),
-                                    const SizedBox(height: 16),
-                                    const Text(
-                                      'No notifications yet',
-                                      style: TextStyle(
-                                        fontFamily: 'Poppins',
-                                        color: Color(0xFF6B7280),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                itemCount: notifications.length,
-                                itemBuilder: (context, i) =>
-                                    _buildNotificationCard(notifications[i]),
+                                  ),
+                                ],
                               ),
+                            );
+                          }
+                          
+                          return ListView.builder(
+                            itemCount: filteredList.length,
+                            itemBuilder: (context, i) =>
+                                _buildNotificationCard(filteredList[i]),
+                          );
+                        }(),
                       ),
                     ),
                   ],

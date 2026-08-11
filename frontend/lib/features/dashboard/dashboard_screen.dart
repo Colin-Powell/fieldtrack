@@ -16,6 +16,7 @@ import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
 import 'package:fieldtrack/core/utils/time_utils.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
+import 'package:fieldtrack/core/network/connectivity_service.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -94,6 +95,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               statusTitle,
               statusTime,
               ref,
+            ),
+            StreamBuilder<ConnectionStatus>(
+              stream: ConnectivityService().onStatusChange,
+              initialData: ConnectivityService().currentStatus,
+              builder: (context, snapshot) {
+                if (snapshot.data == ConnectionStatus.offline) {
+                  return Container(
+                    width: double.infinity,
+                    color: const Color(0xFFFEF2F2), // Light red
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(
+                          PhosphorIconsRegular.wifiSlash,
+                          color: Color(0xFFEF4444),
+                          size: 16,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'You are operating offline',
+                          style: TextStyle(
+                            color: Color(0xFFB91C1C),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
             ),
             const SizedBox(height: 24),
             _buildSectionTitle('Today\'s Summary'),
@@ -399,6 +433,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: statsAsync.when(
+          skipError: true,
           data: (stats) => Column(
             children: [
               Row(
@@ -456,12 +491,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               child: CircularProgressIndicator(color: Color(0xFF169B45)),
             ),
           ),
-          error: (error, stack) => Padding(
-            padding: const EdgeInsets.all(32.0),
+          error: (error, stack) => const Padding(
+            padding: EdgeInsets.all(32.0),
             child: Center(
               child: Text(
-                'Error loading stats',
-                style: TextStyle(color: Colors.red),
+                'Stats unavailable offline',
+                style: TextStyle(
+                  color: Color(0xFF6B7280),
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                ),
               ),
             ),
           ),
@@ -625,65 +664,73 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             children: [
               ...displayActivities.map<Widget>((activity) {
                 final title = activity['title'] ?? 'Untitled Activity';
-              final status = activity['status'] ?? 'DRAFT';
+                final status = activity['status'] ?? 'DRAFT';
 
-              // Map status to colors
-              Color statusColor = const Color(0xFF1BA654);
-              Color statusBgColor = const Color(0xFFC3DFCC);
-              if (status == 'DRAFT') {
-                statusColor = const Color(0xFF3B82F6);
-                statusBgColor = const Color(0xFFDBEAFE);
-              } else if (status == 'UNDER_REVIEW') {
-                statusColor = const Color(0xFFEAB308);
-                statusBgColor = const Color(0xFFFEF08A);
-              } else if (status == 'REJECTED') {
-                statusColor = const Color(0xFFEF4444);
-                statusBgColor = const Color(0xFFFEE2E2);
-              }
+                // Map status to colors
+                Color statusColor = const Color(0xFF1BA654);
+                Color statusBgColor = const Color(0xFFC3DFCC);
+                if (status == 'DRAFT') {
+                  statusColor = const Color(0xFF3B82F6);
+                  statusBgColor = const Color(0xFFDBEAFE);
+                } else if (status == 'UNDER_REVIEW') {
+                  statusColor = const Color(0xFFEAB308);
+                  statusBgColor = const Color(0xFFFEF08A);
+                } else if (status == 'REJECTED') {
+                  statusColor = const Color(0xFFEF4444);
+                  statusBgColor = const Color(0xFFFEE2E2);
+                }
 
-              // Extract time
-              String timeStr = '';
-              if (activity['timestamp'] != null) {
-                final dt = DateTime.parse(activity['timestamp']).toLocal();
-                timeStr = DateFormat('dd MMM yyyy • hh:mm a').format(dt);
-              }
+                // Extract time
+                String timeStr = '';
+                if (activity['timestamp'] != null) {
+                  final dt = DateTime.parse(activity['timestamp']).toLocal();
+                  timeStr = DateFormat('dd MMM yyyy • hh:mm a').format(dt);
+                }
 
-              // Extract first image from evidence list
-              String? activityImageUrl;
-              final evidenceList = activity['evidence'] as List<dynamic>? ?? [];
-              for (final ev in evidenceList) {
-                final mimeType = ev['mimeType'] as String? ?? '';
-                if (mimeType.startsWith('image/')) {
-                  final path = ev['storagePath'] as String?;
-                  if (path != null && path.isNotEmpty) {
-                    activityImageUrl = ImageUtils.getFullImageUrl(path);
-                    break;
+                // Extract first image from evidence list
+                String? activityImageUrl;
+                final evidenceList =
+                    activity['evidence'] as List<dynamic>? ?? [];
+                for (final ev in evidenceList) {
+                  final mimeType = ev['mimeType'] as String? ?? '';
+                  if (mimeType.startsWith('image/')) {
+                    final path = ev['storagePath'] as String?;
+                    if (path != null && path.isNotEmpty) {
+                      activityImageUrl = ImageUtils.getFullImageUrl(path);
+                      break;
+                    }
                   }
                 }
-              }
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: _buildActivityCard(
-                  context: context,
-                  id: activity['id'],
-                  title: title,
-                  location:
-                      "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}",
-                  time: timeStr,
-                  status: status,
-                  statusColor: statusColor,
-                  statusBgColor: statusBgColor,
-                  imageUrl: activityImageUrl,
-                ),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: _buildActivityCard(
+                    context: context,
+                    id: activity['id'],
+                    title: title,
+                    location:
+                        "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}",
+                    time: timeStr,
+                    status: status,
+                    statusColor: statusColor,
+                    statusBgColor: statusBgColor,
+                    imageUrl: activityImageUrl,
+                  ),
                 );
               }).toList(),
               if (activities.length > 3)
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
                   child: TextButton(
-                    onPressed: () => ref.read(navigationIndexProvider.notifier).state = 1,
-                    child: const Text('View All Activities', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1BA654))),
+                    onPressed: () =>
+                        ref.read(navigationIndexProvider.notifier).state = 1,
+                    child: const Text(
+                      'View All Activities',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1BA654),
+                      ),
+                    ),
                   ),
                 ),
             ],

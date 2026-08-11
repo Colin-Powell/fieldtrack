@@ -252,13 +252,12 @@ export async function getAdminReports(req: Request, res: Response) {
       trendDataPoints.push({ label: inv.label, value: count, dateLabel: inv.dateLabel });
     }
 
-    // Mocking County Distribution for now
-    const countyDistribution = {
-      'Nairobi': Math.floor(totalActivities * 0.4),
-      'Mombasa': Math.floor(totalActivities * 0.3),
-      'Kisumu': Math.floor(totalActivities * 0.2),
-      'Other': Math.ceil(totalActivities * 0.1),
-    };
+    // Real County Distribution
+    const countyDistribution: Record<string, number> = {};
+    allLogs.forEach(log => {
+      const county = log.county || 'Unknown';
+      countyDistribution[county] = (countyDistribution[county] || 0) + 1;
+    });
 
     // Filters for dropdowns
     const departments = await prisma.department.findMany({ select: { name: true } }).then(d => d.map(x => x.name));
@@ -280,6 +279,8 @@ export async function getAdminReports(req: Request, res: Response) {
         supervisor: l.user.studentProfile?.supervisor?.user.name || 'N/A',
         status: l.status,
         timestamp: l.timestamp.toISOString(),
+        location: l.locationName || 'Unknown',
+        county: l.county || 'Unknown',
       })).slice(0, 50), // Send top 50 for report PDF
     });
   } catch (error) {

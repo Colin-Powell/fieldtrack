@@ -46,6 +46,7 @@ class ApiEndpoints {
   static const String reviewActivity = '/reviews';
   static String reviewById(String id) => '/supervisor/reviews/$id';
   static const String generateReport = '/supervisor/reports/generate';
+  static const String adminReports = '/reports/admin';
   static const String exportLogs = '/supervisor/logs/export';
 
   // ── Map / Location ───────────────────────────────────────────────────

@@ -11,11 +11,15 @@ class ConnectivityService {
 
   factory ConnectivityService() => _instance;
 
+  ConnectionStatus currentStatus = ConnectionStatus.online;
+
   ConnectivityService._internal() {
     _connectivity.onConnectivityChanged.listen((result) async {
       if (result == ConnectivityResult.none) {
+        currentStatus = ConnectionStatus.offline;
         _controller.add(ConnectionStatus.offline);
       } else {
+        currentStatus = ConnectionStatus.online;
         _controller.add(ConnectionStatus.online);
       }
     });
@@ -28,8 +32,10 @@ class ConnectivityService {
   Future<void> _checkInitial() async {
     final result = await _connectivity.checkConnectivity();
     if (result == ConnectivityResult.none) {
+      currentStatus = ConnectionStatus.offline;
       _controller.add(ConnectionStatus.offline);
     } else {
+      currentStatus = ConnectionStatus.online;
       _controller.add(ConnectionStatus.online);
     }
   }

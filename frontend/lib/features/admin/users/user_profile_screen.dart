@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/toast_service.dart';
 import 'package:intl/intl.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 class _C {
   static const Color green = Color(0xFF169B45);
   static const Color textDark = Color(0xFF171717);
@@ -412,13 +413,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                               margin: const EdgeInsets.only(bottom: 24),
                               child: Row(
                                 children: [
-                                  CircleAvatar(
-                                    radius: 40,
-                                    backgroundColor: _C.green.withOpacity(0.1),
-                                    child: Text(
-                                      _user!['name'][0].toUpperCase(),
-                                      style: const TextStyle(fontFamily: 'Poppins', fontSize: 32, fontWeight: FontWeight.bold, color: _C.green),
-                                    ),
+                                  AppAvatar(
+                                    imagePath: _user!['avatarUrl'] as String?,
+                                    initials: _user!['name'][0].toUpperCase(),
+                                    size: 100,
                                   ),
                                   const SizedBox(width: 24),
                                   Expanded(

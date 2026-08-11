@@ -9,15 +9,19 @@ import {
   manualBackup, getMapData
 } from './admins.controller.js';
 import { authenticate, authorizeRole } from '../auth/auth.middleware.js';
+import multer from 'multer';
+import { importUsersCsv, exportUsersCsv } from './admins.csv.js';
 
 const router = Router();
-
+const upload = multer({ storage: multer.memoryStorage() });
 // Protect all admin routes
 router.use(authenticate, authorizeRole(['ADMIN']));
 
 // User management routes
 router.post('/users/students', createStudent);
 router.post('/users/supervisors', createSupervisor);
+router.post('/users/import', upload.single('file'), importUsersCsv);
+router.get('/users/export', exportUsersCsv);
 router.get('/users', getAllUsers);
 router.get('/users/:id', getUserById);
 router.put('/users/:id', updateUser);

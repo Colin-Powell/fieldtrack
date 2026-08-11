@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'providers/admin_reports_provider.dart';
+import 'utils/pdf_export_utils.dart';
 
-class AdminReportsScreen extends StatefulWidget {
+class AdminReportsScreen extends ConsumerStatefulWidget {
   const AdminReportsScreen({super.key});
 
   @override
-  State<AdminReportsScreen> createState() => _AdminReportsScreenState();
+  ConsumerState<AdminReportsScreen> createState() => _AdminReportsScreenState();
 }
 
-class _AdminReportsScreenState extends State<AdminReportsScreen> {
+class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
   bool _reportGenerated = false;
 
   @override
   Widget build(BuildContext context) {
+    final reportAsyncValue = ref.watch(adminReportsProvider);
+    final filters = ref.watch(adminReportFiltersProvider);
+
     return Padding(
       padding: const EdgeInsets.all(48.0),
       child: Column(
@@ -45,67 +51,109 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 ),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Report Parameters',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
+            child: reportAsyncValue.when(
+              data: (data) {
+                final filterData = data['filters'] ?? {};
+                final periods = ['This Week', 'This Month', 'This Quarter', 'This Year', 'All Time'];
+                final departments = List<String>.from(filterData['departments'] ?? ['All Departments']);
+                final supervisors = List<Map<String, dynamic>>.from(filterData['supervisors'] ?? [{'id': 'All Supervisors', 'name': 'All Supervisors'}]);
+                final counties = List<String>.from(filterData['counties'] ?? ['All Counties']);
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _buildDropdown('Date Range', 'Past 30 Days')),
-                    const SizedBox(width: 24),
-                    Expanded(child: _buildDropdown('Department', 'All Departments')),
-                    const SizedBox(width: 24),
-                    Expanded(child: _buildDropdown('Supervisor', 'All Supervisors')),
-                    const SizedBox(width: 24),
-                    Expanded(child: _buildDropdown('County', 'All Counties')),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _reportGenerated = false;
-                        });
-                      },
-                      icon: Icon(PhosphorIcons.arrowCounterClockwise(), size: 18),
-                      label: const Text('Reset'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF6B7280),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    const Text(
+                      'Report Parameters',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _reportGenerated = true;
-                        });
-                      },
-                      icon: Icon(PhosphorIcons.chartBar(), size: 18),
-                      label: const Text('Generate Report'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1BA654),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDropdown(
+                            'Date Range',
+                            filters.period,
+                            periods,
+                            (val) => ref.read(adminReportFiltersProvider.notifier).state = filters.copyWith(period: val),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: _buildDropdown(
+                            'Department',
+                            filters.department,
+                            departments,
+                            (val) => ref.read(adminReportFiltersProvider.notifier).state = filters.copyWith(department: val),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: _buildDropdown(
+                            'Supervisor',
+                            filters.supervisorId,
+                            supervisors.map((s) => s['id'] as String).toList(),
+                            (val) => ref.read(adminReportFiltersProvider.notifier).state = filters.copyWith(supervisorId: val),
+                            displayItems: supervisors.map((s) => s['name'] as String).toList(),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: _buildDropdown(
+                            'County',
+                            filters.county,
+                            counties,
+                            (val) => ref.read(adminReportFiltersProvider.notifier).state = filters.copyWith(county: val),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () {
+                            ref.read(adminReportFiltersProvider.notifier).state = AdminReportFilters();
+                            setState(() {
+                              _reportGenerated = false;
+                            });
+                          },
+                          icon: Icon(PhosphorIcons.arrowCounterClockwise(), size: 18),
+                          label: const Text('Reset'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF6B7280),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _reportGenerated = true;
+                            });
+                          },
+                          icon: Icon(PhosphorIcons.chartBar(), size: 18),
+                          label: const Text('Generate Report'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1BA654),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-              ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('Error: $err')),
             ),
           ),
           
@@ -113,67 +161,79 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
           // Generated Report Result
           if (_reportGenerated)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            reportAsyncValue.when(
+              data: (data) {
+                return Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Report Results',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Report Results',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              await PdfExportUtils.generateAndDownloadReport(data);
+                            },
+                            icon: Icon(PhosphorIcons.downloadSimple(), size: 18),
+                            label: const Text('Export PDF'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF1BA654),
+                              side: const BorderSide(color: Color(0xFF1BA654)),
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ],
                       ),
-                      OutlinedButton.icon(
-                        onPressed: () {},
-                        icon: Icon(PhosphorIcons.downloadSimple(), size: 18),
-                        label: const Text('Export PDF'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF1BA654),
-                          side: const BorderSide(color: Color(0xFF1BA654)),
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: _buildChartCard(
+                                title: 'Activity Trend (${filters.period})',
+                                child: _buildActivityLineChart(data['trendData'] as List<dynamic>? ?? []),
+                              ),
+                            ),
+                            const SizedBox(width: 24),
+                            Expanded(
+                              flex: 1,
+                              child: _buildChartCard(
+                                title: 'County Distribution',
+                                child: _buildCountyPieChart(data['countyDistribution'] as Map<String, dynamic>? ?? {}),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
+                      )
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: _buildChartCard(
-                            title: 'Monthly Activity Trend',
-                            child: _buildActivityLineChart(),
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          flex: 1,
-                          child: _buildChartCard(
-                            title: 'County Distribution',
-                            child: _buildCountyPieChart(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                ],
-              ),
+                );
+              },
+              loading: () => const Expanded(child: Center(child: CircularProgressIndicator())),
+              error: (err, stack) => Expanded(child: Center(child: Text('Error: $err'))),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildDropdown(String label, String value) {
+  Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged, {List<String>? displayItems}) {
+    if (!items.contains(value) && items.isNotEmpty) {
+      value = items.first;
+    }
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -198,8 +258,17 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             child: DropdownButton<String>(
               isExpanded: true,
               value: value,
-              items: [value].map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontFamily: 'Inter')))).toList(),
-              onChanged: (val) {},
+              items: List.generate(items.length, (index) {
+                return DropdownMenuItem(
+                  value: items[index],
+                  child: Text(
+                    displayItems != null ? displayItems[index] : items[index],
+                    style: const TextStyle(fontFamily: 'Inter'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }),
+              onChanged: onChanged,
               icon: Icon(PhosphorIcons.caretDown(), color: const Color(0xFF9CA3AF), size: 16),
             ),
           ),
@@ -235,13 +304,22 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     );
   }
 
-  Widget _buildActivityLineChart() {
+  Widget _buildActivityLineChart(List<dynamic> trendData) {
+    if (trendData.isEmpty) {
+      return const Center(child: Text('No trend data available'));
+    }
+
+    final spots = <FlSpot>[];
+    for (int i = 0; i < trendData.length; i++) {
+      spots.add(FlSpot(i.toDouble(), (trendData[i]['value'] as num).toDouble()));
+    }
+
     return LineChart(
       LineChartData(
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: 50,
+          horizontalInterval: null, // Let it auto-calc
           getDrawingHorizontalLine: (value) => FlLine(
             color: const Color(0xFFE5E7EB),
             strokeWidth: 1,
@@ -255,13 +333,12 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             sideTitles: SideTitles(
               showTitles: true,
               getTitlesWidget: (value, meta) {
-                const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
-                if (value >= 0 && value < weeks.length) {
+                if (value.toInt() >= 0 && value.toInt() < trendData.length) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: Text(
-                      weeks[value.toInt()],
-                      style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12, fontFamily: 'Inter'),
+                      trendData[value.toInt()]['label']?.toString() ?? '',
+                      style: const TextStyle(color: Color(0xFF6B7280), fontSize: 10, fontFamily: 'Inter'),
                     ),
                   );
                 }
@@ -285,12 +362,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         borderData: FlBorderData(show: false),
         lineBarsData: [
           LineChartBarData(
-            spots: const [
-              FlSpot(0, 120),
-              FlSpot(1, 150),
-              FlSpot(2, 110),
-              FlSpot(3, 190),
-            ],
+            spots: spots,
             isCurved: true,
             color: Colors.blue,
             barWidth: 3,
@@ -306,17 +378,47 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     );
   }
 
-  Widget _buildCountyPieChart() {
+  Widget _buildCountyPieChart(Map<String, dynamic> countyDistribution) {
+    if (countyDistribution.isEmpty) {
+      return const Center(child: Text('No distribution data'));
+    }
+
+    final colors = [
+      Colors.blue,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.pink,
+      Colors.indigo,
+    ];
+    
+    final sections = <PieChartSectionData>[];
+    int colorIdx = 0;
+
+    countyDistribution.forEach((key, val) {
+      if ((val as num) > 0) {
+        sections.add(
+          PieChartSectionData(
+            color: colors[colorIdx % colors.length],
+            value: val.toDouble(),
+            title: key,
+            radius: 50,
+            titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+        );
+        colorIdx++;
+      }
+    });
+
+    if (sections.isEmpty) {
+      return const Center(child: Text('No activities in selected period'));
+    }
+
     return PieChart(
       PieChartData(
         sectionsSpace: 2,
         centerSpaceRadius: 40,
-        sections: [
-          PieChartSectionData(color: Colors.blue, value: 35, title: 'NBO', radius: 40, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-          PieChartSectionData(color: Colors.orange, value: 25, title: 'MSA', radius: 40, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-          PieChartSectionData(color: Colors.purple, value: 20, title: 'KSM', radius: 40, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-          PieChartSectionData(color: Colors.teal, value: 20, title: 'Other', radius: 40, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-        ],
+        sections: sections,
       ),
     );
   }

@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
+import '../utils/toast_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_provider.dart';
 
 class AuthenticationInterceptor extends Interceptor {
   final FlutterSecureStorage secureStorage;
@@ -43,14 +46,22 @@ class AuthenticationInterceptor extends Interceptor {
             return handler.resolve(retryResponse);
           }
         } catch (_) {
-          await secureStorage.delete(key: 'jwt_token');
-          await secureStorage.delete(key: 'refresh_token');
+          await _forceLogout();
         }
       } else {
-        await secureStorage.delete(key: 'jwt_token');
-        await secureStorage.delete(key: 'refresh_token');
+        await _forceLogout();
       }
     }
     return handler.next(err);
+  }
+
+  Future<void> _forceLogout() async {
+    await secureStorage.delete(key: 'jwt_token');
+    await secureStorage.delete(key: 'refresh_token');
+    ToastService.showError('Session expired. Please log in again.');
+    final context = ToastService.navigatorKey.currentContext;
+    if (context != null) {
+      ProviderScope.containerOf(context).read(authProvider.notifier).logout();
+    }
   }
 }

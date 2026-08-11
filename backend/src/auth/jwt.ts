@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const EXPIRES_IN = '30m'; // Short-lived access token
+const EXPIRES_IN = '7d'; // Extended session to 7 days universally
 const REFRESH_EXPIRES_IN = '7d';
 
 if (!JWT_SECRET) {

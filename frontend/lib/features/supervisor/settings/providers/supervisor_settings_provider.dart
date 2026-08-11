@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
-
+import 'package:fieldtrack/core/network/error_handler.dart';
 class UserProfile {
   final String name;
   final String email;
@@ -69,10 +69,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       final profile = UserProfile.fromJson(response.data['profile']);
       state = state.copyWith(isLoading: false, profile: profile);
     } catch (e) {
-      String errorMessage = 'Failed to load profile';
-      if (e is DioException) {
-        errorMessage = e.response?.data?['message'] ?? errorMessage;
-      }
+      String errorMessage = ErrorHandler.getFriendlyErrorMessage(e);
       state = state.copyWith(isLoading: false, error: errorMessage);
     }
   }
@@ -85,10 +82,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       state = state.copyWith(isLoading: false, profile: profile);
       return true;
     } catch (e) {
-      String errorMessage = 'Failed to update profile';
-      if (e is DioException) {
-        errorMessage = e.response?.data?['message'] ?? errorMessage;
-      }
+      String errorMessage = ErrorHandler.getFriendlyErrorMessage(e);
       state = state.copyWith(isLoading: false, error: errorMessage);
       return false;
     }
@@ -104,10 +98,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
-      String errorMessage = 'Failed to update password';
-      if (e is DioException) {
-        errorMessage = e.response?.data?['message'] ?? errorMessage;
-      }
+      String errorMessage = ErrorHandler.getFriendlyErrorMessage(e);
       state = state.copyWith(isLoading: false, error: errorMessage);
       return false;
     }
@@ -138,10 +129,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       }
       return true;
     } catch (e) {
-      String errorMessage = 'Failed to update security settings';
-      if (e is DioException) {
-        errorMessage = e.response?.data?['message'] ?? errorMessage;
-      }
+      String errorMessage = ErrorHandler.getFriendlyErrorMessage(e);
       state = state.copyWith(isLoading: false, error: errorMessage);
       return false;
     }
@@ -154,10 +142,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
-      String errorMessage = 'Failed to log out other sessions';
-      if (e is DioException) {
-        errorMessage = e.response?.data?['message'] ?? errorMessage;
-      }
+      String errorMessage = ErrorHandler.getFriendlyErrorMessage(e);
       state = state.copyWith(isLoading: false, error: errorMessage);
       return false;
     }
@@ -170,10 +155,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
-      String errorMessage = 'Failed to deactivate account';
-      if (e is DioException) {
-        errorMessage = e.response?.data?['message'] ?? errorMessage;
-      }
+      String errorMessage = ErrorHandler.getFriendlyErrorMessage(e);
       state = state.copyWith(isLoading: false, error: errorMessage);
       return false;
     }

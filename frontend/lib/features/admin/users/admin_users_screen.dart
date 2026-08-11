@@ -7,6 +7,9 @@ import 'package:intl/intl.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:fieldtrack/core/utils/toast_service.dart';
 import 'dart:math';
+import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:fieldtrack/core/network/error_handler.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
@@ -227,6 +230,66 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
         list = list.where((u) => u.supervisorName == null).toList();
     }
     return list;
+  }
+  Future<void> _importUsersCsv() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.bytes == null) return;
+
+        setState(() => _isLoading = true);
+
+        final formData = FormData.fromMap({
+          'file': MultipartFile.fromBytes(
+            file.bytes!,
+            filename: file.name,
+          ),
+        });
+
+        final response = await ApiClient().dio.post(
+          '/admin/users/import',
+          data: formData,
+        );
+
+        ToastService.showSuccess(
+            'Import successful: ${response.data['imported']} users imported.');
+        if (response.data['errors'] != null &&
+            (response.data['errors'] as List).isNotEmpty) {
+          debugPrint('Import Errors: ${response.data['errors']}');
+          ToastService.showError('Some rows failed. Check logs.');
+        }
+
+        _fetchUsers();
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      final errorMsg = ErrorHandler.getFriendlyErrorMessage(e);
+      ToastService.showError(errorMsg);
+    }
+  }
+
+  Future<void> _exportUsersCsv() async {
+    try {
+      setState(() => _isLoading = true);
+      final response = await ApiClient().dio.get('/admin/users/export');
+      
+      final csvString = response.data.toString();
+      final bytes = utf8.encode(csvString);
+      final base64Str = base64Encode(bytes);
+      final dataUri = 'data:text/csv;base64,$base64Str';
+      
+      await launchUrl(Uri.parse(dataUri));
+      setState(() => _isLoading = false);
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ToastService.showError('Export failed');
+    }
   }
 
   @override
@@ -461,28 +524,50 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
               Tab(text: 'Administrators'),
             ],
           ),
-          OutlinedButton.icon(
-            onPressed: () {},
-            icon: Icon(
-              PhosphorIcons.downloadSimple(),
-              size: 18,
-              color: _C.textDark,
-            ),
-            label: const Text(
-              'Export',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                color: _C.textDark,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: _exportUsersCsv,
+                icon: const Icon(PhosphorIconsRegular.downloadSimple, size: 18, color: _C.textDark),
+                label: const Text(
+                  'Export',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: _C.textDark,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: _C.border),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
               ),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: _C.border),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: _importUsersCsv,
+                icon: const Icon(PhosphorIconsRegular.uploadSimple, size: 18, color: _C.textDark),
+                label: const Text(
+                  'Import',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: _C.textDark,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: _C.border),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),

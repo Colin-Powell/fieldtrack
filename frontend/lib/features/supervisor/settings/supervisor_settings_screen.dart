@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:dio/dio.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
+import 'package:fieldtrack/core/network/error_handler.dart';
 import 'package:fieldtrack/core/providers/auth_provider.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:image_picker/image_picker.dart';
@@ -313,10 +313,7 @@ class _SupervisorSettingsScreenState
       }
     } catch (e) {
       if (mounted) {
-        String msg = 'Failed to save settings';
-        if (e is DioException) {
-          msg = e.response?.data?['message'] ?? msg;
-        }
+        String msg = ErrorHandler.getFriendlyErrorMessage(e);
         _showSnackbar(msg);
       }
     } finally {
@@ -403,10 +400,7 @@ class _SupervisorSettingsScreenState
                 if (mounted) _showSnackbar('Password updated successfully!');
               } catch (e) {
                 if (mounted) {
-                  String msg = 'Failed to update password';
-                  if (e is DioException) {
-                    msg = e.response?.data?['message'] ?? msg;
-                  }
+                  String msg = ErrorHandler.getFriendlyErrorMessage(e);
                   _showSnackbar(msg);
                 }
               }
@@ -463,10 +457,7 @@ class _SupervisorSettingsScreenState
                 }
               } catch (e) {
                 if (mounted) {
-                  String msg = 'Failed to deactivate account';
-                  if (e is DioException) {
-                    msg = e.response?.data?['message'] ?? msg;
-                  }
+                  String msg = ErrorHandler.getFriendlyErrorMessage(e);
                   _showSnackbar(msg);
                 }
               }
