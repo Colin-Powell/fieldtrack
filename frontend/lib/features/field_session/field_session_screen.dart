@@ -652,6 +652,16 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         );
         if (updateRes is Failure) throw Exception((updateRes as Failure).message);
         activityId = widget.activityId!;
+      } else if (_draftActivityId != null) {
+        final updateRes = await activityService.updateActivity(
+          activityId: _draftActivityId!,
+          studentId: user.id,
+          title: _titleController.text,
+          description: _descController.text,
+          methodology: _methodController.text,
+        );
+        if (updateRes is Failure) throw Exception((updateRes as Failure).message);
+        activityId = _draftActivityId!;
       } else {
         // 1. Create Draft Activity
         final draftRes = await activityService.createDraftActivity(
@@ -669,6 +679,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         }
         final draftData = (draftRes as Success).data;
         activityId = draftData['id'];
+        _draftActivityId = activityId;
       }
 
       // 2. Background uploads are already handling evidence!
@@ -736,6 +747,16 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         );
         if (updateRes is Failure) throw Exception((updateRes as Failure).message);
         activityId = widget.activityId!;
+      } else if (_draftActivityId != null) {
+        final updateRes = await activityService.updateActivity(
+          activityId: _draftActivityId!,
+          studentId: user.id,
+          title: _titleController.text,
+          description: _descController.text,
+          methodology: _methodController.text,
+        );
+        if (updateRes is Failure) throw Exception((updateRes as Failure).message);
+        activityId = _draftActivityId!;
       } else {
         final draftRes = await activityService.createDraftActivity(
           studentId: user.id,
@@ -749,6 +770,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         if (draftRes is Failure) throw Exception((draftRes as Failure).message);
         final draftData = (draftRes as Success).data;
         activityId = draftData['id'];
+        _draftActivityId = activityId;
       }
 
       for (final item in _evidenceItems) {

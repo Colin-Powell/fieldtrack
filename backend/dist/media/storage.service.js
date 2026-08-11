@@ -60,7 +60,7 @@ export class StorageService {
             else if (file.mimetype.startsWith('video/'))
                 category = 'videos';
             else if (file.mimetype.startsWith('audio/'))
-                category = 'videos'; // Voice notes
+                category = 'documents'; // Voice notes/Audio
         }
         const relDir = this.getRelativeStoragePath(date, category);
         const ext = path.extname(file.originalname);

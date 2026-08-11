@@ -18,6 +18,7 @@ import reviewRoutes from './reviews/review.routes.js';
 import reportRoutes from './reports/reports.routes.js';
 import settingsRoutes from './settings/settings.routes.js';
 import developerRoutes from './developer/developer.routes.js';
+import systemRoutes from './system/system.routes.js';
 import { initializeDashboardSocket } from './developer/dashboard_events.js';
 import { startScheduler } from './background/scheduler.js';
 import { initFirebaseAdmin } from './firebase_admin.js';
@@ -184,6 +185,7 @@ app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/developer', developerRoutes);
+app.use('/api/v1/system', systemRoutes);
 // ── Health Check ──
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
@@ -473,7 +475,8 @@ app.get('/api/v1/supervisor/students/:id', async (req, res) => {
                         type: 'activitySubmit',
                         title: l.title,
                         description: `Activity submitted with ${l.evidence?.length ?? 0} evidence files`,
-                        imageUrl: imageEvidence?.storagePath || undefined
+                        imageUrl: imageEvidence?.storagePath || undefined,
+                        activityId: l.id
                     };
                 })
             ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()),

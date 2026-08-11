@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/widgets/app_avatar.dart';
 import '../notifications/admin_notifications_screen.dart';
 import 'admin_search_bar.dart';
 
@@ -171,17 +172,10 @@ class AdminTopHeader extends ConsumerWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    const CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Color(0xFF1BA654),
-                      child: Text(
-                        'A',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
+                    AppAvatar(
+                      imagePath: user?.avatarUrl,
+                      initials: userName.isNotEmpty ? userName[0].toUpperCase() : 'A',
+                      size: 40,
                     ),
                     const SizedBox(width: 12),
                     Column(

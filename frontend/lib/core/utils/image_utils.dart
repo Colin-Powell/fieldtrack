@@ -4,6 +4,7 @@ class ImageUtils {
   static String getFullImageUrl(String? path) {
     if (path == null || path.isEmpty) return '';
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (path.startsWith('gs://')) return path;
     
     // Remove leading slash if it exists
     final cleanPath = path.startsWith('/') ? path.substring(1) : path;

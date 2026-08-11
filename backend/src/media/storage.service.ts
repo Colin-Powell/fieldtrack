@@ -75,7 +75,7 @@ export class StorageService {
       // Fallback
       if (file.mimetype.startsWith('image/')) category = 'images';
       else if (file.mimetype.startsWith('video/')) category = 'videos';
-      else if (file.mimetype.startsWith('audio/')) category = 'videos'; // Voice notes
+      else if (file.mimetype.startsWith('audio/')) category = 'documents'; // Voice notes/Audio
     }
 
     const relDir = this.getRelativeStoragePath(date, category);

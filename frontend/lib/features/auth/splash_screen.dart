@@ -3,6 +3,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import 'package:fieldtrack/core/network/api_client.dart';
+import 'package:fieldtrack/core/services/version_check_service.dart';
+import 'package:fieldtrack/shared/widgets/update_dialog.dart';
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -24,11 +28,43 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
     )..repeat();
 
-    // Navigate to the welcome screen after a delay
-    Future.delayed(const Duration(milliseconds: 2500), () {
-      if (!mounted) return;
+    _checkVersionAndNavigate();
+  }
+
+  Future<void> _checkVersionAndNavigate() async {
+    // Keep minimum splash time of 2.5 seconds
+    final minSplashTime = Future.delayed(const Duration(milliseconds: 2500));
+    
+    // Check version
+    final versionService = VersionCheckService(ApiClient().dio);
+    final versionResult = await versionService.checkVersion();
+    
+    await minSplashTime;
+    
+    if (!mounted) return;
+
+    if (versionResult['updateRequired'] == true) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => UpdateDialog(
+          isRequired: true,
+          updateUrl: versionResult['updateUrl'],
+        ),
+      );
+    } else if (versionResult['updateAvailable'] == true) {
+      await showDialog(
+        context: context,
+        barrierDismissible: false, 
+        builder: (context) => UpdateDialog(
+          isRequired: false,
+          updateUrl: versionResult['updateUrl'],
+        ),
+      );
+      if (mounted) context.go('/welcome');
+    } else {
       context.go('/welcome');
-    });
+    }
   }
 
   @override

@@ -598,28 +598,30 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
     required String filesCount,
     String? activityId,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Image Square
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.network(
-            ImageUtils.getFullImageUrl(imgUrl),
-            width: 80,
-            height: 80,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(
-              width: 80,
-              height: 80,
-              color: _C.border,
-              child: const Icon(
-                PhosphorIconsRegular.image,
-                color: _C.textMuted,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Image Square
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              ImageUtils.getFullImageUrl(imgUrl),
+              width: 56,
+              height: 56,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                width: 56,
+                height: 56,
+                color: _C.border,
+                child: const Icon(
+                  PhosphorIconsRegular.image,
+                  color: _C.textMuted,
+                ),
               ),
             ),
           ),
-        ),
         const SizedBox(width: 24),
 
         // Titles & Status
@@ -744,8 +746,8 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
 }
 
 // ==========================================

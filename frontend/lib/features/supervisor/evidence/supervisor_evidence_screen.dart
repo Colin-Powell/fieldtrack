@@ -1015,6 +1015,8 @@ class _SupervisorEvidenceScreenState
       return controller;
     }
 
+    final futureController = initializeController();
+
     showDialog(
       context: context,
       builder: (ctx) {
@@ -1027,7 +1029,7 @@ class _SupervisorEvidenceScreenState
           child: StatefulBuilder(
             builder: (context, setState) {
               return FutureBuilder<VideoPlayerController>(
-                future: initializeController(),
+                future: futureController,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const SizedBox(

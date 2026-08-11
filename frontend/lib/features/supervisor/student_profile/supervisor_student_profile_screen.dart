@@ -823,7 +823,7 @@ class _SupervisorStudentProfileScreenState
                               : 'https://images.unsplash.com/photo-1544257124-741165bc6f23?auto=format&fit=crop&w=150&q=80',
                           isLast: isLast,
                           activityId: event.type.name == 'activitySubmit'
-                              ? 'act-id'
+                              ? event.activityId
                               : null,
                         ),
                       );

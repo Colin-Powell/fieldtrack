@@ -382,6 +382,7 @@ class TimelineEvent {
   final String title;
   final String description;
   final String? imageUrl;
+  final String? activityId;
 
   const TimelineEvent({
     required this.time,
@@ -389,6 +390,7 @@ class TimelineEvent {
     required this.title,
     required this.description,
     this.imageUrl,
+    this.activityId,
   });
 }
 
