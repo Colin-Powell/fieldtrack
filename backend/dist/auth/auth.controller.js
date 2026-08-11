@@ -405,9 +405,16 @@ export async function updateFcmToken(req, res) {
         const { fcmToken } = req.body;
         if (!userId)
             return res.status(401).json({ error: 'Unauthorized' });
+        // If setting a valid token, remove it from any other user who might have logged in on this device
+        if (fcmToken && typeof fcmToken === 'string' && fcmToken.trim() !== '') {
+            await prisma.user.updateMany({
+                where: { fcmToken, id: { not: userId } },
+                data: { fcmToken: null },
+            });
+        }
         await prisma.user.update({
             where: { id: userId },
-            data: { fcmToken },
+            data: { fcmToken: fcmToken || null },
         });
         return res.json({ success: true });
     }

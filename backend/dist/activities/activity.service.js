@@ -1,9 +1,17 @@
 import { prisma } from '../db.js';
+import { reverseGeocode } from '../utils/geocoder.js';
 export class ActivityService {
     /**
      * Create a new draft activity
      */
     async createDraft(data) {
+        let locationName = null;
+        let county = null;
+        if (data.latitude && data.longitude) {
+            const geo = await reverseGeocode(data.latitude, data.longitude);
+            locationName = geo.locationName ?? undefined;
+            county = geo.county ?? undefined;
+        }
         return prisma.fieldLog.create({
             data: {
                 studentId: data.studentId,
@@ -16,6 +24,8 @@ export class ActivityService {
                 objectives: data.objectives,
                 findings: data.findings,
                 remarks: data.remarks,
+                locationName,
+                county,
                 status: 'DRAFT',
             },
         });

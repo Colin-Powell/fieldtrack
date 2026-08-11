@@ -1,4 +1,5 @@
 import { prisma } from '../db.js';
+import { reverseGeocode } from '../utils/geocoder.js';
 export class SessionService {
     /**
      * Check in a student, creating a new active FieldSession.
@@ -8,6 +9,13 @@ export class SessionService {
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date();
         endOfDay.setHours(23, 59, 59, 999);
+        let locationName = undefined;
+        let county = undefined;
+        if (data.latitude && data.longitude) {
+            const geo = await reverseGeocode(data.latitude, data.longitude);
+            locationName = geo.locationName ?? undefined;
+            county = geo.county ?? undefined;
+        }
         // Check if a session already exists for today
         const existingSessionToday = await prisma.fieldSession.findFirst({
             where: {
@@ -34,6 +42,8 @@ export class SessionService {
                     batteryLevelStart: data.batteryLevelStart ?? existingSessionToday.batteryLevelStart,
                     networkType: data.networkType ?? existingSessionToday.networkType,
                     deviceModel: data.deviceModel ?? existingSessionToday.deviceModel,
+                    locationName,
+                    county,
                     // Clear checkOutTime so it's active again
                     checkOutTime: null,
                 }
@@ -54,6 +64,8 @@ export class SessionService {
                 batteryLevelStart: data.batteryLevelStart,
                 networkType: data.networkType,
                 deviceModel: data.deviceModel,
+                locationName,
+                county,
                 status: 'ACTIVE',
             }
         });

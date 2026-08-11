@@ -37,7 +37,7 @@ export const importUsersCsv = async (req: Request, res: Response) => {
     const errors = [];
 
     for (let i = 0; i < records.length; i++) {
-      const row = records[i];
+      const row: any = records[i];
       const rowNum = i + 2; // +1 for 0-index, +1 for header
 
       const { name, email, role, phone, password, registrationNo, staffNumber, department } = row;
@@ -86,8 +86,7 @@ export const importUsersCsv = async (req: Request, res: Response) => {
               name,
               email: email.toLowerCase(),
               role: upperRole as 'STUDENT' | 'SUPERVISOR',
-              phone: phone || null,
-              passwordHash: hashedPassword,
+              password: hashedPassword,
               preferences: { create: {} },
             },
           });
@@ -98,6 +97,7 @@ export const importUsersCsv = async (req: Request, res: Response) => {
                 userId: user.id,
                 registrationNo,
                 department: department || null,
+                phone: phone || null,
               },
             });
           } else if (upperRole === 'SUPERVISOR') {
@@ -106,6 +106,7 @@ export const importUsersCsv = async (req: Request, res: Response) => {
                 userId: user.id,
                 staffNumber,
                 department: department || null,
+                phone: phone || null,
               },
             });
           }
@@ -172,13 +173,16 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
     const formattedData = users.map(user => {
       let regStaffNo = '';
       let department = '';
+      let phone = '';
       
       if (user.role === 'STUDENT' && user.studentProfile) {
         regStaffNo = user.studentProfile.registrationNo;
         department = user.studentProfile.department || '';
+        phone = user.studentProfile.phone || '';
       } else if (user.role === 'SUPERVISOR' && user.supervisorProfile) {
         regStaffNo = user.supervisorProfile.staffNumber;
         department = user.supervisorProfile.department || '';
+        phone = user.supervisorProfile.phone || '';
       }
 
       return {
@@ -186,7 +190,7 @@ export const exportUsersCsv = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        phone: user.phone || '',
+        phone: phone,
         status: user.status,
         registration_or_staff_no: regStaffNo,
         department: department,

@@ -1,5 +1,6 @@
 import { prisma } from '../db.js';
-import { firebaseAdmin } from '../firebase_admin.js';
+import { getApps } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 export class NotificationService {
     async sendNotification(data) {
         const recipient = await prisma.user.findUnique({
@@ -24,13 +25,13 @@ export class NotificationService {
         const hasToken = typeof recipient.fcmToken === 'string' && recipient.fcmToken.trim().length > 0;
         const pushEnabled = recipient.preferences?.chanInApp !== false;
         const shouldSendPush = hasToken && pushEnabled;
-        const firebaseReady = Boolean(firebaseAdmin?.apps?.length);
+        const firebaseReady = getApps().length > 0;
         console.log(`[NOTIFICATION] Preparing to send notification. FCMToken: ${hasToken ? 'YES' : 'NO'}, shouldSendPush: ${shouldSendPush}, pushEnabled: ${pushEnabled}, Firebase initialized: ${firebaseReady}`);
         if (shouldSendPush && firebaseReady) {
             try {
                 const tokenPreview = recipient.fcmToken.substring(0, 30);
                 console.log(`[NOTIFICATION] Sending FCM push to token: ${tokenPreview}...`);
-                await firebaseAdmin.messaging().send({
+                await getMessaging().send({
                     token: recipient.fcmToken,
                     notification: {
                         title: data.title,
@@ -39,7 +40,7 @@ export class NotificationService {
                     android: {
                         priority: 'high',
                         notification: {
-                            channelId: 'high_importance_channel',
+                            channelId: 'high_importance_channel_v2',
                             sound: 'default',
                         },
                     },
@@ -82,6 +83,35 @@ export class NotificationService {
         return prisma.notification.update({
             where: { id },
             data: { isRead: true }
+        });
+    }
+    async markAllAsRead(userId) {
+        return prisma.notification.updateMany({
+            where: { recipientId: userId, isRead: false },
+            data: { isRead: true }
+        });
+    }
+    async markBulkAsRead(userId, ids) {
+        return prisma.notification.updateMany({
+            where: {
+                recipientId: userId,
+                id: { in: ids },
+                isRead: false
+            },
+            data: { isRead: true }
+        });
+    }
+    async deleteNotification(id) {
+        return prisma.notification.delete({
+            where: { id }
+        });
+    }
+    async deleteBulkNotifications(userId, ids) {
+        return prisma.notification.deleteMany({
+            where: {
+                recipientId: userId,
+                id: { in: ids }
+            }
         });
     }
 }

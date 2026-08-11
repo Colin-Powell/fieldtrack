@@ -52,9 +52,9 @@ app.use(helmet({
             objectSrc: ["'none'"],
             scriptSrc: ["'self'", "'unsafe-inline'"],
             scriptSrcAttr: ["'none'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
             imgSrc: ["'self'", 'data:'],
-            fontSrc: ["'self'"],
+            fontSrc: ["'self'", 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com'],
             connectSrc: ["'self'"],
             frameAncestors: ["'none'"],
             formAction: ["'self'"],
@@ -114,10 +114,57 @@ app.put('/api/v1/fcm-token', authenticate, async (req, res) => {
         if (typeof fcmToken !== 'string' || fcmToken.trim().length === 0) {
             return res.status(400).json({ error: 'FCM token is required' });
         }
+        const trimmedToken = fcmToken.trim();
+        // Check if user previously had no token (new registration vs refresh)
+        const existingUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { fcmToken: true },
+        });
+        const isNewToken = !existingUser?.fcmToken || existingUser.fcmToken !== trimmedToken;
         await prisma.user.update({
             where: { id: userId },
-            data: { fcmToken: fcmToken.trim() },
+            data: { fcmToken: trimmedToken },
         });
+        // Send a single summary push for unread notifications (only on new token registration)
+        if (isNewToken) {
+            const unreadCount = await prisma.notification.count({
+                where: { recipientId: userId, isRead: false },
+            });
+            if (unreadCount > 0) {
+                try {
+                    const { firebaseAdmin, getMessagingClient } = await import('./firebase_admin.js');
+                    if (firebaseAdmin?.apps?.length) {
+                        await getMessagingClient().send({
+                            token: trimmedToken,
+                            notification: {
+                                title: 'Notifications waiting',
+                                body: `You have ${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}. Tap to view.`,
+                            },
+                            android: {
+                                priority: 'high',
+                                notification: {
+                                    channelId: 'high_importance_channel',
+                                    sound: 'default',
+                                },
+                            },
+                            apns: {
+                                headers: { 'apns-priority': '10' },
+                                payload: { aps: { sound: 'default', badge: unreadCount } },
+                            },
+                            data: {
+                                notificationType: 'UNREAD_SUMMARY',
+                                unreadCount: unreadCount.toString(),
+                            },
+                        });
+                        appLogger.info('Sent unread summary push', { userId, unreadCount });
+                    }
+                }
+                catch (pushError) {
+                    // Non-critical — don't fail the token registration
+                    appLogger.error('Failed to send unread summary push:', pushError);
+                }
+            }
+        }
         appLogger.info('FCM token updated', { userId });
         res.json({ success: true, linked: true, message: 'FCM token linked to user' });
     }
@@ -141,7 +188,7 @@ app.use('/api/v1/developer', developerRoutes);
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
 });
-app.get('/developer-dashboard', authenticate, async (req, res) => {
+app.get(/^\/developer-dashboard(\/.*)?$/, authenticate, async (req, res) => {
     if (req.user?.role !== 'ADMIN') {
         return res.status(403).json({ error: 'Access denied.' });
     }
@@ -150,58 +197,27 @@ app.get('/developer-dashboard', authenticate, async (req, res) => {
 app.get('/developer-login', (_req, res) => {
     res.sendFile(path.resolve(process.cwd(), 'src/developer/developer-login.html'));
 });
-app.use((req, res) => {
-    res.status(404).json({
-        status: 404,
-        error: 'Resource not found.',
-        errorCode: 'RESOURCE_NOT_FOUND',
-        message: 'The requested endpoint could not be found.',
-        path: req.originalUrl,
-    });
-});
-app.use((err, req, res, next) => {
-    const statusCode = Number.isFinite(err?.statusCode) ? Number(err.statusCode) : 500;
-    const serverMessage = typeof err?.message === 'string' && err.message.trim().length > 0
-        ? err.message
-        : 'Something went wrong.';
-    const response = {
-        error: statusCode >= 500 ? 'Server error. Please try again later.' : serverMessage,
-    };
-    if (statusCode === 400 && Array.isArray(err?.details) && err.details.length > 0) {
-        response.details = err.details;
-        response.message = err.details[0]?.message ?? 'Please check the submitted data.';
-    }
-    if (statusCode === 401) {
-        response.error = 'Session expired. Please log in again.';
-    }
-    if (statusCode === 403) {
-        response.error = 'Access denied.';
-    }
-    if (statusCode === 404) {
-        response.error = 'Resource not found.';
-    }
-    if (statusCode === 409) {
-        response.error = 'Conflict detected. Please try again.';
-    }
-    if (statusCode === 422) {
-        response.error = 'Invalid data submitted.';
-    }
-    return res.status(statusCode).json(response);
-});
-import { BASE_STORAGE_DIR } from './media/storage.service.js';
-import { ensureEnvAdminAccount } from './admin-sync.js';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const BASE_STORAGE_DIR = process.env.STORAGE_DIR
+    ? path.resolve(process.env.STORAGE_DIR)
+    : path.resolve(__dirname, '../storage');
 // Serve the storage folder statically with caching and media streaming support
+// IMPORTANT: This MUST come before the catch-all 404 handler
 app.use('/storage', express.static(BASE_STORAGE_DIR, {
     maxAge: '30d',
-    setHeaders: (res, path, stat) => {
+    setHeaders: (res, filePath) => {
         // Ensure media files indicate they support byte range requests for streaming
-        if (path.endsWith('.mp4') || path.endsWith('.mp3') || path.endsWith('.m4a')) {
+        if (filePath.endsWith('.mp4') || filePath.endsWith('.mp3') || filePath.endsWith('.m4a')) {
             res.set('Accept-Ranges', 'bytes');
         }
         // Set proper cache headers
         res.set('Cache-Control', 'public, max-age=2592000, immutable');
     }
 }));
+// 404 and Error handlers moved to end of file
+import { ensureEnvAdminAccount } from './admin-sync.js';
 import { authorizeRole } from './auth/auth.middleware.js';
 // ── Supervisor Routes ──
 app.get('/api/v1/supervisor/dashboard/stats', authenticate, authorizeRole(['SUPERVISOR', 'ADMIN']), async (req, res) => {
@@ -481,6 +497,44 @@ app.get('/api/v1/admin/users', async (req, res) => {
     catch (error) {
         res.status(500).json({ error: 'Internal Server Error' });
     }
+});
+app.use((req, res) => {
+    res.status(404).json({
+        status: 404,
+        error: 'Resource not found.',
+        errorCode: 'RESOURCE_NOT_FOUND',
+        message: 'The requested endpoint could not be found.',
+        path: req.originalUrl,
+    });
+});
+app.use((err, req, res, next) => {
+    const statusCode = Number.isFinite(err?.statusCode) ? Number(err.statusCode) : 500;
+    const serverMessage = typeof err?.message === 'string' && err.message.trim().length > 0
+        ? err.message
+        : 'Something went wrong.';
+    const response = {
+        error: statusCode >= 500 ? 'Server error. Please try again later.' : serverMessage,
+    };
+    if (statusCode === 400 && Array.isArray(err?.details) && err.details.length > 0) {
+        response.details = err.details;
+        response.message = err.details[0]?.message ?? 'Please check the submitted data.';
+    }
+    if (statusCode === 401) {
+        response.error = 'Session expired. Please log in again.';
+    }
+    if (statusCode === 403) {
+        response.error = 'Access denied.';
+    }
+    if (statusCode === 404) {
+        response.error = 'Resource not found.';
+    }
+    if (statusCode === 409) {
+        response.error = 'Conflict detected. Please try again.';
+    }
+    if (statusCode === 422) {
+        response.error = 'Invalid data submitted.';
+    }
+    return res.status(statusCode).json(response);
 });
 ensureEnvAdminAccount()
     .then(async () => {

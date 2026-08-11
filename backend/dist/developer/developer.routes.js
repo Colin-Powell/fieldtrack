@@ -6,6 +6,16 @@ import { authenticate, authorizeRole } from '../auth/auth.middleware.js';
 import { appLogger, authLogger, uploadsLogger } from '../utils/logger.js';
 import { broadcastDashboardEvent } from './dashboard_events.js';
 import { generateToken } from '../auth/jwt.js';
+import { exec } from 'child_process';
+import util from 'util';
+const featureFlagsState = {
+    'GPS Tracking': true,
+    'Offline Sync': true,
+    'Maps': true,
+    'AI Review': false,
+    'Reports': true,
+};
+const execAsync = util.promisify(exec);
 const backendPackageJson = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf-8'));
 const router = Router();
 router.post('/login', async (req, res) => {
@@ -120,46 +130,62 @@ router.get('/export', async (_req, res) => {
         res.status(500).json({ error: 'Unable to export report' });
     }
 });
-router.get('/overview', async (_req, res) => {
+router.get('/dashboard-aggregate', async (_req, res) => {
     try {
-        const [users, activeSessions, recentLogs, recentReviews, recentNotifications] = await Promise.all([
-            prisma.user.count({ where: { deletedAt: null } }),
-            prisma.fieldSession.count({ where: { checkOutTime: null } }),
-            prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 10 }),
-            prisma.review.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
-            prisma.notification.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
+        const [healthRes, metricsRes, logsRes, requestsRes, issuesRes, overviewRes] = await Promise.all([
+            prisma.user.count({ where: { deletedAt: null } }).then(() => ({ status: 'Ok', timestamp: new Date().toISOString(), uptime: process.uptime() })),
+            prisma.user.count({ where: { deletedAt: null } }).then(users => ({ metrics: { users, activeSessions: 0, pendingReviews: 0, failedLogins: 0, totalActivities: 0, evidenceFiles: 0, syncStatus: '100%', checkoutStatus: 'OK' }, trend: [] })),
+            prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 20 }).then(logs => ({ logs })),
+            prisma.fieldLog.findMany({ orderBy: { timestamp: 'desc' }, take: 10, include: { user: true } }).then(logs => ({ requests: logs.map(entry => ({ type: 'API', method: 'GET', endpoint: '/api/v1/sync', status: 200, timestamp: entry.timestamp.toISOString() })) })),
+            Promise.resolve({ issues: [] }),
+            (async () => {
+                const [users, activeSessions, recentLogs, recentReviews, recentNotifications, totalStorageSize, dbStats, totalActivities, evidenceFiles] = await Promise.all([
+                    prisma.user.count({ where: { deletedAt: null } }),
+                    prisma.fieldSession.count({ where: { checkOutTime: null } }),
+                    prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 10 }),
+                    prisma.review.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
+                    prisma.notification.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
+                    prisma.evidence.aggregate({ _sum: { fileSize: true } }),
+                    prisma.user.count(),
+                    prisma.fieldLog.count(),
+                    prisma.evidence.count()
+                ]);
+                const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                const weeklyLogs = await prisma.auditLog.findMany({
+                    where: { timestamp: { gte: sevenDaysAgo } },
+                    select: { timestamp: true }
+                });
+                const trendBuckets = [0, 0, 0, 0, 0, 0, 0];
+                weeklyLogs.forEach(log => {
+                    const dayDiff = Math.floor((Date.now() - log.timestamp.getTime()) / (24 * 60 * 60 * 1000));
+                    if (dayDiff >= 0 && dayDiff < 7)
+                        trendBuckets[6 - dayDiff]++;
+                });
+                return {
+                    summary: { users, activeSessions, recentAudits: recentLogs.length, recentReviews: recentReviews.length, notifications: recentNotifications.length, totalActivities, evidenceFiles, syncStatus: '100%', checkoutStatus: 'OK' },
+                    chartData: { activityTrend: trendBuckets, storageSizes: [Math.round((totalStorageSize._sum.fileSize || 0) / (1024 * 1024)), Math.round(dbStats * 0.1)] },
+                    recentAuditEvents: recentLogs.map((entry) => ({ id: entry.id, action: entry.action, timestamp: entry.timestamp.toISOString(), details: entry.details })),
+                };
+            })()
         ]);
+        metricsRes.metrics.users = overviewRes.summary.users;
+        metricsRes.metrics.activeSessions = overviewRes.summary.activeSessions;
+        metricsRes.metrics.totalActivities = overviewRes.summary.totalActivities;
+        metricsRes.metrics.evidenceFiles = overviewRes.summary.evidenceFiles;
+        metricsRes.metrics.syncStatus = overviewRes.summary.syncStatus;
+        metricsRes.metrics.checkoutStatus = overviewRes.summary.checkoutStatus;
         res.json({
-            summary: {
-                users,
-                activeSessions,
-                recentAudits: recentLogs.length,
-                recentReviews: recentReviews.length,
-                notifications: recentNotifications.length,
-            },
-            recentAuditEvents: recentLogs.map((entry) => ({
-                id: entry.id,
-                action: entry.action,
-                timestamp: entry.timestamp.toISOString(),
-                details: entry.details,
-            })),
-            recentReviews: recentReviews.map((review) => ({
-                id: review.id,
-                activityId: review.activityId,
-                status: review.status,
-                createdAt: review.createdAt.toISOString(),
-            })),
-            recentNotifications: recentNotifications.map((notification) => ({
-                id: notification.id,
-                title: notification.title,
-                type: notification.type,
-                createdAt: notification.createdAt.toISOString(),
-            })),
+            health: healthRes,
+            metrics: metricsRes,
+            logs: logsRes.logs,
+            requests: requestsRes.requests,
+            issues: issuesRes.issues,
+            overviewData: overviewRes
         });
     }
     catch (error) {
-        appLogger.error('Developer dashboard overview failed', error);
-        res.status(500).json({ error: 'Unable to load overview data' });
+        appLogger.error('Dashboard aggregate failed', error);
+        res.status(500).json({ error: 'Unable to load aggregate data' });
     }
 });
 router.get('/logs', async (_req, res) => {
@@ -413,7 +439,13 @@ router.get('/modules/:moduleKey', async (req, res) => {
         }
         if (moduleKey === 'live-api-monitor') {
             const recentActivity = await prisma.fieldLog.findMany({ orderBy: { timestamp: 'desc' }, take: 12, include: { user: true } });
+            const errorCount = await prisma.auditLog.count({ where: { action: { in: ['FAILED_LOGIN', 'ERROR'] } } });
+            const successCount = await prisma.auditLog.count({ where: { action: { in: ['LOGIN_SUCCESS', 'CREATED'] } } });
             return res.json({
+                chartData: {
+                    errorRates: [errorCount, successCount], // Pie chart data
+                    endpoints: { labels: ['/auth', '/students', '/activities', '/sync', '/media'], data: [45, 30, 20, 15, 5] } // Mock popular endpoints
+                },
                 items: recentActivity.map((entry) => ({
                     method: 'GET',
                     endpoint: '/api/v1/student/dashboard',
@@ -452,12 +484,12 @@ router.get('/modules/:moduleKey', async (req, res) => {
                 prisma.fieldSession.count({ where: { status: 'ACTIVE' } }),
             ]);
             return res.json({
-                cards: [
-                    { title: 'Notifications', detail: `${unreadNotifications} unread`, status: unreadNotifications > 0 ? 'Queued' : 'Healthy' },
-                    { title: 'Sync queue', detail: `${activeSessions} active session${activeSessions === 1 ? '' : 's'}`, status: activeSessions > 0 ? 'Running' : 'Idle' },
-                    { title: 'Upload queue', detail: `${pendingUploads} pending upload${pendingUploads === 1 ? '' : 's'}`, status: pendingUploads > 0 ? 'Waiting' : 'Healthy' },
-                    { title: 'Review queue', detail: `${pendingReviews} pending review${pendingReviews === 1 ? '' : 's'}`, status: pendingReviews > 0 ? 'Reviewing' : 'Healthy' },
-                    { title: 'Scheduled jobs', detail: 'Cron and sync routines active', status: 'Healthy' },
+                items: [
+                    { Queue: 'Notifications', Details: `${unreadNotifications} unread`, Status: unreadNotifications > 0 ? 'Queued' : 'Healthy' },
+                    { Queue: 'Sync queue', Details: `${activeSessions} active session${activeSessions === 1 ? '' : 's'}`, Status: activeSessions > 0 ? 'Running' : 'Idle' },
+                    { Queue: 'Upload queue', Details: `${pendingUploads} pending upload${pendingUploads === 1 ? '' : 's'}`, Status: pendingUploads > 0 ? 'Waiting' : 'Healthy' },
+                    { Queue: 'Review queue', Details: `${pendingReviews} pending review${pendingReviews === 1 ? '' : 's'}`, Status: pendingReviews > 0 ? 'Reviewing' : 'Healthy' },
+                    { Queue: 'Scheduled jobs', Details: 'Cron and sync routines active', Status: 'Healthy' },
                 ],
             });
         }
@@ -480,12 +512,12 @@ router.get('/modules/:moduleKey', async (req, res) => {
                     reviews: reviews.length,
                 },
                 rows: [
-                    ...users.map((user) => ({ category: 'Users', key: user.name, status: user.role, timestamp: user.createdAt.toISOString() })),
-                    ...students.map((student) => ({ category: 'Students', key: student.registrationNo, status: student.status, timestamp: student.user?.name || 'Unknown' })),
-                    ...activities.map((activity) => ({ category: 'Activities', key: activity.title, status: activity.status, timestamp: activity.timestamp.toISOString() })),
-                    ...evidence.map((item) => ({ category: 'Evidence', key: item.originalName, status: item.uploadStatus, timestamp: item.uploadedAt.toISOString() })),
-                    ...notifications.map((notification) => ({ category: 'Notifications', key: notification.title, status: notification.type, timestamp: notification.createdAt.toISOString() })),
-                    ...reviews.map((review) => ({ category: 'Reviews', key: review.activityId, status: review.status, timestamp: review.createdAt.toISOString() })),
+                    ...users.map((user) => ({ id: user.id, category: 'Users', key: user.name, status: user.role, timestamp: user.createdAt.toISOString() })),
+                    ...students.map((student) => ({ id: student.id, category: 'Students', key: student.registrationNo, status: student.status, timestamp: student.user?.name || 'Unknown' })),
+                    ...activities.map((activity) => ({ id: activity.id, category: 'Activities', key: activity.title, status: activity.status, timestamp: activity.timestamp.toISOString() })),
+                    ...evidence.map((item) => ({ id: item.id, category: 'Evidence', key: item.originalName, status: item.uploadStatus, timestamp: item.uploadedAt.toISOString() })),
+                    ...notifications.map((notification) => ({ id: notification.id, category: 'Notifications', key: notification.title, status: notification.type, timestamp: notification.createdAt.toISOString() })),
+                    ...reviews.map((review) => ({ id: review.id, category: 'Reviews', key: review.activityId, status: review.status, timestamp: review.createdAt.toISOString() })),
                 ].slice(0, 12),
             });
         }
@@ -568,13 +600,11 @@ router.get('/modules/:moduleKey', async (req, res) => {
         }
         if (moduleKey === 'feature-flags') {
             return res.json({
-                cards: [
-                    { title: 'GPS Tracking', detail: 'Enabled', status: 'ON' },
-                    { title: 'Offline Sync', detail: 'Enabled', status: 'ON' },
-                    { title: 'Maps', detail: 'Enabled', status: 'ON' },
-                    { title: 'AI Review', detail: 'Disabled', status: 'OFF' },
-                    { title: 'Reports', detail: 'Enabled', status: 'ON' },
-                ],
+                cards: Object.entries(featureFlagsState).map(([key, value]) => ({
+                    title: key,
+                    detail: value ? 'Enabled' : 'Disabled',
+                    status: value ? 'ON' : 'OFF'
+                }))
             });
         }
         if (moduleKey === 'storage-analytics') {
@@ -601,20 +631,42 @@ router.get('/modules/:moduleKey', async (req, res) => {
                 prisma.auditLog.count({ where: { action: { in: ['FAILED_LOGIN', 'PASSWORD_RESET', 'USER_STATUS_UPDATED'] } } }),
             ]);
             return res.json({
-                summary: { failedLogins, lockedAccounts, activeRefreshTokens, suspiciousEvents },
+                items: [
+                    { Metrics: 'Failed Logins', Count: failedLogins },
+                    { Metrics: 'Locked Accounts', Count: lockedAccounts },
+                    { Metrics: 'Active Refresh Tokens', Count: activeRefreshTokens },
+                    { Metrics: 'Suspicious Events', Count: suspiciousEvents },
+                ],
             });
         }
         if (moduleKey === 'server-monitor') {
+            const cpus = os.cpus();
+            const cpuModel = cpus.length > 0 ? cpus[0].model : 'Unknown';
+            const totalMem = os.totalmem();
+            const freeMem = os.freemem();
+            const memUsedPercent = Math.round(((totalMem - freeMem) / totalMem) * 100);
+            const memProcess = process.memoryUsage();
+            const uptime = process.uptime();
+            let diskInfo = 'Unknown';
+            try {
+                const { stdout } = await execAsync('df -h / | tail -1 | awk \'{print $5 " used of " $2}\'');
+                diskInfo = stdout.trim();
+            }
+            catch (e) {
+                diskInfo = 'N/A (Windows/Err)';
+            }
             return res.json({
                 cards: [
-                    { title: 'CPU', detail: `${Math.round(os.loadavg()[0] * 100)}% load`, status: 'Healthy' },
-                    { title: 'RAM', detail: `${Math.round((os.totalmem() - os.freemem()) / (1024 * 1024))}MB used`, status: 'Healthy' },
-                    { title: 'Disk', detail: `${Math.round((os.totalmem() / (1024 * 1024 * 1024)) * 100) / 100}GB total`, status: 'Healthy' },
-                    { title: 'Network', detail: 'Interfaces active', status: 'Healthy' },
-                    { title: 'Node processes', detail: `${process.pid}`, status: 'Healthy' },
-                    { title: 'PM2', detail: 'Managed via ecosystem config', status: 'Healthy' },
-                    { title: 'Database connections', detail: 'Prisma pool active', status: 'Healthy' },
+                    { title: 'CPU', detail: `${cpuModel} (${cpus.length} Cores)`, status: `${Math.round(os.loadavg()[0] * 100)}% load` },
+                    { title: 'System RAM', detail: `${Math.round((totalMem - freeMem) / (1024 * 1024))}MB / ${Math.round(totalMem / (1024 * 1024))}MB`, status: `${memUsedPercent}% used` },
+                    { title: 'Process RAM (Heap)', detail: `${Math.round(memProcess.heapUsed / 1024 / 1024)}MB / ${Math.round(memProcess.heapTotal / 1024 / 1024)}MB`, status: 'Healthy' },
+                    { title: 'Disk Usage', detail: diskInfo, status: 'Healthy' },
+                    { title: 'Node Process', detail: `PID: ${process.pid} | Uptime: ${Math.round(uptime / 3600)}h ${Math.round((uptime % 3600) / 60)}m`, status: 'Healthy' },
                 ],
+                chartData: {
+                    cpuLoad: os.loadavg()[0],
+                    memUsed: memUsedPercent,
+                }
             });
         }
         if (moduleKey === 'version-manager') {
@@ -793,6 +845,158 @@ router.get('/status', async (_req, res) => {
     catch (error) {
         appLogger.error('Developer dashboard status failed', error);
         res.status(500).json({ error: 'Unable to load status' });
+    }
+});
+// ---- Administrative Actions ----
+router.put('/actions/feature-flags/:key', async (req, res) => {
+    try {
+        const keyStr = typeof req.params.key === 'string' ? req.params.key : req.params.key[0];
+        const { enabled } = req.body;
+        if (typeof keyStr === 'string' && keyStr in featureFlagsState) {
+            featureFlagsState[keyStr] = enabled;
+            return res.json({ success: true, message: `Feature flag ${keyStr} updated` });
+        }
+        return res.status(404).json({ error: 'Feature flag not found' });
+    }
+    catch (error) {
+        appLogger.error('Feature flag update error', error);
+        res.status(500).json({ error: 'Failed to update feature flag' });
+    }
+});
+router.post('/actions/database', async (req, res) => {
+    try {
+        const { category, key, id, action } = req.body;
+        if (action === 'delete') {
+            if (category === 'Users')
+                await prisma.user.delete({ where: { id } });
+            else if (category === 'Students')
+                await prisma.studentProfile.delete({ where: { id } });
+            else if (category === 'Activities')
+                await prisma.fieldLog.delete({ where: { id } });
+            else if (category === 'Evidence')
+                await prisma.evidence.delete({ where: { id } });
+            else if (category === 'Notifications')
+                await prisma.notification.delete({ where: { id } });
+            else if (category === 'Reviews')
+                await prisma.review.delete({ where: { id } });
+        }
+        else if (action === 'suspend') {
+            if (category === 'Users')
+                await prisma.user.update({ where: { id }, data: { deletedAt: new Date() } });
+            // Ignoring unsupported suspend for other categories
+        }
+        return res.json({ success: true, message: `Action ${action} executed on ${category}` });
+    }
+    catch (error) {
+        appLogger.error('Database action error', error);
+        res.status(500).json({ error: 'Database action failed' });
+    }
+});
+router.post('/actions/maintenance', async (req, res) => {
+    try {
+        const { enabled } = req.body;
+        // In a real app, this might update a row in SystemSetting or Redis
+        // For now, we simulate it via an environment variable flag (not persistent across restarts without DB)
+        process.env.MAINTENANCE_MODE = enabled ? 'true' : 'false';
+        await prisma.auditLog.create({
+            data: { action: 'MAINTENANCE_TOGGLED', details: { enabled }, actorId: req.user?.userId }
+        });
+        return res.json({ success: true, message: `Maintenance mode ${enabled ? 'enabled' : 'disabled'}` });
+    }
+    catch (error) {
+        return res.status(500).json({ error: 'Failed to toggle maintenance' });
+    }
+});
+router.post('/actions/clear-logs', async (req, res) => {
+    try {
+        // Retain last 30 days of logs, delete older
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const { count } = await prisma.auditLog.deleteMany({
+            where: { timestamp: { lt: thirtyDaysAgo } }
+        });
+        await prisma.auditLog.create({
+            data: { action: 'LOGS_CLEARED', details: { recordsDeleted: count }, actorId: req.user?.userId }
+        });
+        return res.json({ success: true, message: `Cleared ${count} old audit logs` });
+    }
+    catch (error) {
+        return res.status(500).json({ error: 'Failed to clear logs' });
+    }
+});
+router.post('/actions/restart', async (req, res) => {
+    try {
+        await prisma.auditLog.create({
+            data: { action: 'SERVER_RESTART_REQUESTED', actorId: req.user?.userId }
+        });
+        // Send response before killing the process
+        res.json({ success: true, message: 'Server restarting...' });
+        setTimeout(() => {
+            process.exit(0); // Assumes PM2 or Docker will auto-restart it
+        }, 1000);
+    }
+    catch (error) {
+        return res.status(500).json({ error: 'Failed to initiate restart' });
+    }
+});
+router.post('/actions/vps-command', async (req, res) => {
+    try {
+        const { command } = req.body;
+        if (!command || typeof command !== 'string')
+            return res.status(400).json({ error: 'Invalid command' });
+        // WARNING: Extreme security risk, should only be available to strict SuperAdmins
+        const { stdout, stderr } = await execAsync(command, { timeout: 10000 });
+        await prisma.auditLog.create({
+            data: { action: 'VPS_COMMAND_EXECUTED', details: { command }, actorId: req.user?.userId }
+        });
+        return res.json({ success: true, stdout, stderr });
+    }
+    catch (error) {
+        return res.status(500).json({ error: 'Command failed', stderr: error.message || String(error) });
+    }
+});
+router.post('/actions/security-revoke', async (req, res) => {
+    try {
+        const { count } = await prisma.refreshToken.updateMany({
+            where: { revokedAt: null },
+            data: { revokedAt: new Date() }
+        });
+        await prisma.auditLog.create({
+            data: { action: 'ALL_TOKENS_REVOKED', details: { count }, actorId: req.user?.userId }
+        });
+        return res.json({ success: true, message: `Revoked ${count} active sessions` });
+    }
+    catch (error) {
+        return res.status(500).json({ error: 'Failed to revoke tokens' });
+    }
+});
+router.post('/actions/security-lock', async (req, res) => {
+    try {
+        // Lock users with more than 5 failed logins
+        const { count } = await prisma.user.updateMany({
+            where: { failedLoginAttempts: { gte: 5 }, accountLockedUntil: null },
+            data: { accountLockedUntil: new Date(Date.now() + 24 * 60 * 60 * 1000) }
+        });
+        await prisma.auditLog.create({
+            data: { action: 'SUSPICIOUS_ACCOUNTS_LOCKED', details: { count }, actorId: req.user?.userId }
+        });
+        return res.json({ success: true, message: `Locked ${count} suspicious accounts` });
+    }
+    catch (error) {
+        return res.status(500).json({ error: 'Failed to lock accounts' });
+    }
+});
+router.post('/actions/jobs-clear', async (req, res) => {
+    try {
+        const { count } = await prisma.evidence.deleteMany({
+            where: { uploadStatus: 'FAILED' }
+        });
+        await prisma.auditLog.create({
+            data: { action: 'FAILED_UPLOADS_CLEARED', details: { count }, actorId: req.user?.userId }
+        });
+        return res.json({ success: true, message: `Cleared ${count} failed uploads` });
+    }
+    catch (error) {
+        return res.status(500).json({ error: 'Failed to clear jobs' });
     }
 });
 export default router;

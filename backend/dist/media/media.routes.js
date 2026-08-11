@@ -10,6 +10,7 @@ const storageService = new StorageService();
 const ALLOWED_MIME_TYPES = [
     'image/jpeg', 'image/png', 'image/webp',
     'video/mp4', 'video/webm',
+    'audio/mp4', 'audio/m4a', 'audio/aac', 'audio/mpeg', 'audio/x-m4a', 'application/octet-stream',
     'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ];
 const upload = multer({
@@ -34,7 +35,7 @@ router.post('/upload', authenticate, upload.single('file'), async (req, res) => 
         if (!userId) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
-        const { activityId, gpsLatitude, gpsLongitude, gpsAccuracy, capturedAt } = req.body;
+        const { activityId, gpsLatitude, gpsLongitude, gpsAccuracy, capturedAt, evidenceType } = req.body;
         if (!activityId) {
             return res.status(400).json({ error: 'Missing activityId' });
         }
@@ -48,7 +49,7 @@ router.post('/upload', authenticate, upload.single('file'), async (req, res) => 
         if (req.user?.role === 'STUDENT' && activity.studentId !== userId) {
             return res.status(403).json({ error: 'You can only upload evidence to your own activities' });
         }
-        const evidence = await storageService.processUpload(file, activity.id, userId, gpsLatitude ? parseFloat(gpsLatitude) : undefined, gpsLongitude ? parseFloat(gpsLongitude) : undefined, gpsAccuracy ? parseFloat(gpsAccuracy) : undefined, capturedAt ? new Date(capturedAt) : undefined);
+        const evidence = await storageService.processUpload(file, activity.id, userId, gpsLatitude ? parseFloat(gpsLatitude) : undefined, gpsLongitude ? parseFloat(gpsLongitude) : undefined, gpsAccuracy ? parseFloat(gpsAccuracy) : undefined, capturedAt ? new Date(capturedAt) : undefined, evidenceType);
         res.status(201).json(evidence);
     }
     catch (error) {

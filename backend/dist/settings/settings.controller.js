@@ -3,6 +3,8 @@ import * as bcrypt from 'bcrypt';
 import sharp from 'sharp';
 import fs from 'fs/promises';
 import path from 'path';
+import crypto from 'crypto';
+import { getStorageBucket } from '../firebase_admin.js';
 // GET /api/v1/settings/info
 export const getSettingsInfo = async (req, res) => {
     try {
@@ -273,8 +275,37 @@ export const uploadAvatar = async (req, res) => {
             .toFile(outputPath);
         // Remove the original (uncompressed) file
         await fs.unlink(originalPath);
-        // Avatar path relative to backend root
-        const avatarPath = `/storage/avatars/${baseName}.webp`;
+        // Upload to Firebase Storage
+        const bucket = getStorageBucket();
+        if (!bucket) {
+            throw new Error('Firebase Storage Bucket is not configured.');
+        }
+        const firebasePath = `avatars/${baseName}.webp`;
+        const token = crypto.randomUUID();
+        await bucket.upload(outputPath, {
+            destination: firebasePath,
+            metadata: {
+                contentType: 'image/webp',
+                cacheControl: 'public, max-age=31536000',
+                metadata: {
+                    firebaseStorageDownloadTokens: token,
+                }
+            }
+        });
+        await fs.unlink(outputPath);
+        // Public Firebase URL with download token attached
+        const avatarPath = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(firebasePath)}?alt=media&token=${token}`;
+        // Fetch existing avatar to delete later
+        const existingUser = await prisma.user.findUnique({
+            where: { id: user.userId },
+            include: {
+                studentProfile: true,
+                supervisorProfile: true,
+            },
+        });
+        const oldAvatarPath = user.role === 'SUPERVISOR'
+            ? existingUser?.supervisorProfile?.avatar
+            : existingUser?.studentProfile?.avatar;
         await prisma.user.update({
             where: { id: user.userId },
             data: {
@@ -283,6 +314,33 @@ export const uploadAvatar = async (req, res) => {
                     : { studentProfile: { update: { avatar: avatarPath } } }),
             },
         });
+        // Clean up old avatar
+        if (oldAvatarPath) {
+            if (oldAvatarPath.startsWith('https://storage.googleapis.com/')) {
+                // Delete from Firebase
+                const oldFirebasePath = oldAvatarPath.split(`https://storage.googleapis.com/${bucket.name}/`)[1];
+                if (oldFirebasePath) {
+                    try {
+                        await bucket.file(oldFirebasePath).delete();
+                    }
+                    catch (err) {
+                        console.error('Failed to delete old avatar from firebase:', err);
+                    }
+                }
+            }
+            else if (oldAvatarPath.startsWith('/storage/avatars/')) {
+                // Legacy local file cleanup
+                const fullOldAvatarPath = path.join(process.cwd(), oldAvatarPath);
+                try {
+                    await fs.unlink(fullOldAvatarPath);
+                }
+                catch (err) {
+                    if (err.code !== 'ENOENT') {
+                        console.error('Failed to delete legacy old avatar:', err);
+                    }
+                }
+            }
+        }
         res.json({ success: true, avatar: avatarPath });
     }
     catch (error) {
