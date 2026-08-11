@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import sharp from 'sharp';
 import fs from 'fs/promises';
 import path from 'path';
+import crypto from 'crypto';
 import { getStorageBucket } from '../firebase_admin.js';
 
 // GET /api/v1/settings/info
@@ -318,15 +319,23 @@ export const uploadAvatar = async (req: Request, res: Response): Promise<void> =
     }
     const firebasePath = `avatars/${baseName}.webp`;
     
+    const token = crypto.randomUUID();
+    
     await bucket.upload(outputPath, {
       destination: firebasePath,
-      metadata: { contentType: 'image/webp', cacheControl: 'public, max-age=31536000' }
+      metadata: { 
+        contentType: 'image/webp', 
+        cacheControl: 'public, max-age=31536000',
+        metadata: {
+          firebaseStorageDownloadTokens: token,
+        }
+      }
     });
     
     await fs.unlink(outputPath);
 
-    // Public Firebase URL
-    const avatarPath = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(firebasePath)}?alt=media`;
+    // Public Firebase URL with download token attached
+    const avatarPath = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(firebasePath)}?alt=media&token=${token}`;
 
     // Fetch existing avatar to delete later
     const existingUser = await prisma.user.findUnique({

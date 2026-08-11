@@ -35,6 +35,7 @@ router.use(authenticate);
 router.get('/info', getSettingsInfo);
 router.get('/profile', getProfileSettings);
 router.put('/profile', updateProfileSettings);
+router.patch('/profile', updateProfileSettings);
 router.put('/password', updatePassword);
 router.put('/security', updateSecuritySettings);
 router.post('/logout-others', logoutOtherSessions);
