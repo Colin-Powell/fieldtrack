@@ -749,6 +749,7 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
     ),
   );
 }
+}
 
 // ==========================================
 // DOTTED LINE PAINTER FOR TIMELINE
