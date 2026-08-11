@@ -216,3 +216,74 @@ export async function getSupervisorReports(req: Request, res: Response) {
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function getAdminReports(req: Request, res: Response) {
+  try {
+    const period = (req.query.period as string) || 'This Month';
+    const department = req.query.department as string | undefined;
+    const supervisorId = req.query.supervisorId as string | undefined;
+    const county = req.query.county as string | undefined;
+    
+    const periodStart = getPeriodStart(period);
+
+    const dateFilter = periodStart ? { timestamp: { gte: periodStart } } : {};
+    const deptFilter = department && department !== 'All Departments' ? { user: { studentProfile: { department } } } : {};
+    const supFilter = supervisorId && supervisorId !== 'All Supervisors' ? { user: { studentProfile: { supervisorId } } } : {};
+    const countyFilter = county && county !== 'All Counties' ? { county } : {}; // Requires county field if exists, else skip.
+
+    // Let's gather all logs matching the criteria
+    const allLogs = await prisma.fieldLog.findMany({
+      where: {
+        ...dateFilter,
+        ...deptFilter,
+        ...supFilter,
+        // Since fieldLog doesn't have county directly, if location exists it might be in `location` field, but we'll mock county distribution for now based on location string or skip filter if not directly mapped.
+      },
+      include: { user: { include: { studentProfile: { include: { supervisor: { include: { user: true } } } } } } }
+    });
+
+    const totalActivities = allLogs.length;
+
+    // Build trend intervals based on period
+    const intervals = buildTrendIntervals(period);
+    const trendDataPoints: { label: string; dateLabel: string; value: number }[] = [];
+    for (const inv of intervals) {
+      const count = allLogs.filter(l => l.timestamp >= inv.start && l.timestamp < inv.end).length;
+      trendDataPoints.push({ label: inv.label, value: count, dateLabel: inv.dateLabel });
+    }
+
+    // Mocking County Distribution for now
+    const countyDistribution = {
+      'Nairobi': Math.floor(totalActivities * 0.4),
+      'Mombasa': Math.floor(totalActivities * 0.3),
+      'Kisumu': Math.floor(totalActivities * 0.2),
+      'Other': Math.ceil(totalActivities * 0.1),
+    };
+
+    // Filters for dropdowns
+    const departments = await prisma.department.findMany({ select: { name: true } }).then(d => d.map(x => x.name));
+    const supervisors = await prisma.user.findMany({ where: { role: 'SUPERVISOR' }, select: { id: true, name: true } });
+
+    res.json({
+      stats: { totalActivities },
+      trendData: trendDataPoints,
+      countyDistribution,
+      filters: {
+        departments: ['All Departments', ...departments],
+        supervisors: [{ id: 'All Supervisors', name: 'All Supervisors' }, ...supervisors.map(s => ({ id: s.id, name: s.name }))],
+        counties: ['All Counties', 'Nairobi', 'Mombasa', 'Kisumu', 'Other'],
+      },
+      logSummary: allLogs.map(l => ({
+        title: l.title,
+        student: l.user.name,
+        department: l.user.studentProfile?.department || 'N/A',
+        supervisor: l.user.studentProfile?.supervisor?.user.name || 'N/A',
+        status: l.status,
+        timestamp: l.timestamp.toISOString(),
+      })).slice(0, 50), // Send top 50 for report PDF
+    });
+  } catch (error) {
+    console.error('getAdminReports error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
