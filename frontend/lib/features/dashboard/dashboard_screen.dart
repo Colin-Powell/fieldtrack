@@ -72,8 +72,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final String statusTitle = checkInState.isCheckedIn
         ? 'Checked In'
         : 'Not Checked In';
+    final String checkInLocation = locState.isLocating ? 'Locating...' : locState.locationName;
     final String statusTime = checkInState.isCheckedIn
-        ? '${DateFormat('hh:mm a').format(checkInState.checkInTime!)} | ${DateFormat('dd MMM yyyy').format(checkInState.checkInTime!)}'
+        ? '${DateFormat('hh:mm a').format(checkInState.checkInTime!)} | $checkInLocation'
         : 'Tap to check in';
 
     return Scaffold(
@@ -702,14 +703,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   }
                 }
 
+                final locName = activity['locationName'] as String?;
+                final fallbackLoc = "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
                   child: _buildActivityCard(
                     context: context,
                     id: activity['id'],
                     title: title,
-                    location:
-                        "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}",
+                    location: locName != null && locName.isNotEmpty ? locName : fallbackLoc,
                     time: timeStr,
                     status: status,
                     statusColor: statusColor,

@@ -289,10 +289,13 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
               }
             }
 
+            final locName = activity['locationName'] as String?;
+            final fallbackLoc = "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
+
             return _buildActivityCard(
               id: activity['id'] ?? '',
               title: title,
-              location: "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}",
+              location: locName != null && locName.isNotEmpty ? locName : fallbackLoc,
               time: timeStr,
               statusText: statusText,
               statusColor: statusColor,

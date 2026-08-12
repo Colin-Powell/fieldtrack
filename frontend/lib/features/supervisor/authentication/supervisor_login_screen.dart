@@ -67,7 +67,7 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
         }
 
         final user = ref.read(authProvider).user;
-        if (user?.role == 'SUPERVISOR' || user?.role == 'ADMIN') {
+        if (user?.role == 'SUPERVISOR') {
           context.go('/supervisor/dashboard');
         } else {
           rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();

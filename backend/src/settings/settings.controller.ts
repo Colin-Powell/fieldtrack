@@ -242,14 +242,45 @@ export const deactivateAccount = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    const timestamp = Date.now();
     await prisma.user.update({
       where: { id: user.userId },
       data: {
-        status: 'SUSPENDED',
+        status: 'ARCHIVED',
         isActive: false,
         deletedAt: new Date(),
+        email: `deleted_${timestamp}_${user.userId}@anonymized.com`,
+        name: 'Deleted User',
       },
     });
+
+    if (user.role === 'STUDENT') {
+      try {
+        await prisma.studentProfile.update({
+          where: { userId: user.userId },
+          data: {
+            registrationNo: `deleted_${timestamp}`,
+            phone: null,
+            avatar: null,
+          }
+        });
+      } catch (e) {
+        // profile might not exist
+      }
+    } else if (user.role === 'SUPERVISOR') {
+      try {
+        await prisma.supervisorProfile.update({
+          where: { userId: user.userId },
+          data: {
+            staffNumber: `deleted_${timestamp}`,
+            phone: null,
+            avatar: null,
+          }
+        });
+      } catch (e) {
+        // profile might not exist
+      }
+    }
     
     await prisma.refreshToken.deleteMany({
       where: { userId: user.userId },

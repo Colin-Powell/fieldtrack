@@ -260,25 +260,23 @@ import { ensureEnvAdminAccount } from './admin-sync.js';
 
 import { authorizeRole } from './auth/auth.middleware.js';
 
-// ── Supervisor Routes ──
-app.get('/api/v1/supervisor/dashboard/stats', authenticate, authorizeRole(['SUPERVISOR', 'ADMIN']), async (req: Request, res: Response) => {
+// ── Supervisor Routes ── (SUPERVISOR role only — strict RBAC)
+app.get('/api/v1/supervisor/dashboard/stats', authenticate, authorizeRole(['SUPERVISOR']), async (req: Request, res: Response) => {
   try {
     const supervisorId = req.user?.userId;
     const supervisorProfile = await prisma.supervisorProfile.findUnique({
       where: { userId: supervisorId }
     });
 
-    if (!supervisorProfile && req.user?.role !== 'ADMIN') {
+    if (!supervisorProfile) {
       return res.json({ checkedOut: 0, checkedIn: 0, inField: 0 });
     }
 
-    const whereClause: any = { role: 'STUDENT' };
-    if (req.user?.role !== 'ADMIN' && supervisorProfile) {
-      whereClause.studentProfile = { supervisorId: supervisorProfile.id };
-    }
-
     const students = await prisma.user.findMany({
-      where: whereClause,
+      where: {
+        role: 'STUDENT',
+        studentProfile: { supervisorId: supervisorProfile.id },
+      },
       include: {
         fieldSessions: {
           where: { checkOutTime: null }
@@ -305,23 +303,23 @@ app.get('/api/v1/supervisor/dashboard/stats', authenticate, authorizeRole(['SUPE
   }
 });
 
-app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR', 'ADMIN']), async (req: Request, res: Response) => {
+app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR']), async (req: Request, res: Response) => {
   try {
     const supervisorId = req.user?.userId;
     const supervisorProfile = await prisma.supervisorProfile.findUnique({
       where: { userId: supervisorId }
     });
 
-    const whereClause: any = { role: 'STUDENT' };
-    if (req.user?.role !== 'ADMIN' && supervisorProfile) {
-      whereClause.studentProfile = { supervisorId: supervisorProfile.id };
-    } else if (req.user?.role !== 'ADMIN' && !supervisorProfile) {
-      // If supervisor has no profile yet, they have no students.
+    if (!supervisorProfile) {
+      // Supervisor has no profile yet — they have no students
       return res.json([]);
     }
 
     const students = await prisma.user.findMany({
-      where: whereClause,
+      where: {
+        role: 'STUDENT',
+        studentProfile: { supervisorId: supervisorProfile.id },
+      },
       include: {
         studentProfile: {
           include: {
@@ -330,13 +328,11 @@ app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR'
             }
           }
         },
-        // Active session — determines checkInStatus
         fieldSessions: {
           where: { checkOutTime: null },
           orderBy: { checkInTime: 'desc' },
           take: 1,
         },
-        // Latest activity — for lastActivity timestamp
         logs: {
           orderBy: { timestamp: 'desc' },
           take: 1,
@@ -351,13 +347,8 @@ app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR'
       const latestLog = (u as any).logs?.[0] ?? null;
       const supervisorUser = sp?.supervisor?.user;
 
-      // Check-in status: "Checked In" if there's an active (open) session
       const isCheckedIn = !!activeSession;
-
-      // Field status: if actively checked in, they're "In Field"; otherwise "Offline"
       const fieldStatus = isCheckedIn ? 'In Field' : 'Offline';
-
-      // Last activity: ISO timestamp of most recent field log
       const lastActivity = latestLog?.timestamp
         ? new Date(latestLog.timestamp).toISOString()
         : null;
@@ -366,7 +357,7 @@ app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR'
         id: u.id,
         name: u.name,
         email: u.email,
-        status: u.status,             // ACTIVE | SUSPENDED | ARCHIVED
+        status: u.status,
         avatarUrl: sp?.avatar ?? '',
         reg: sp?.registrationNo ?? '',
         programme: sp?.programme ?? '',
@@ -398,8 +389,8 @@ app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR'
   }
 });
 
-// ── GET /api/v1/supervisor/students/:id — full student profile ──
-app.get('/api/v1/supervisor/students/:id', async (req: Request, res: Response) => {
+// ── GET /api/v1/supervisor/students/:id — full student profile (SUPERVISOR only)
+app.get('/api/v1/supervisor/students/:id', authenticate, authorizeRole(['SUPERVISOR']), async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const u = await prisma.user.findUnique({
@@ -545,15 +536,8 @@ app.post('/api/v1/student/location', async (req: Request, res: Response) => {
   res.status(501).json({ error: 'Not Implemented. Migrated to LocationPing.' });
 });
 
-// ── Admin Routes ──
-app.get('/api/v1/admin/users', async (req: Request, res: Response) => {
-  try {
-    const users = await prisma.user.findMany();
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
+// NOTE: The admin users endpoint lives in admins.routes.ts (protected with authenticate + authorizeRole(['ADMIN']))
+// The duplicate unprotected route has been intentionally removed.
 
 app.use((req: Request, res: Response) => {
   res.status(404).json({

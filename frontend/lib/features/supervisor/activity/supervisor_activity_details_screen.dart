@@ -315,7 +315,11 @@ class _SupervisorActivityDetailsScreenState
           timeStr = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
         }
 
-        final locationStr = "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
+        final locName = activity['locationName'] as String?;
+        final fallbackLoc = "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
+        final locationStr = (locName != null && locName.isNotEmpty) 
+            ? '${locName}${activity['county'] != null ? ', ${activity['county']}' : ''}' 
+            : fallbackLoc;
         final accuracyStr = "${activity['gpsAccuracy']?.toStringAsFixed(1) ?? '-'} m";
 
         return Row(

@@ -45,12 +45,12 @@ class _SupervisorRouterNotifier extends ChangeNotifier {
     }
 
     if (isAuth && isAuthRoute) {
-      if (user?.role == 'SUPERVISOR' || user?.role == 'ADMIN') {
+      if (user?.role == 'SUPERVISOR') {
         return '/supervisor/dashboard';
       }
     }
 
-    if (isAuth && user?.role != 'SUPERVISOR' && user?.role != 'ADMIN' && path.startsWith('/supervisor') && !isAuthRoute) {
+    if (isAuth && user?.role != 'SUPERVISOR' && path.startsWith('/supervisor') && !isAuthRoute) {
       _ref.read(authProvider.notifier).logout();
       return '/supervisor/login';
     }

@@ -51,29 +51,11 @@ class StudentMapNotifier extends StateNotifier<StudentMapState> {
   }
 
   void _init() {
-    // 1. Listen to location changes to draw the route
-    _ref.listen<LocationState>(locationProvider, (previous, next) {
-      if (!next.isLocating && next.error == null) {
-        final currentPos = LatLng(next.latitude, next.longitude);
-        
-        // Simple logic: add to route if it's the first point or if we moved slightly
-        if (state.visitedRoute.isEmpty) {
-          state = state.copyWith(visitedRoute: [currentPos]);
-        } else {
-          final lastPos = state.visitedRoute.last;
-          final distance = const Distance().as(LengthUnit.Meter, lastPos, currentPos);
-          if (distance > 5.0) { // Only add points if moved > 5 meters
-            state = state.copyWith(visitedRoute: [...state.visitedRoute, currentPos]);
-          }
-        }
-      }
-    });
-
-    // 2. Mock Supervisor Location (e.g. Kilifi area near Pwani Uni)
+    // 1. Mock Supervisor Location (e.g. Kilifi area near Pwani Uni)
     // In a real app, this would subscribe to a WebSocket or periodic API pull
     state = state.copyWith(supervisorLocation: const LatLng(-3.6350, 39.8470));
 
-    // 3. Listen to activities to pull activity locations
+    // 2. Listen to activities to pull activity locations and map the route
     _ref.listen(studentActivitiesProvider, (previous, next) {
       next.whenData((activitiesResult) {
         if (activitiesResult is Success) {
@@ -91,7 +73,11 @@ class StudentMapNotifier extends StateNotifier<StudentMapState> {
               );
             }
           }
-          state = state.copyWith(activityLocations: activityMarkers);
+          
+          state = state.copyWith(
+            activityLocations: activityMarkers,
+            visitedRoute: activityMarkers.map((m) => m.position).toList(),
+          );
         }
       });
     }, fireImmediately: true);

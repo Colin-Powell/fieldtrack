@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/services/location_naming_service.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/features/supervisor/field_logs/supervisor_daily_field_logs_screen.dart';
@@ -695,14 +696,28 @@ class _SupervisorStudentProfileScreenState
                                     ? _C.green
                                     : _C.textMuted,
                               ),
-                              _buildFieldStatusItem(
-                                PhosphorIconsRegular.mapPin,
-                                'Location',
-                                _student?.currentSession != null
-                                    ? 'Lat: ${_student!.currentSession!.latitude.toStringAsFixed(4)}, Lng: ${_student!.currentSession!.longitude.toStringAsFixed(4)}'
-                                    : 'N/A',
-                                _C.textDark,
-                              ),
+                              _student?.currentSession != null
+                                  ? FutureBuilder<String>(
+                                      future: LocationNamingService().getLocationName(
+                                        _student!.currentSession!.latitude,
+                                        _student!.currentSession!.longitude,
+                                      ),
+                                      builder: (context, snapshot) {
+                                        final loc = snapshot.data ?? 'Lat: ${_student!.currentSession!.latitude.toStringAsFixed(4)}, Lng: ${_student!.currentSession!.longitude.toStringAsFixed(4)}';
+                                        return _buildFieldStatusItem(
+                                          PhosphorIconsRegular.mapPin,
+                                          'Location',
+                                          loc,
+                                          _C.textDark,
+                                        );
+                                      },
+                                    )
+                                  : _buildFieldStatusItem(
+                                      PhosphorIconsRegular.mapPin,
+                                      'Location',
+                                      'N/A',
+                                      _C.textDark,
+                                    ),
                               _buildFieldStatusItem(
                                 PhosphorIconsRegular.crosshair,
                                 'Accuracy',

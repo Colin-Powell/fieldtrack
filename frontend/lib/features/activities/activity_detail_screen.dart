@@ -240,7 +240,9 @@ class ActivityDetailScreen extends ConsumerWidget {
                           _buildInfoItem(
                             icon: PhosphorIconsRegular.mapPin,
                             title: 'Location',
-                            subtitle: 'Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}',
+                            subtitle: (activity['locationName'] != null && activity['locationName'].toString().isNotEmpty)
+                                ? '${activity['locationName']}${activity['county'] != null ? ', ${activity['county']}' : ''}'
+                                : 'Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}',
                           ),
                           const SizedBox(height: 24),
                           _buildSupervisorItem(context, activity),

@@ -132,6 +132,103 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   bool _isSaving = false;
   bool _isBackingUp = false;
 
+  void _handleDeleteAccount() {
+    final user = ref.read(authProvider).user;
+    if (user == null) return;
+    
+    final TextEditingController emailController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final bool isEmailMatch = emailController.text.trim().toLowerCase() == user.email.toLowerCase();
+          
+          return AlertDialog(
+            title: const Text(
+              'Delete Account',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFEF4444),
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Are you sure you want to delete your admin account? This action cannot be undone.',
+                  style: TextStyle(fontFamily: 'Inter'),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Type ${user.email} to confirm:',
+                  style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Email address',
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ],
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Color(0xFF6B7280), fontFamily: 'Inter'),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: isEmailMatch ? () async {
+                  try {
+                    await ApiClient().dio.delete('/settings/deactivate');
+                    ref.read(authProvider.notifier).logout();
+                    if (mounted) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
+                        (route) => false,
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to delete account: $e')),
+                      );
+                    }
+                  }
+                } : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF4444),
+                  disabledBackgroundColor: const Color(0xFFEF4444).withOpacity(0.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
   // Controllers for text fields
   final _universityNameCtrl = TextEditingController();
   final _systemAdminCtrl = TextEditingController();
@@ -675,6 +772,35 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
         _buildSwitchRow('Require Alphanumeric Passwords', _alphaPass, (val) {
           setState(() => _alphaPass = val);
         }),
+        const SizedBox(height: 32),
+        const Divider(),
+        const SizedBox(height: 32),
+        const Text(
+          'Danger Zone',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFFEF4444),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Once you delete your admin account, there is no going back.',
+          style: TextStyle(fontFamily: 'Inter', color: Color(0xFF6B7280)),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          onPressed: _handleDeleteAccount,
+          icon: const Icon(PhosphorIconsRegular.trash, size: 20),
+          label: const Text('Delete Account'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFEF4444),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+          ),
+        ),
       ],
     );
   }

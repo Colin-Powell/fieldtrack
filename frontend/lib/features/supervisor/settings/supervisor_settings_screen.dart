@@ -1130,11 +1130,152 @@ class _SupervisorSettingsScreenState
                     ),
                   ),
                 ),
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 32),
+                const Text(
+                  'Danger Zone',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
+                    color: _C.dangerRed,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Once you delete your account, there is no going back. Please be certain.',
+                  style: TextStyle(
+                    color: _C.textLight,
+                    fontFamily: 'Inter',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ElevatedButton.icon(
+                    onPressed: _handleDeleteAccount,
+                    icon: const Icon(PhosphorIconsRegular.trash, size: 20),
+                    label: const Text(
+                      'Delete Account',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _C.dangerRed,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(40),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  void _handleDeleteAccount() {
+    final user = ref.read(authProvider).user;
+    if (user == null) return;
+    
+    final TextEditingController emailController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final bool isEmailMatch = emailController.text.trim().toLowerCase() == user.email.toLowerCase();
+          
+          return AlertDialog(
+            title: const Text(
+              'Delete Account',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.bold,
+                color: _C.dangerRed,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Are you sure you want to delete your account? This action cannot be undone.',
+                  style: TextStyle(fontFamily: 'Inter'),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Type ${user.email} to confirm:',
+                  style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Email address',
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ],
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: _C.textLight, fontFamily: 'Inter'),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: isEmailMatch ? () async {
+                  try {
+                    await ApiClient().dio.delete('/settings/deactivate');
+                    ref.read(authProvider.notifier).logout();
+                    if (mounted) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const SupervisorLoginScreen()),
+                        (route) => false,
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      Navigator.pop(context);
+                      _showSnackbar('Failed to delete account: $e');
+                    }
+                  }
+                } : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _C.dangerRed,
+                  disabledBackgroundColor: _C.dangerRed.withOpacity(0.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+      ),
     );
   }
 

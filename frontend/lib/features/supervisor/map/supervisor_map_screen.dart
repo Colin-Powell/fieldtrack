@@ -8,6 +8,7 @@ import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import '../dashboard/dashboard_state.dart';
 import '../widgets/supervisor_top_header.dart';
 import 'package:fieldtrack/shared/models/student_data.dart';
+import '../../../../core/services/location_naming_service.dart';
 import 'package:intl/intl.dart';
 
 // ==========================================
@@ -164,11 +165,8 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
   }
 
   List<MapStudent> _getAllStudents(List<StudentData> students) {
-    // Only include students who are checked in and have a valid GPS session captured
+    // Show all students assigned, mapping their statuses and locations
     return students
-        .where(
-          (s) => s.currentSession != null && s.checkInStatus == 'Checked In',
-        )
         .map((s) {
           final status = s.fieldStatus == FieldStatus.inField
               ? StudentStatus.inField
@@ -180,20 +178,31 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
                     s.fieldStatus == FieldStatus.revisionRequested)
               ? StudentStatus.pendingReview
               : StudentStatus.idle;
+              
+          // Determine location (current session > last gps > fallback)
+          LatLng location = const LatLng(-1.2921, 36.8219); // Default fallback
+          if (s.currentSession != null) {
+            location = LatLng(s.currentSession!.latitude, s.currentSession!.longitude);
+          } else if (s.gpsHistory.isNotEmpty) {
+            location = LatLng(s.gpsHistory.last.latitude, s.gpsHistory.last.longitude);
+          }
+          
+          String timeStr = '--';
+          if (s.currentSession != null) {
+            timeStr = DateFormat('hh:mm a').format(s.currentSession!.checkInTime);
+          }
+
           return MapStudent(
             id: s.id,
             name: s.name,
             regNo: s.reg,
             topic: s.topic,
             status: status,
-            time: DateFormat('hh:mm a').format(s.currentSession!.checkInTime),
-            location: LatLng(
-              s.currentSession!.latitude,
-              s.currentSession!.longitude,
-            ),
+            time: timeStr,
+            location: location,
             locationName: _buildStudentLocationName(s),
-            routeHistory: s.gpsHistory
-                .map((g) => LatLng(g.latitude, g.longitude))
+            routeHistory: s.activities
+                .map((a) => LatLng(a.location.latitude, a.location.longitude))
                 .toList(),
             avatarUrl: s.avatarUrl.isNotEmpty
                 ? s.avatarUrl
@@ -520,7 +529,7 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
                           alignment: Alignment.bottomCenter,
                           child: Tooltip(
                             message:
-                                '${s.name}\n${s.regNo}\n${s.statusText}\nLat: ${s.location.latitude.toStringAsFixed(4)}, Lng: ${s.location.longitude.toStringAsFixed(4)}',
+                                '${s.name}\n${s.regNo}\n${s.statusText}\n${s.locationLabel}',
                             preferBelow: false,
                             decoration: BoxDecoration(
                               color: const Color(0xFF1F2937),
@@ -724,18 +733,24 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  student.locationName.isNotEmpty
-                      ? student.locationName
-                      : 'Lat: ${student.location.latitude.toStringAsFixed(4)}, Lng: ${student.location.longitude.toStringAsFixed(4)}',
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    color: _C.textMuted,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: FutureBuilder<String>(
+                  future: student.locationName.isNotEmpty
+                      ? Future.value(student.locationName)
+                      : LocationNamingService().getLocationName(student.location.latitude, student.location.longitude),
+                  builder: (context, snapshot) {
+                    final displayLoc = snapshot.data ?? 'Lat: ${student.location.latitude.toStringAsFixed(4)}, Lng: ${student.location.longitude.toStringAsFixed(4)}';
+                    return Text(
+                      displayLoc,
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        color: _C.textMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  },
                 ),
               ),
             ],

@@ -135,10 +135,111 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             child: const Text(
               'Logout',
-              style: TextStyle(color: Colors.white, fontFamily: _fontFamily),
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: _fontFamily,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _handleDeleteAccount() {
+    final user = ref.read(authProvider).user;
+    if (user == null) return;
+    
+    final TextEditingController emailController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final bool isEmailMatch = emailController.text.trim().toLowerCase() == user.email.toLowerCase();
+          
+          return AlertDialog(
+            title: const Text(
+              'Delete Account',
+              style: TextStyle(
+                fontFamily: _fontFamily,
+                fontWeight: FontWeight.bold,
+                color: _dangerRed,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Are you sure you want to delete your account? This action cannot be undone.',
+                  style: TextStyle(fontFamily: _fontFamily),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Type ${user.email} to confirm:',
+                  style: const TextStyle(fontFamily: _fontFamily, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Email address',
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ],
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: _textLight, fontFamily: _fontFamily),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: isEmailMatch ? () async {
+                  try {
+                    await ApiClient().dio.delete('/settings/deactivate');
+                    ref.read(authProvider.notifier).logout();
+                    if (mounted) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to delete account: $e')),
+                      );
+                    }
+                  }
+                } : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _dangerRed,
+                  disabledBackgroundColor: _dangerRed.withOpacity(0.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: _fontFamily,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
       ),
     );
   }
@@ -459,7 +560,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
               ),
-
+              const SizedBox(height: 16),
+              // --- Delete Account Button ---
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: TextButton.icon(
+                  onPressed: _handleDeleteAccount,
+                  icon: PhosphorIcon(
+                    PhosphorIcons.trash(),
+                    color: _dangerRed,
+                    size: 24,
+                  ),
+                  label: const Text(
+                    'Delete Account',
+                    style: TextStyle(
+                      fontFamily: _fontFamily,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: _dangerRed,
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
             ],
           ),

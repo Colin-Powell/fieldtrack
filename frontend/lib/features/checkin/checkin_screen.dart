@@ -216,29 +216,21 @@ class CheckInScreen extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Latitude', style: TextStyle(fontFamily: fontFamily, fontSize: 13, color: Color(0xFF6B7280))),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      locState.latitude.toStringAsFixed(4),
-                                      style: const TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    const Text('Longitude', style: TextStyle(fontFamily: fontFamily, fontSize: 13, color: Color(0xFF6B7280))),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      locState.longitude.toStringAsFixed(4),
-                                      style: const TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
+                                const Icon(PhosphorIconsRegular.mapPin, color: Color(0xFF6B7280), size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Location', style: TextStyle(fontFamily: fontFamily, fontSize: 13, color: Color(0xFF6B7280))),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        locState.locationName,
+                                        style: const TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),

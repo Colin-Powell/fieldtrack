@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:fieldtrack/core/network/error_handler.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
+import '../services/location_naming_service.dart';
 import 'checkin_provider.dart';
 
 /// Holds the current GPS location state shared across the entire app.
@@ -94,14 +95,26 @@ class LocationNotifier extends StateNotifier<LocationState> {
     final lng = position.longitude;
     final acc = position.accuracy;
 
+    // Immediately update with raw coordinates while we fetch the friendly name
+    final fallbackName = 'Lat ${lat.toStringAsFixed(4)}, Lng ${lng.toStringAsFixed(4)}';
     state = state.copyWith(
       latitude: lat,
       longitude: lng,
       accuracy: acc,
-      locationName: 'Lat ${lat.toStringAsFixed(4)}, Lng ${lng.toStringAsFixed(4)}',
+      locationName: fallbackName,
       isLocating: false,
       error: null,
     );
+
+    // Fetch human-readable name asynchronously
+    Future.microtask(() async {
+      try {
+        final name = await LocationNamingService().getLocationName(lat, lng);
+        if (mounted) {
+          state = state.copyWith(locationName: name);
+        }
+      } catch (_) {}
+    });
 
     _pingBackendIfCheckedIn(position);
   }

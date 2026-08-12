@@ -1,24 +1,19 @@
 import { Router } from 'express';
 import { SessionController } from './session.controller.js';
-// In a real app we would import auth middleware to protect these routes
-// import { requireAuth } from '../middleware/auth.middleware.js';
+import { authenticate, authorizeRole } from '../auth/auth.middleware.js';
 
 const router = Router();
 const controller = new SessionController();
 
-// Create a new field session (Check-In)
-router.post('/checkin', controller.checkIn.bind(controller));
+// ── Student-only session operations ────────────────────────────────────────
+// Only a STUDENT may start, end, or ping their own session.
+router.post('/checkin',  authenticate, authorizeRole(['STUDENT']), controller.checkIn.bind(controller));
+router.patch('/checkout', authenticate, authorizeRole(['STUDENT']), controller.checkOut.bind(controller));
+router.get('/active',    authenticate, authorizeRole(['STUDENT']), controller.getActive.bind(controller));
+router.post('/ping',     authenticate, authorizeRole(['STUDENT']), controller.logPing.bind(controller));
 
-// End a field session (Check-Out)
-router.patch('/checkout', controller.checkOut.bind(controller));
-
-// Get active session
-router.get('/active', controller.getActive.bind(controller));
-
-// Log a location ping
-router.post('/ping', controller.logPing.bind(controller));
-
-// Get all location pings for a student (supervisor view)
-router.get('/student/:studentId/pings', controller.getStudentPings.bind(controller));
+// ── Supervisor-only read access ────────────────────────────────────────────
+// Only a SUPERVISOR may view a student's location ping history.
+router.get('/student/:studentId/pings', authenticate, authorizeRole(['SUPERVISOR']), controller.getStudentPings.bind(controller));
 
 export default router;
