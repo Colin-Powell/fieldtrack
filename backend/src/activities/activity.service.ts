@@ -162,4 +162,25 @@ export class ActivityService {
       orderBy: { timestamp: 'desc' },
     });
   }
+
+  /**
+   * Hard delete an activity by ID
+   */
+  async deleteActivity(id: string, studentId: string) {
+    const activity = await prisma.fieldLog.findUnique({ where: { id } });
+    if (!activity) {
+      throw new Error('Activity not found');
+    }
+    if (activity.studentId !== studentId) {
+      throw new Error('Unauthorized');
+    }
+
+    // Delete associated evidence, reviews, etc.
+    // Assuming cascade delete is set up in Prisma or we do it manually.
+    // Let's manually delete child records to be safe before deleting the fieldLog.
+    await prisma.evidence.deleteMany({ where: { activityId: id } });
+    await prisma.review.deleteMany({ where: { activityId: id } });
+
+    return prisma.fieldLog.delete({ where: { id } });
+  }
 }

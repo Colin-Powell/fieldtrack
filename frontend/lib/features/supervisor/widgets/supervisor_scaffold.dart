@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/core/providers/auth_provider.dart';
+import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -324,8 +325,11 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
 
   Widget _buildLogoutItem(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        context.go('/supervisor/login');
+      onTap: () async {
+        try {
+          await ApiClient().dio.post('/auth/logout');
+        } catch (_) {}
+        ref.read(authProvider.notifier).logout();
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),

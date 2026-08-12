@@ -12,6 +12,7 @@ router.use(authenticate);
 // Only a STUDENT may create, edit, or submit their own activities.
 router.post('/',           authorizeRole(['STUDENT']), controller.create.bind(controller));
 router.put('/:id',         authorizeRole(['STUDENT']), controller.update.bind(controller));
+router.delete('/:id',      authorizeRole(['STUDENT']), controller.delete.bind(controller));
 router.post('/:id/submit', authorizeRole(['STUDENT']), controller.submit.bind(controller));
 
 // ── Student reads their own activities ────────────────────────────────────

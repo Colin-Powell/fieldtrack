@@ -3,6 +3,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/core/providers/activity_provider.dart';
+import 'package:fieldtrack/core/network/api_result.dart';
 import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:intl/intl.dart';
 import 'package:fieldtrack/core/network/api_result_builder.dart';
@@ -309,6 +311,40 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     );
   }
 
+  Future<void> _deleteActivity(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Activity', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
+        content: const Text('Are you sure you want to permanently delete this activity? This cannot be undone.', style: TextStyle(fontFamily: 'Roboto')),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final api = ref.read(activityServiceProvider);
+      final res = await api.deleteActivity(id);
+      if (res is Success) {
+        ref.invalidate(studentActivitiesProvider);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text((res as Failure).message)));
+        }
+      }
+    }
+  }
+
   // Clean Empty State
   Widget _buildEmptyState() {
     return EmptyStateWidget(
@@ -417,13 +453,17 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text(
-                      location,
-                      style: const TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: Color(0xFF737373),
+                    Expanded(
+                      child: Text(
+                        location,
+                        style: const TextStyle(
+                          fontFamily: 'Roboto',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xFF737373),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -452,6 +492,10 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
             ),
           ),
           const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(PhosphorIconsRegular.trash, color: Colors.red),
+            onPressed: () => _deleteActivity(id),
+          ),
           const Icon(
             PhosphorIconsRegular.caretRight,
             color: Colors.black,

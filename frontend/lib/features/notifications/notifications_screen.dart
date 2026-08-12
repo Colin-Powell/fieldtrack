@@ -17,6 +17,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   final List<String> _filters = ['All', 'Unread', 'Mentions'];
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  
+  bool _isSelectionMode = false;
   Set<String> _selectedIds = {};
 
   @override
@@ -36,7 +38,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   void _showSnackbar(String message, Color backgroundColor) {
-    final textWidth = message.length * 10.0 + 60.0; // rough estimation of text width + padding
+    final textWidth = message.length * 10.0 + 60.0;
     final screenWidth = MediaQuery.of(context).size.width;
     final horizontalMargin = ((screenWidth - textWidth) / 2).clamp(24.0, screenWidth).toDouble();
 
@@ -65,7 +67,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Widget build(BuildContext context) {
     final notificationsState = ref.watch(notificationsProvider);
     
-    // Compute filtered list first so we can use it for "Select All"
     List<NotificationModel> filtered = [];
     if (notificationsState.hasValue) {
       filtered = notificationsState.value!.where((n) {
@@ -81,22 +82,29 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      bottomNavigationBar: _isSelectionMode ? _buildSelectionBottomBar() : null,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () => ref.read(notificationsProvider.notifier).fetchNotifications(),
+          color: const Color(0xFF1BA654),
+          backgroundColor: Colors.white,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(bottom: 24),
             child: Column(
               children: [
-                _buildHeaderTitle(filtered),
+                if (_isSelectionMode)
+                  _buildSelectionHeader(filtered)
+                else
+                  _buildHeaderTitle(filtered),
+                  
                 _buildSearchBar(),
                 _buildFilters(),
                 
                 notificationsState.when(
                   loading: () => const Padding(
-                    padding: EdgeInsets.only(top: 64),
-                    child: CircularProgressIndicator(color: Color(0xFF1BA654)),
+                    padding: EdgeInsets.only(top: 16),
+                    child: NotificationSkeletonList(),
                   ),
                   error: (error, stack) => const Padding(
                     padding: EdgeInsets.only(top: 64),
@@ -118,6 +126,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         return GestureDetector(
                           onLongPress: () {
                             setState(() {
+                              _isSelectionMode = true;
                               if (_selectedIds.contains(n.id)) {
                                 _selectedIds.remove(n.id);
                               } else {
@@ -126,7 +135,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             });
                           },
                           onTap: () {
-                            if (_selectedIds.isNotEmpty) {
+                            if (_isSelectionMode) {
                               setState(() {
                                 if (_selectedIds.contains(n.id)) {
                                   _selectedIds.remove(n.id);
@@ -142,7 +151,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                               _showSnackbar('Marked as read', const Color(0xFF1BA654));
                             }
                             
-                            // Intent Routing
                             if (n.type == 'CHECKED_IN' || n.type == 'CHECKED_OUT') {
                               context.push('/checkin');
                             } else if ((n.type == 'REVIEW_RECEIVED' || n.type == 'ACTIVITY_APPROVED') && n.entityId != null) {
@@ -173,100 +181,157 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  String _formatTime(DateTime time) {
-    final diff = DateTime.now().difference(time);
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
-  }
-
-  IconData _getIconForType(String type) {
-    switch (type) {
-      case 'CHECKED_IN': return PhosphorIconsFill.mapPin;
-      case 'REVIEW_RECEIVED': return PhosphorIconsFill.star;
-      case 'SYSTEM_ALERT': return PhosphorIconsFill.warningCircle;
-      default: return PhosphorIconsFill.bellRinging;
-    }
-  }
-  
-  Color _getColorForType(String type) {
-    switch (type) {
-      case 'CHECKED_IN': return const Color(0xFF1BA654);
-      case 'REVIEW_RECEIVED': return const Color(0xFFF59E0B);
-      case 'SYSTEM_ALERT': return const Color(0xFFE53935);
-      default: return const Color(0xFFF97316);
-    }
-  }
-
   // --- WIDGET COMPONENTS ---
 
-  Widget _buildHeaderTitle(List<NotificationModel> filtered) {
-    if (_selectedIds.isNotEmpty) {
-      final bool isAllSelected = filtered.isNotEmpty && _selectedIds.length == filtered.length;
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+  Widget _buildSelectionHeader(List<NotificationModel> filtered) {
+    final bool isAllSelected = filtered.isNotEmpty && _selectedIds.length == filtered.length;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(PhosphorIconsRegular.x, color: Colors.black, size: 28),
+            onPressed: () {
+              setState(() {
+                _isSelectionMode = false;
+                _selectedIds.clear();
+              });
+            },
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${_selectedIds.length} Selected',
+            style: const TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+            ),
+          ),
+          const Spacer(),
+          InkWell(
+            onTap: () {
+              setState(() {
+                if (isAllSelected) {
+                  _selectedIds.clear();
+                } else {
+                  _selectedIds = filtered.map((n) => n.id).toSet();
+                }
+              });
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Text(
+                    'All',
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isAllSelected ? const Color(0xFF1BA654) : Colors.black,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    isAllSelected ? PhosphorIconsFill.checkCircle : PhosphorIconsRegular.checkCircle,
+                    color: isAllSelected ? const Color(0xFF1BA654) : Colors.black,
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectionBottomBar() {
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 15,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            IconButton(
-              icon: const Icon(PhosphorIconsRegular.x, color: Colors.black),
-              onPressed: () {
-                setState(() => _selectedIds.clear());
-              },
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '${_selectedIds.length} Selected',
-              style: const TextStyle(
-                fontFamily: 'Roboto',
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.black,
-              ),
-            ),
-            const Spacer(),
-            IconButton(
-              icon: Icon(
-                isAllSelected ? PhosphorIconsFill.checkSquareOffset : PhosphorIconsRegular.checkSquareOffset, 
-                color: isAllSelected ? const Color(0xFF1BA654) : Colors.black
-              ),
-              tooltip: isAllSelected ? 'Deselect All' : 'Select All',
-              onPressed: () {
+            _buildBottomBarAction(
+              icon: PhosphorIconsRegular.envelopeOpen,
+              label: 'Read',
+              color: const Color(0xFF1BA654),
+              onTap: _selectedIds.isEmpty ? null : () {
+                ref.read(notificationsProvider.notifier).markBulkAsRead(_selectedIds.toList());
+                _showSnackbar('${_selectedIds.length} marked as read', const Color(0xFF1BA654));
                 setState(() {
-                  if (isAllSelected) {
-                    _selectedIds.clear();
-                  } else {
-                    _selectedIds = filtered.map((n) => n.id).toSet();
-                  }
+                  _isSelectionMode = false;
+                  _selectedIds.clear();
                 });
               },
             ),
-            IconButton(
-              icon: const Icon(PhosphorIconsRegular.checks, color: Color(0xFF1BA654)),
-              onPressed: () {
-                ref.read(notificationsProvider.notifier).markBulkAsRead(_selectedIds.toList());
-                _showSnackbar('${_selectedIds.length} marked as read', const Color(0xFF1BA654));
-                setState(() => _selectedIds.clear());
-              },
-            ),
-            IconButton(
-              icon: const Icon(PhosphorIconsRegular.trash, color: Colors.red),
-              onPressed: () {
+            _buildBottomBarAction(
+              icon: PhosphorIconsRegular.trash,
+              label: 'Delete',
+              color: Colors.red,
+              onTap: _selectedIds.isEmpty ? null : () {
                 ref.read(notificationsProvider.notifier).deleteBulkNotifications(_selectedIds.toList());
                 _showSnackbar('${_selectedIds.length} deleted', Colors.redAccent);
-                setState(() => _selectedIds.clear());
+                setState(() {
+                  _isSelectionMode = false;
+                  _selectedIds.clear();
+                });
               },
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
+  Widget _buildBottomBarAction({required IconData icon, required String label, required Color color, VoidCallback? onTap}) {
+    final bool isEnabled = onTap != null;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: isEnabled ? color : const Color(0xFFD1D5DB), size: 28),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isEnabled ? color : const Color(0xFFD1D5DB),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderTitle(List<NotificationModel> filtered) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(width: 44), // Placeholder to perfectly balance the right-side menu
+          const SizedBox(width: 44),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -285,58 +350,93 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             ),
           ),
           const Spacer(),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Color(0xFFCBE5D2),
-              shape: BoxShape.circle,
-            ),
-            child: PopupMenuButton<String>(
-              padding: EdgeInsets.zero,
-              icon: const Icon(PhosphorIconsRegular.dotsThreeVertical, color: Colors.black),
-              onSelected: (value) {
-                if (value == 'select_all') {
-                  setState(() {
-                    _selectedIds = filtered.map((n) => n.id).toSet();
-                  });
-                } else if (value == 'read_all') {
-                  ref.read(notificationsProvider.notifier).markAllAsRead();
-                  _showSnackbar('All marked as read', const Color(0xFF1BA654));
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'select_all',
-                  child: Row(
-                    children: const [
-                      Icon(PhosphorIconsRegular.checkSquareOffset, color: Colors.black, size: 20),
-                      SizedBox(width: 12),
-                      Text(
-                        'Select All',
-                        style: TextStyle(fontFamily: 'Roboto', fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'read_all',
-                  child: Row(
-                    children: [
-                      Icon(PhosphorIconsRegular.checks, color: Color(0xFF1BA654), size: 20),
-                      SizedBox(width: 12),
-                      Text(
-                        'Mark all as read',
-                        style: TextStyle(fontFamily: 'Roboto', fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          GestureDetector(
+            onTap: () => _showMenuBottomSheet(filtered),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: Color(0xFFCBE5D2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(PhosphorIconsRegular.dotsThreeVertical, color: Colors.black),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showMenuBottomSheet(List<NotificationModel> filtered) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          padding: const EdgeInsets.only(top: 12, bottom: 32, left: 24, right: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildMenuOption(
+                icon: PhosphorIconsRegular.listChecks,
+                title: 'Select items',
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _isSelectionMode = true);
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildMenuOption(
+                icon: PhosphorIconsRegular.envelopeOpen,
+                iconColor: const Color(0xFF1BA654),
+                title: 'Mark all as read',
+                onTap: () {
+                  Navigator.pop(context);
+                  ref.read(notificationsProvider.notifier).markAllAsRead();
+                  _showSnackbar('All marked as read', const Color(0xFF1BA654));
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMenuOption({required IconData icon, required String title, required VoidCallback onTap, Color? iconColor}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor ?? Colors.black, size: 24),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: const TextStyle(fontFamily: 'Roboto', fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -428,14 +528,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     IconData? icon,
     Color? iconColor,
   }) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
       margin: const EdgeInsets.only(bottom: 16, left: 24, right: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isSelected 
             ? const Color(0xFFE8F5E9) 
             : (isRead ? Colors.white : const Color(0xFFF4FDF7)),
-        borderRadius: BorderRadius.circular(40),
+        borderRadius: BorderRadius.circular(32),
         border: Border.all(
           color: isSelected 
               ? const Color(0xFF1BA654) 
@@ -446,6 +547,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Samsung Style Selection Checkbox (Slides in gracefully via AnimatedSize/Row)
+          if (_isSelectionMode)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Icon(
+                isSelected ? PhosphorIconsFill.checkCircle : PhosphorIconsRegular.circle,
+                color: isSelected ? const Color(0xFF1BA654) : const Color(0xFFD1D5DB),
+                size: 26,
+              ),
+            ),
+            
           if (imageUrl != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(32),
@@ -456,20 +568,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       height: 56,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 56,
-                          height: 56,
-                          color: const Color(0xFFF3F4F6),
-                          child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 28),
-                        );
+                        return _buildFallbackIcon();
                       },
                     )
-                  : Container(
-                      width: 56,
-                      height: 56,
-                      color: const Color(0xFFF3F4F6),
-                      child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 28),
-                    ),
+                  : _buildFallbackIcon(),
             )
           else if (icon != null)
             Container(
@@ -507,7 +609,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (!isRead)
+                    if (!isRead && !_isSelectionMode)
                       Container(
                         margin: const EdgeInsets.only(right: 6, top: 2),
                         width: 8,
@@ -545,6 +647,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFallbackIcon() {
+    return Container(
+      width: 56,
+      height: 56,
+      color: const Color(0xFFF3F4F6),
+      child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 28),
     );
   }
 
@@ -588,6 +699,125 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime time) {
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  IconData _getIconForType(String type) {
+    switch (type) {
+      case 'CHECKED_IN': return PhosphorIconsFill.mapPin;
+      case 'REVIEW_RECEIVED': return PhosphorIconsFill.star;
+      case 'SYSTEM_ALERT': return PhosphorIconsFill.warningCircle;
+      default: return PhosphorIconsFill.bellRinging;
+    }
+  }
+  
+  Color _getColorForType(String type) {
+    switch (type) {
+      case 'CHECKED_IN': return const Color(0xFF1BA654);
+      case 'REVIEW_RECEIVED': return const Color(0xFFF59E0B);
+      case 'SYSTEM_ALERT': return const Color(0xFFE53935);
+      default: return const Color(0xFFF97316);
+    }
+  }
+}
+
+// --- NEW SKELETON LOADER WIDGET ---
+
+class NotificationSkeletonList extends StatefulWidget {
+  const NotificationSkeletonList({super.key});
+
+  @override
+  State<NotificationSkeletonList> createState() => _NotificationSkeletonListState();
+}
+
+class _NotificationSkeletonListState extends State<NotificationSkeletonList> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 6,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16, left: 24, right: 24),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF3F4F6),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: MediaQuery.of(context).size.width * 0.4,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

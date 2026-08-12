@@ -310,7 +310,10 @@ export async function getSupervisorDashboard(req: Request, res: Response) {
     });
 
     const recentLogs = await prisma.fieldLog.findMany({
-      where: { studentId: { in: assignedStudentIds } },
+      where: { 
+        studentId: { in: assignedStudentIds },
+        status: { not: 'DRAFT' }
+      },
       take: 10,
       orderBy: { timestamp: 'desc' },
       include: {

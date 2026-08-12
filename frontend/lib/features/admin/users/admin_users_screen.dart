@@ -193,7 +193,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
         if (mounted) ToastService.showError('Failed to fetch users');
       }
     } catch (e) {
-      if (mounted) ToastService.showError('Error fetching users: $e');
+      if (mounted) ToastService.showError('Error fetching users: ${ErrorHandler.getFriendlyErrorMessage(e)}');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -294,39 +294,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (_currentView == 'add') {
-      return _EmbeddedAddUserWidget(
-        onBack: () {
-          setState(() => _currentView = 'list');
-          _fetchUsers();
-        },
-      );
-    }
-    if (_currentView == 'edit' && _targetUserId != null) {
-      return _EmbeddedEditUserWidget(
-        userId: _targetUserId!,
-        onBack: () {
-          setState(() => _currentView = 'list');
-          _fetchUsers();
-        },
-      );
-    }
-    if (_currentView == 'profile' && _targetUserId != null) {
-      return _EmbeddedUserProfileWidget(
-        userId: _targetUserId!,
-        onBack: () {
-          setState(() => _currentView = 'list');
-          _fetchUsers();
-        },
-        onEdit: (uid) {
-          setState(() {
-            _targetUserId = uid;
-            _currentView = 'edit';
-          });
-        },
-      );
-    }
-
     return Container(
       color: _C.bg,
       child: SafeArea(
@@ -448,9 +415,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
             const SizedBox(width: 16),
             ElevatedButton.icon(
               onPressed: () {
-                setState(() {
-                  _currentView = 'add';
-                });
+                context.push('/admin/users/add').then((_) => _fetchUsers());
               },
               icon: const Icon(Icons.add, size: 20, color: Colors.white),
               label: const Text(
@@ -1767,20 +1732,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                 // Actions
                 _buildActionTile(PhosphorIcons.eye(), 'View Profile', () {
                   Navigator.pop(ctx);
-                  setState(() {
-                    _targetUserId = user.id;
-                    _currentView = 'profile';
-                  });
+                  context.push('/admin/users/profile/${user.id}').then((_) => _fetchUsers());
                 }),
                 _buildActionTile(
                   PhosphorIcons.pencilSimple(),
                   'Edit Details',
                   () {
                     Navigator.pop(ctx);
-                    setState(() {
-                      _targetUserId = user.id;
-                      _currentView = 'edit';
-                    });
+                    context.push('/admin/users/edit/${user.id}').then((_) => _fetchUsers());
                   },
                 ),
 

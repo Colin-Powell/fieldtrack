@@ -17,6 +17,39 @@ const Color _dangerRed = Color(0xFFE53935);
 const Color _cardBorder = Color(0xFFF0F0F0);
 const String _fontFamily = 'Roboto';
 
+// --- Standard Button Style ---
+final ButtonStyle _primaryButtonStyle = ElevatedButton.styleFrom(
+  backgroundColor: _primaryGreen,
+  elevation: 0,
+  minimumSize: const Size(double.infinity, 56),
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(40), // Updated to 40px
+  ),
+);
+
+// --- Standard Input Decoration ---
+InputDecoration _buildInputDecoration(String label) {
+  return InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(fontFamily: _fontFamily, color: _textLight),
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(40), // Updated to 40px
+      borderSide: const BorderSide(color: _cardBorder, width: 1.5),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(40), // Updated to 40px
+      borderSide: const BorderSide(color: _cardBorder, width: 1.5),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(40), // Updated to 40px
+      borderSide: const BorderSide(color: _primaryGreen, width: 1.5),
+    ),
+  );
+}
+
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -65,11 +98,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         });
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _helpInfo = helpInfo;
           _isLoading = false;
         });
+      }
     }
   }
 
@@ -107,7 +141,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           'Are you sure you want to log out of FieldTrack?',
           style: TextStyle(fontFamily: _fontFamily),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)), // Updated to 40px
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -130,7 +164,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: _dangerRed,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(40), // Updated to 40px
               ),
             ),
             child: const Text(
@@ -184,15 +218,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: emailController,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Email address',
-                  ),
+                  decoration: _buildInputDecoration('Email address'),
                   onChanged: (_) => setState(() {}),
                 ),
               ],
             ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)), // Updated to 40px
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -216,7 +247,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     if (mounted) {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to delete account: $e')),
+                        SnackBar(content: Text('Failed to delete account: ${ErrorHandler.getFriendlyErrorMessage(e)}')),
                       );
                     }
                   }
@@ -225,7 +256,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   backgroundColor: _dangerRed,
                   disabledBackgroundColor: _dangerRed.withOpacity(0.5),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(40), // Updated to 40px
                   ),
                 ),
                 child: const Text(
@@ -286,7 +317,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: _lightGreen,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(40), // Updated to 40px
                     ),
                     child: const Text(
                       'Settings',
@@ -314,13 +345,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 18,
+                    horizontal: 24,
+                    vertical: 24,
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(40), // Updated to 40px
                     border: Border.all(color: _cardBorder, width: 1.5),
                   ),
                   child: Column(
@@ -364,10 +396,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: _cardBorder, width: 1.5),
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(40), // Updated to 40px
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(40), // Updated to 40px
                   child: Material(
                     color: Colors.transparent,
                     child: Column(
@@ -436,7 +468,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           subtitle: 'Switch between light and dark theme',
                           trailing: CupertinoSwitch(
                             value: _isDarkMode,
-                            activeTrackColor: _primaryGreen,
+                            activeColor: _primaryGreen,
                             onChanged: (bool value) {
                               setState(() => _isDarkMode = value);
                               _updatePreferences({
@@ -467,10 +499,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: _cardBorder, width: 1.5),
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(40), // Updated to 40px
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(40), // Updated to 40px
                   child: Material(
                     color: Colors.transparent,
                     child: Column(
@@ -555,7 +587,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     backgroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(40), // Updated to 40px
                     ),
                   ),
                 ),
@@ -619,10 +651,10 @@ class _SettingsItem extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: isLast ? 20 : 0,
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: isLast ? 24 : 0,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -789,73 +821,107 @@ class _SettingsNotificationsScreenState
     }
   }
 
+  Widget _buildSwitchRow(String title, String subtitle, bool value, ValueChanged<bool> onChanged, {bool isLast = false}) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: isLast ? 24 : 0,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontFamily: _fontFamily,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontFamily: _fontFamily,
+                    fontSize: 13,
+                    color: _textLight,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          CupertinoSwitch(
+            value: value,
+            activeColor: _primaryGreen,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const _GenericAppbar(title: 'Notifications'),
-      body: ListView(
-        physics: const BouncingScrollPhysics(),
-        children: [
-          SwitchListTile(
-            activeThumbColor: _primaryGreen,
-            title: const Text(
-              'Push Notifications',
-              style: TextStyle(
-                fontFamily: _fontFamily,
-                fontWeight: FontWeight.bold,
-              ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: _primaryGreen))
+          : ListView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.all(24),
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: _cardBorder, width: 1.5),
+                    borderRadius: BorderRadius.circular(40), // Updated to 40px
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(40), // Updated to 40px
+                    child: Column(
+                      children: [
+                        _buildSwitchRow(
+                          'Push Notifications',
+                          'Receive alerts on your device',
+                          push,
+                          (v) {
+                            setState(() => push = v);
+                            _savePrefs();
+                          },
+                        ),
+                        _buildSwitchRow(
+                          'Email Summaries',
+                          'Weekly report of your activities',
+                          email,
+                          (v) {
+                            setState(() => email = v);
+                            _savePrefs();
+                          },
+                        ),
+                        _buildSwitchRow(
+                          'Data Upload Alerts',
+                          'Notify when pending data is synced',
+                          dataAlerts,
+                          (v) {
+                            setState(() => dataAlerts = v);
+                            _savePrefs();
+                          },
+                          isLast: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            subtitle: const Text(
-              'Receive alerts on your device',
-              style: TextStyle(fontFamily: _fontFamily),
-            ),
-            value: push,
-            onChanged: (v) {
-              setState(() => push = v);
-              _savePrefs();
-            },
-          ),
-          SwitchListTile(
-            activeThumbColor: _primaryGreen,
-            title: const Text(
-              'Email Summaries',
-              style: TextStyle(
-                fontFamily: _fontFamily,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: const Text(
-              'Weekly report of your activities',
-              style: TextStyle(fontFamily: _fontFamily),
-            ),
-            value: email,
-            onChanged: (v) {
-              setState(() => email = v);
-              _savePrefs();
-            },
-          ),
-          SwitchListTile(
-            activeThumbColor: _primaryGreen,
-            title: const Text(
-              'Data Upload Alerts',
-              style: TextStyle(
-                fontFamily: _fontFamily,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: const Text(
-              'Notify when pending data is synced',
-              style: TextStyle(fontFamily: _fontFamily),
-            ),
-            value: dataAlerts,
-            onChanged: (v) {
-              setState(() => dataAlerts = v);
-              _savePrefs();
-            },
-          ),
-        ],
-      ),
     );
   }
 }
@@ -883,16 +949,18 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
       appBar: AppBar(
         leading: BackButton(
           onPressed: () => Navigator.pop(context, isEnabled),
-        ), // Return updated state
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
+        centerTitle: true,
         title: const Text(
           'Offline Sync',
           style: TextStyle(
             fontFamily: _fontFamily,
             color: Colors.black,
             fontWeight: FontWeight.bold,
+            fontSize: 20,
           ),
         ),
       ),
@@ -920,24 +988,33 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
             ),
             const SizedBox(height: 24),
             Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               decoration: BoxDecoration(
                 border: Border.all(color: _cardBorder, width: 1.5),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(40), // Updated to 40px
               ),
-              child: SwitchListTile(
-                activeThumbColor: _primaryGreen,
-                title: const Text(
-                  'Enable Offline Sync',
-                  style: TextStyle(
-                    fontFamily: _fontFamily,
-                    fontWeight: FontWeight.bold,
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Enable Offline Sync',
+                      style: TextStyle(
+                        fontFamily: _fontFamily,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
                   ),
-                ),
-                value: isEnabled,
-                onChanged: (v) {
-                  setState(() => isEnabled = v);
-                  // TODO: Save to SharedPreferences/API
-                },
+                  const SizedBox(width: 12),
+                  CupertinoSwitch(
+                    value: isEnabled,
+                    activeColor: _primaryGreen,
+                    onChanged: (v) {
+                      setState(() => isEnabled = v);
+                    },
+                  ),
+                ],
               ),
             ),
           ],
@@ -1032,38 +1109,47 @@ class _SettingsPreferencesScreenState extends State<SettingsPreferencesScreen> {
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: _fontFamily,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              border: Border.all(color: _cardBorder, width: 1.5),
-              borderRadius: BorderRadius.circular(16),
-              color: Colors.white,
-            ),
-            child: DropdownButton<String>(
-              value: currentValue,
-              isExpanded: true,
-              underline: const SizedBox.shrink(),
-              items: options
-                  .map(
-                    (option) =>
-                        DropdownMenuItem(value: option, child: Text(option)),
-                  )
-                  .toList(),
-              onChanged: onChanged,
-            ),
-          ),
-        ],
+      child: DropdownButtonFormField<String>(
+        value: currentValue,
+        decoration: _buildInputDecoration(label),
+        icon: PhosphorIcon(PhosphorIcons.caretDown(), size: 20, color: _textLight),
+        dropdownColor: Colors.white,
+        borderRadius: BorderRadius.circular(40), // Updated to 40px
+        items: options
+            .map(
+              (option) => DropdownMenuItem(
+                value: option,
+                child: Text(option, style: const TextStyle(fontFamily: _fontFamily)),
+              ),
+            )
+            .toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildCheckboxRow(String title, String subtitle, bool value, ValueChanged<bool?> onChanged, {bool isLast = false}) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 8,
+        right: 8,
+        top: 12,
+        bottom: isLast ? 12 : 0,
+      ),
+      child: CheckboxListTile(
+        activeColor: _primaryGreen,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)), // Updated to 40px
+        value: value,
+        title: Text(
+          title,
+          style: const TextStyle(fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontFamily: _fontFamily, fontSize: 13, color: _textLight),
+        ),
+        onChanged: onChanged,
       ),
     );
   }
@@ -1085,6 +1171,7 @@ class _SettingsPreferencesScreenState extends State<SettingsPreferencesScreen> {
               if (v != null) setState(() => _prefDashboard = v);
             },
           ),
+          const SizedBox(height: 8),
           _buildDropdownField(
             'Map Zoom Level',
             const ['City', 'Region', 'Country'],
@@ -1093,6 +1180,7 @@ class _SettingsPreferencesScreenState extends State<SettingsPreferencesScreen> {
               if (v != null) setState(() => _prefZoom = v);
             },
           ),
+          const SizedBox(height: 8),
           _buildDropdownField(
             'Date Format',
             const ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'],
@@ -1101,6 +1189,7 @@ class _SettingsPreferencesScreenState extends State<SettingsPreferencesScreen> {
               if (v != null) setState(() => _prefDateFormat = v);
             },
           ),
+          const SizedBox(height: 8),
           _buildDropdownField(
             'Language',
             const ['English', 'Swahili'],
@@ -1109,7 +1198,7 @@ class _SettingsPreferencesScreenState extends State<SettingsPreferencesScreen> {
               if (v != null) setState(() => _prefLanguage = v);
             },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           const Text(
             'Export Options',
             style: TextStyle(
@@ -1119,56 +1208,41 @@ class _SettingsPreferencesScreenState extends State<SettingsPreferencesScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          CheckboxListTile(
-            activeColor: _primaryGreen,
-            value: _exportPdf,
-            title: const Text('PDF Export'),
-            subtitle: const Text('Include PDF when exporting reports'),
-            onChanged: (value) {
-              if (value != null) setState(() => _exportPdf = value);
-            },
-          ),
-          CheckboxListTile(
-            activeColor: _primaryGreen,
-            value: _exportExcel,
-            title: const Text('Excel Export'),
-            subtitle: const Text('Include Excel when exporting reports'),
-            onChanged: (value) {
-              if (value != null) setState(() => _exportExcel = value);
-            },
-          ),
-          CheckboxListTile(
-            activeColor: _primaryGreen,
-            value: _exportCsv,
-            title: const Text('CSV Export'),
-            subtitle: const Text('Include CSV when exporting reports'),
-            onChanged: (value) {
-              if (value != null) setState(() => _exportCsv = value);
-            },
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _savePreferences,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primaryGreen,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: _isSaving
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text(
-                      'Save Preferences',
-                      style: TextStyle(
-                        fontFamily: _fontFamily,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: _cardBorder, width: 1.5),
+              borderRadius: BorderRadius.circular(40), // Updated to 40px
             ),
+            child: Column(
+              children: [
+                _buildCheckboxRow('PDF Export', 'Include PDF when exporting reports', _exportPdf, (v) {
+                  if (v != null) setState(() => _exportPdf = v);
+                }),
+                _buildCheckboxRow('Excel Export', 'Include Excel when exporting reports', _exportExcel, (v) {
+                  if (v != null) setState(() => _exportExcel = v);
+                }),
+                _buildCheckboxRow('CSV Export', 'Include CSV when exporting reports', _exportCsv, (v) {
+                  if (v != null) setState(() => _exportCsv = v);
+                }, isLast: true),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton(
+            onPressed: _isSaving ? null : _savePreferences,
+            style: _primaryButtonStyle,
+            child: _isSaving
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text(
+                    'Save Preferences',
+                    style: TextStyle(
+                      fontFamily: _fontFamily,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -1265,10 +1339,20 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          ...faqs.map(
-            (faq) => _buildFaqItem(
-              faq['question'] as String? ?? '',
-              faq['answer'] as String? ?? '',
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: _cardBorder, width: 1.5),
+              borderRadius: BorderRadius.circular(40), // Updated to 40px
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(40), // Updated to 40px
+              child: Column(
+                children: faqs.map((faq) => _buildFaqItem(
+                  faq['question'] as String? ?? '',
+                  faq['answer'] as String? ?? '',
+                  isLast: faqs.last == faq,
+                )).toList(),
+              ),
             ),
           ),
           const SizedBox(height: 32),
@@ -1282,28 +1366,51 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const CircleAvatar(
-              backgroundColor: _lightGreen,
-              child: Icon(Icons.email, color: _primaryGreen),
-            ),
-            title: const Text(
-              'Email Support',
-              style: TextStyle(
-                fontFamily: _fontFamily,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: Text(
-              supportEmail,
-              style: const TextStyle(fontFamily: _fontFamily),
-            ),
+          InkWell(
             onTap: () {
               // TODO: launchUrl to email client
             },
+            borderRadius: BorderRadius.circular(40), // Updated to 40px
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                border: Border.all(color: _cardBorder, width: 1.5),
+                borderRadius: BorderRadius.circular(40), // Updated to 40px
+              ),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    backgroundColor: _lightGreen,
+                    radius: 24,
+                    child: Icon(Icons.email, color: _primaryGreen),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Email Support',
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          supportEmail,
+                          style: const TextStyle(fontFamily: _fontFamily, color: _textLight),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PhosphorIcon(PhosphorIcons.caretRight(), color: _textLight),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
           const Text(
             'Send a Help Request',
             style: TextStyle(
@@ -1320,7 +1427,10 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               children: [
                 DropdownButtonFormField<String>(
                   value: _category,
-                  decoration: const InputDecoration(labelText: 'Request type'),
+                  decoration: _buildInputDecoration('Request type'),
+                  icon: PhosphorIcon(PhosphorIcons.caretDown(), size: 20, color: _textLight),
+                  dropdownColor: Colors.white,
+                  borderRadius: BorderRadius.circular(40), // Updated to 40px
                   items: const [
                     DropdownMenuItem(
                       value: 'bug_report',
@@ -1338,26 +1448,27 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                   onChanged: (value) =>
                       setState(() => _category = value ?? 'bug_report'),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextFormField(
-                  decoration: const InputDecoration(labelText: 'Title'),
+                  decoration: _buildInputDecoration('Title'),
                   validator: (value) => value == null || value.trim().isEmpty
                       ? 'Please enter a title'
                       : null,
                   onChanged: (value) => _title = value,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextFormField(
-                  decoration: const InputDecoration(
-                    labelText: 'Email (optional)',
-                  ),
+                  decoration: _buildInputDecoration('Email (optional)'),
                   keyboardType: TextInputType.emailAddress,
                   onChanged: (value) => _email = value,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: _severity,
-                  decoration: const InputDecoration(labelText: 'Severity'),
+                  decoration: _buildInputDecoration('Severity'),
+                  icon: PhosphorIcon(PhosphorIcons.caretDown(), size: 20, color: _textLight),
+                  dropdownColor: Colors.white,
+                  borderRadius: BorderRadius.circular(40), // Updated to 40px
                   items: const [
                     DropdownMenuItem(value: 'low', child: Text('Low')),
                     DropdownMenuItem(value: 'medium', child: Text('Medium')),
@@ -1366,29 +1477,30 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                   onChanged: (value) =>
                       setState(() => _severity = value ?? 'medium'),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextFormField(
-                  decoration: const InputDecoration(
-                    labelText: 'Describe the issue',
-                  ),
+                  decoration: _buildInputDecoration('Describe the issue'),
                   maxLines: 4,
                   validator: (value) => value == null || value.trim().isEmpty
                       ? 'Please describe the issue'
                       : null,
                   onChanged: (value) => _description = value,
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submitSupportRequest,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _primaryGreen,
-                    ),
-                    child: _isSubmitting
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Submit request'),
-                  ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitSupportRequest,
+                  style: _primaryButtonStyle,
+                  child: _isSubmitting
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text(
+                          'Submit request',
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -1398,25 +1510,35 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     );
   }
 
-  Widget _buildFaqItem(String q, String a) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: ExpansionTile(
-        title: Text(
-          q,
-          style: const TextStyle(
-            fontFamily: _fontFamily,
-            fontWeight: FontWeight.w600,
-            color: _textDark,
+  Widget _buildFaqItem(String q, String a, {bool isLast = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        border: isLast ? null : const Border(bottom: BorderSide(color: _cardBorder, width: 1.5)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          iconColor: _primaryGreen,
+          collapsedIconColor: _textLight,
+          title: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              q,
+              style: const TextStyle(
+                fontFamily: _fontFamily,
+                fontWeight: FontWeight.w600,
+                color: _textDark,
+              ),
+            ),
           ),
+          childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+          children: [
+            Text(
+              a,
+              style: const TextStyle(fontFamily: _fontFamily, color: _textLight, height: 1.5),
+            ),
+          ],
         ),
-        childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-        children: [
-          Text(
-            a,
-            style: const TextStyle(fontFamily: _fontFamily, color: _textLight),
-          ),
-        ],
       ),
     );
   }

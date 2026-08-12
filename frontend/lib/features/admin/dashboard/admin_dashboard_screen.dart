@@ -7,6 +7,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'providers/admin_dashboard_provider.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
+import 'package:fieldtrack/core/network/error_handler.dart';
 
 // ==========================================
 // LOCAL SCREEN MODELS (Flutter-specific types)
@@ -368,7 +369,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Center(
                     child: Text(
-                      'Error loading stats: $err',
+                      ErrorHandler.getFriendlyErrorMessage(err),
                       style: const TextStyle(color: Color(0xFFEF4444)),
                     ),
                   ),
@@ -790,7 +791,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Center(
                     child: Text(
-                      'Error loading charts: $err',
+                      ErrorHandler.getFriendlyErrorMessage(err),
                       style: const TextStyle(color: Color(0xFFEF4444)),
                     ),
                   ),

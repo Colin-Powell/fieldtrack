@@ -46,9 +46,13 @@ class ErrorHandler {
 
   static String _extractMessage(dynamic payload) {
     if (payload is Map<String, dynamic>) {
-      final message = payload['message']?.toString().trim();
-      if (message != null && message.isNotEmpty) {
-        return message;
+      final rawMessage = payload['message'];
+      if (rawMessage != null) {
+        if (rawMessage is List) {
+          return rawMessage.join('\n');
+        } else if (rawMessage.toString().trim().isNotEmpty) {
+          return rawMessage.toString().trim();
+        }
       }
 
       final error = payload['error']?.toString().trim();
@@ -68,10 +72,27 @@ class ErrorHandler {
         }
       }
     }
+    
+    if (payload is List) {
+      final messages = payload.map((e) {
+        if (e is Map && e.containsKey('message')) {
+          return e['message']?.toString().trim();
+        }
+        return e.toString().trim();
+      }).where((e) => e != null && e.isNotEmpty).toList();
+      
+      if (messages.isNotEmpty) {
+        return messages.join('\n');
+      }
+    }
 
     if (payload is String) {
       final trimmed = payload.trim();
       if (trimmed.isNotEmpty) {
+        // Prevent showing raw HTML error pages or massive stack traces
+        if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || trimmed.length > 200) {
+          return ''; // Fallback to standard status code messages
+        }
         return trimmed;
       }
     }

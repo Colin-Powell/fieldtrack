@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/toast_service.dart';
+import '../../../../core/network/error_handler.dart';
 
 // ── Department Model ──
 class DepartmentData {
@@ -119,6 +120,32 @@ class AdminDepartmentsScreen extends ConsumerWidget {
                                 fontSize: 16,
                               ),
                             ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                context.push('/admin/departments/add');
+                              },
+                              icon: const Icon(PhosphorIconsRegular.plus, size: 20),
+                              label: const Text(
+                                'Add Department',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _C.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
                           ],
                         ),
                       );
@@ -180,7 +207,7 @@ class AdminDepartmentsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '$err',
+                          ErrorHandler.getFriendlyErrorMessage(err),
                           style: const TextStyle(
                             fontFamily: 'Poppins',
                             color: Color(0xFF6B7280),
@@ -348,4 +375,8 @@ class AdminDepartmentsScreen extends ConsumerWidget {
       ],
     );
   }
+}
+
+class _C {
+  static Color? green;
 }

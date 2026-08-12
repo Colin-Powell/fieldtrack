@@ -48,7 +48,7 @@ class AdminDepartmentDetailScreen extends ConsumerWidget {
           final projects = data['projects'] as List<dynamic>;
 
           return DefaultTabController(
-            length: 3,
+            length: 4,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -90,6 +90,7 @@ class AdminDepartmentDetailScreen extends ConsumerWidget {
                     Tab(text: 'Students'),
                     Tab(text: 'Supervisors'),
                     Tab(text: 'Projects'),
+                    Tab(text: 'Evidence'),
                   ],
                 ),
                 Expanded(
@@ -98,6 +99,7 @@ class AdminDepartmentDetailScreen extends ConsumerWidget {
                       _buildList(students, 'student'),
                       _buildList(supervisors, 'supervisor'),
                       _buildProjectList(projects),
+                      _buildEvidenceList(data['evidence'] ?? []),
                     ],
                   ),
                 ),
@@ -176,6 +178,43 @@ class AdminDepartmentDetailScreen extends ConsumerWidget {
           trailing: const Icon(Icons.chevron_right, color: Color(0xFFD1D5DB)),
           onTap: () {
             // Navigate to project details if needed
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildEvidenceList(List<dynamic> evidenceList) {
+    if (evidenceList.isEmpty) {
+      return const Center(
+        child: Text('No evidence found in this department.', style: TextStyle(fontFamily: 'Inter', color: Color(0xFF6B7280))),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(32),
+      itemCount: evidenceList.length,
+      itemBuilder: (context, index) {
+        final ev = evidenceList[index];
+        final bool isImage = ev['mimeType']?.toString().startsWith('image/') ?? false;
+        
+        return ListTile(
+          leading: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              isImage ? PhosphorIconsRegular.image : PhosphorIconsRegular.fileText,
+              color: const Color(0xFF9CA3AF),
+            ),
+          ),
+          title: Text(ev['activityTitle'] ?? 'Unknown Activity', style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+          subtitle: Text('By ${ev['studentName']} • ${ev['originalName']}', style: const TextStyle(fontFamily: 'Inter', fontSize: 12)),
+          trailing: const Icon(Icons.chevron_right, color: Color(0xFFD1D5DB)),
+          onTap: () {
+            // Can open evidence preview
           },
         );
       },

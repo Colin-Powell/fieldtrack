@@ -15,6 +15,7 @@ import 'package:fieldtrack/shared/models/student_data.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:path_provider/path_provider.dart';
 import '../widgets/supervisor_top_header.dart';
+import 'package:fieldtrack/core/network/error_handler.dart';
 
 // ==========================================
 // DESIGN TOKENS
@@ -215,7 +216,7 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
       _showPillSnackbar('Report exported successfully', color: _C.green);
     } catch (e) {
       if (!mounted) return;
-      _showPillSnackbar('Export failed: $e', color: _C.red);
+      _showPillSnackbar('Export failed: ${ErrorHandler.getFriendlyErrorMessage(e)}', color: _C.red);
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }

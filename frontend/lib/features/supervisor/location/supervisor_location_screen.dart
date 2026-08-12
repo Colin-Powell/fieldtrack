@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:fieldtrack/core/network/api_result.dart';
 import 'package:fieldtrack/core/services/location_naming_service.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/features/supervisor/widgets/supervisor_top_header.dart';
 
 final supervisorStudentGpsProvider = FutureProvider.family.autoDispose<List<GPSLocation>, String>((ref, studentId) async {
   final repo = StudentRepository();
@@ -207,26 +208,39 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // ── TOP ROW: STATS & DETAILS ─────────────────────────────────────
-        _buildTopStatsRow(),
-        
-        const SizedBox(height: 32),
-        
-        // ── BOTTOM ROW: MAP & TIMELINE ───────────────────────────────────
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(flex: 70, child: _buildMapCard()),
-              const SizedBox(width: 24),
-              Expanded(flex: 30, child: _buildActivityTimeline()),
+              SupervisorTopHeader(
+                title: 'Live Location Tracking',
+                subtitle: 'View real-time student location and activity',
+              ),
+              const SizedBox(height: 24),
+              // ── TOP ROW: STATS & DETAILS ─────────────────────────────────────
+              _buildTopStatsRow(),
+              
+              const SizedBox(height: 32),
+              
+              // ── BOTTOM ROW: MAP & TIMELINE ───────────────────────────────────
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 70, child: _buildMapCard()),
+                    const SizedBox(width: 24),
+                    Expanded(flex: 30, child: _buildActivityTimeline()),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
   

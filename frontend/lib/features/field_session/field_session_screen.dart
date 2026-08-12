@@ -17,6 +17,7 @@ import 'package:fieldtrack/core/network/api_result.dart';
 import 'package:fieldtrack/core/providers/location_provider.dart';
 import 'package:fieldtrack/core/providers/auth_provider.dart';
 import 'package:fieldtrack/core/providers/activity_provider.dart';
+import 'package:fieldtrack/core/network/error_handler.dart';
 
 class FieldSessionScreen extends ConsumerStatefulWidget {
   final bool isDraft; // Pass true if loading a saved draft
@@ -805,7 +806,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save draft: $e'),
+            content: Text('Failed to save draft: ${ErrorHandler.getFriendlyErrorMessage(e)}'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),

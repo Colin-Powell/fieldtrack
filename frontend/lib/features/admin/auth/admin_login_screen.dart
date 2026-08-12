@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../main_admin.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/network/error_handler.dart';
 
 class AdminLoginScreen extends ConsumerStatefulWidget {
   const AdminLoginScreen({super.key});
@@ -90,7 +91,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       if (!mounted) return;
       rootScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: Text('An unexpected error occurred: $e'),
+          content: Text(ErrorHandler.getFriendlyErrorMessage(e)),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 10),
         ),

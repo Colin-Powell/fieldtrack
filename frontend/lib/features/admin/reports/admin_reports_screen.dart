@@ -6,6 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/admin_reports_provider.dart';
 import 'utils/pdf_export_utils.dart';
+import '../../../../core/network/error_handler.dart';
 
 class _C {
   static const bg = Color(0xFFF3F4F6);
@@ -251,7 +252,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Center(child: Text('Error: $err')),
+              error: (err, stack) => Center(child: Text(ErrorHandler.getFriendlyErrorMessage(err))),
             ),
           ),
 
@@ -339,7 +340,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                 child: Center(child: CircularProgressIndicator()),
               ),
               error: (err, stack) =>
-                  Expanded(child: Center(child: Text('Error: $err'))),
+                  Expanded(child: Center(child: Text(ErrorHandler.getFriendlyErrorMessage(err)))),
             ),
         ],
       ),

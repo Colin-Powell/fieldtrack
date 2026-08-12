@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/widgets/app_avatar.dart';
 import '../notifications/admin_notifications_screen.dart';
 import 'admin_search_bar.dart';
@@ -156,9 +157,11 @@ class AdminTopHeader extends ConsumerWidget {
                   ),
                   const PopupMenuDivider(),
                   PopupMenuItem(
-                    onTap: () {
+                    onTap: () async {
+                      try {
+                        await ApiClient().dio.post('/auth/logout');
+                      } catch (_) {}
                       ref.read(authProvider.notifier).logout();
-                      context.go('/admin/login');
                     },
                     child: Row(
                       children: [

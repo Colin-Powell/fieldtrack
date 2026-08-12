@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../main_supervisor.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/network/error_handler.dart';
 
 class SupervisorLoginScreen extends ConsumerStatefulWidget {
   const SupervisorLoginScreen({super.key});

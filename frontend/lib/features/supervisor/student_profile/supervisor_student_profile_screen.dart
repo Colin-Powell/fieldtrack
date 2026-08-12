@@ -759,7 +759,9 @@ class _SupervisorStudentProfileScreenState
                           left: 24,
                           right: 24,
                           child: ElevatedButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              context.push('/supervisor/student/${widget.studentId}/location');
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _C.green,
                               padding: const EdgeInsets.symmetric(vertical: 32),

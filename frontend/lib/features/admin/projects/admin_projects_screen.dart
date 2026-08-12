@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:math';
 import '../../../../core/network/api_client.dart';
 
@@ -13,6 +14,7 @@ class ResearchProject {
   final int students;
   final int progress;
   final String status;
+  final String studentUserId;
 
   const ResearchProject({
     required this.id,
@@ -22,6 +24,7 @@ class ResearchProject {
     required this.students,
     required this.progress,
     required this.status,
+    required this.studentUserId,
   });
 
   factory ResearchProject.fromJson(Map<String, dynamic> json) {
@@ -33,6 +36,7 @@ class ResearchProject {
       students: json['students'] ?? 1,
       progress: json['progress'] ?? 0,
       status: json['status'] ?? 'Active',
+      studentUserId: json['studentUserId'] ?? '',
     );
   }
 
@@ -199,14 +203,20 @@ class _AdminProjectsScreenState extends ConsumerState<AdminProjectsScreen> {
                           ),
                           const Divider(height: 1, color: Color(0xFFE5E7EB)),
                           Expanded(
-                            child: ListView.separated(
-                              itemCount: filtered.length,
-                              separatorBuilder: (_, __) => const Divider(
-                                height: 1,
-                                color: Color(0xFFE5E7EB),
+                            child: RefreshIndicator(
+                              onRefresh: () async {
+                                ref.invalidate(projectsProvider);
+                                await ref.read(projectsProvider.future);
+                              },
+                              child: ListView.separated(
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) => const Divider(
+                                  height: 1,
+                                  color: Color(0xFFE5E7EB),
+                                ),
+                                itemBuilder: (context, index) =>
+                                    _buildProjectRow(filtered[index]),
                               ),
-                              itemBuilder: (context, index) =>
-                                  _buildProjectRow(filtered[index]),
                             ),
                           ),
                         ],
@@ -323,7 +333,11 @@ class _AdminProjectsScreenState extends ConsumerState<AdminProjectsScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: () {
+            if (project.studentUserId.isNotEmpty) {
+              context.push('/admin/users/profile/${project.studentUserId}');
+            }
+          },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Row(

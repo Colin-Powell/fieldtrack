@@ -32,7 +32,7 @@ class ActivityService {
       return Success(response.data);
     } on DioException catch (e) {
       return Failure(
-        message: e.message ?? 'Failed to create draft activity',
+        message: ErrorHandler.getFriendlyErrorMessage(e),
         exception: e,
       );
     } catch (e) {
@@ -48,7 +48,7 @@ class ActivityService {
     required String methodology,
   }) async {
     try {
-      final response = await _apiClient.dio.patch(
+      final response = await _apiClient.dio.put(
         '/activities/$activityId',
         data: {
           'studentId': studentId,
@@ -60,7 +60,7 @@ class ActivityService {
       return Success(response.data);
     } on DioException catch (e) {
       return Failure(
-        message: e.message ?? 'Failed to update activity',
+        message: ErrorHandler.getFriendlyErrorMessage(e),
         exception: e,
       );
     } catch (e) {
@@ -107,7 +107,7 @@ class ActivityService {
       return Success(response.data);
     } on DioException catch (e) {
       return Failure(
-        message: e.message ?? 'Failed to upload evidence',
+        message: ErrorHandler.getFriendlyErrorMessage(e),
         exception: e,
       );
     } catch (e) {
@@ -129,7 +129,7 @@ class ActivityService {
       return const Success(null);
     } on DioException catch (e) {
       return Failure(
-        message: e.message ?? 'Failed to submit activity',
+        message: ErrorHandler.getFriendlyErrorMessage(e),
         exception: e,
       );
     } catch (e) {
@@ -146,7 +146,7 @@ class ActivityService {
       return Success(response.data as List<dynamic>);
     } on DioException catch (e) {
       return Failure(
-        message: e.message ?? 'Failed to load activities',
+        message: ErrorHandler.getFriendlyErrorMessage(e),
         exception: e,
       );
     } catch (e) {
@@ -160,7 +160,21 @@ class ActivityService {
       return Success(response.data);
     } on DioException catch (e) {
       return Failure(
-        message: e.message ?? 'Failed to load activity details',
+        message: ErrorHandler.getFriendlyErrorMessage(e),
+        exception: e,
+      );
+    } catch (e) {
+      return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
+    }
+  }
+
+  Future<ApiResult<void>> deleteActivity(String activityId) async {
+    try {
+      await _apiClient.dio.delete('/activities/$activityId');
+      return const Success(null);
+    } on DioException catch (e) {
+      return Failure(
+        message: ErrorHandler.getFriendlyErrorMessage(e),
         exception: e,
       );
     } catch (e) {

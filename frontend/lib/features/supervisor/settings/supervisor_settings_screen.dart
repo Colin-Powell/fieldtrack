@@ -8,6 +8,7 @@ import 'package:fieldtrack/core/network/error_handler.dart';
 import 'package:fieldtrack/core/providers/auth_provider.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:fieldtrack/features/supervisor/authentication/supervisor_login_screen.dart';
 
 // ==========================================
 // DESIGN TOKENS
@@ -1139,14 +1140,14 @@ class _SupervisorSettingsScreenState
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Poppins',
-                    color: _C.dangerRed,
+                    color: _C.red,
                   ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'Once you delete your account, there is no going back. Please be certain.',
                   style: TextStyle(
-                    color: _C.textLight,
+                    color: _C.textMuted,
                     fontFamily: 'Inter',
                   ),
                 ),
@@ -1164,7 +1165,7 @@ class _SupervisorSettingsScreenState
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _C.dangerRed,
+                      backgroundColor: _C.red,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
@@ -1202,7 +1203,7 @@ class _SupervisorSettingsScreenState
               style: TextStyle(
                 fontFamily: 'Poppins',
                 fontWeight: FontWeight.bold,
-                color: _C.dangerRed,
+                color: _C.red,
               ),
             ),
             content: Column(
@@ -1235,7 +1236,7 @@ class _SupervisorSettingsScreenState
                 onPressed: () => Navigator.pop(context),
                 child: const Text(
                   'Cancel',
-                  style: TextStyle(color: _C.textLight, fontFamily: 'Inter'),
+                  style: TextStyle(color: _C.textMuted, fontFamily: 'Inter'),
                 ),
               ),
               ElevatedButton(
@@ -1243,22 +1244,16 @@ class _SupervisorSettingsScreenState
                   try {
                     await ApiClient().dio.delete('/settings/deactivate');
                     ref.read(authProvider.notifier).logout();
-                    if (mounted) {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const SupervisorLoginScreen()),
-                        (route) => false,
-                      );
-                    }
                   } catch (e) {
                     if (mounted) {
                       Navigator.pop(context);
-                      _showSnackbar('Failed to delete account: $e');
+                      _showSnackbar('Failed to delete account: ${ErrorHandler.getFriendlyErrorMessage(e)}');
                     }
                   }
                 } : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _C.dangerRed,
-                  disabledBackgroundColor: _C.dangerRed.withOpacity(0.5),
+                  backgroundColor: _C.red,
+                  disabledBackgroundColor: _C.red.withOpacity(0.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),

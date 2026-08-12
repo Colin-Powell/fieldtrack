@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/toast_service.dart';
+import '../../../../core/providers/auth_provider.dart';
+import '../../../../features/admin/auth/admin_login_screen.dart';
+import '../../../../core/network/error_handler.dart';
 
 // ── Settings Model ──
 class SystemSettings {
@@ -191,17 +194,11 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                   try {
                     await ApiClient().dio.delete('/settings/deactivate');
                     ref.read(authProvider.notifier).logout();
-                    if (mounted) {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
-                        (route) => false,
-                      );
-                    }
                   } catch (e) {
                     if (mounted) {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to delete account: $e')),
+                        SnackBar(content: Text('Failed to delete account: ${ErrorHandler.getFriendlyErrorMessage(e)}')),
                       );
                     }
                   }
@@ -403,7 +400,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '$err',
+                ErrorHandler.getFriendlyErrorMessage(err),
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   color: Color(0xFF6B7280),

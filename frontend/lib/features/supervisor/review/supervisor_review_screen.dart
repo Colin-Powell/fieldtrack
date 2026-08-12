@@ -7,6 +7,7 @@ import 'package:fieldtrack/features/supervisor/repositories/student_repository.d
 import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
 import 'package:fieldtrack/core/providers/auth_provider.dart';
 import 'package:fieldtrack/core/network/api_result.dart';
+import 'package:fieldtrack/core/network/error_handler.dart';
 
 // --- Design Tokens ---
 class _Colors {
@@ -153,7 +154,7 @@ class _SupervisorReviewScreenState extends ConsumerState<SupervisorReviewScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to submit review: $e'),
+            content: Text('Failed to submit review: ${ErrorHandler.getFriendlyErrorMessage(e)}'),
             backgroundColor: _Colors.red,
           ),
         );
