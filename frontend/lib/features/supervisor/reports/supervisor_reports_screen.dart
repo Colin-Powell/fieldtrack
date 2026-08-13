@@ -415,27 +415,25 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          child: RefreshIndicator(
-            color: _C.green,
-            onRefresh: _loadDashboard,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTopHeader(),
-                  const SizedBox(height: 32),
-                  _buildActionFilters(),
-                  const SizedBox(height: 24),
-                  _buildStatCards(),
-                  const SizedBox(height: 24),
-                  _buildChartsRow(),
-                  const SizedBox(height: 24),
-                  _buildTable(),
-                ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTopHeader(),
+              const SizedBox(height: 32),
+              _buildActionFilters(),
+              const SizedBox(height: 24),
+              _buildStatCards(),
+              const SizedBox(height: 24),
+              _buildChartsRow(),
+              const SizedBox(height: 24),
+              Expanded(
+                child: RefreshIndicator(
+                  color: _C.green,
+                  onRefresh: _loadDashboard,
+                  child: _buildTable(),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -1307,17 +1305,22 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
                   ),
                 )
               else
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minWidth: tableWidth,
-                      maxWidth: tableWidth,
-                    ),
-                    child: Column(
-                      children: _filteredStudents
-                          .map((s) => _buildStudentRow(s))
-                          .toList(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: tableWidth,
+                          maxWidth: tableWidth,
+                        ),
+                        child: Column(
+                          children: _filteredStudents
+                              .map((s) => _buildStudentRow(s))
+                              .toList(),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1519,7 +1522,7 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
             ),
           ),
         ],
-        onSelected: (action) {
+        onSelected: (action) async {
           widget.onStudentAction?.call(action, student);
           if (action == 'view') {
             final studentData = StudentData(
@@ -1539,6 +1542,24 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
               '/supervisor/student/${student.id}',
               extra: studentData.toMap(),
             );
+          } else if (action == 'flag') {
+            try {
+              await ApiClient().dio.put('/supervisor/students/${student.id}/flag');
+              _showPillSnackbar('${student.name} flagged for review.', color: _C.green);
+            } catch (e) {
+              _showPillSnackbar('Failed to flag ${student.name}.', color: _C.red);
+            }
+          } else if (action == 'remove') {
+            try {
+              await ApiClient().dio.delete('/supervisor/students/${student.id}');
+              _showPillSnackbar('${student.name} removed successfully.', color: _C.green);
+              // Optimistically update the UI to remove the student
+              setState(() {
+                _students.removeWhere((s) => s.id == student.id);
+              });
+            } catch (e) {
+              _showPillSnackbar('Failed to remove ${student.name}.', color: _C.red);
+            }
           } else {
             _showPillSnackbar('${_actionLabel(action)}: ${student.name}');
           }
