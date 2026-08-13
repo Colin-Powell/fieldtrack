@@ -22,6 +22,7 @@ import 'package:fieldtrack/features/supervisor/map/supervisor_map_screen.dart';
 import 'package:fieldtrack/features/supervisor/reports/supervisor_reports_screen.dart';
 import 'package:fieldtrack/features/supervisor/settings/supervisor_settings_screen.dart';
 import 'package:fieldtrack/features/supervisor/profile/supervisor_profile_screen.dart';
+import 'package:fieldtrack/shared/screens/not_found_screen.dart';
 import 'package:fieldtrack/core/utils/toast_service.dart';
 
 
@@ -67,6 +68,10 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/supervisor/login',
     refreshListenable: notifier,
     redirect: notifier.redirect,
+    errorBuilder: (context, state) => NotFoundScreen(
+      location: state.uri.toString(),
+      homeRoute: '/supervisor/dashboard',
+    ),
     routes: [
       GoRoute(
         path: '/supervisor/login',

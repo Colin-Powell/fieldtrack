@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../providers/auth_provider.dart';
 import '../utils/toast_service.dart';
 import 'package:fieldtrack/shared/screens/router_error_screen.dart';
+import 'package:fieldtrack/shared/screens/not_found_screen.dart';
 import 'package:fieldtrack/features/auth/splash_screen.dart';
 import 'package:fieldtrack/features/auth/welcome_screen.dart';
 import 'package:fieldtrack/features/auth/login_screen.dart';
@@ -111,7 +112,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     refreshListenable: notifier,
     redirect: notifier.redirect,
-    errorBuilder: (context, state) => RouterErrorScreen(error: state.error),
+    errorBuilder: (context, state) => NotFoundScreen(
+      location: state.uri.toString(),
+      homeRoute: '/dashboard',
+    ),
     routes: [
       // ── Auth & misc ────────────────────────────────────────────────────
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),

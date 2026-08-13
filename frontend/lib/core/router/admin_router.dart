@@ -22,7 +22,8 @@ import 'package:fieldtrack/features/admin/settings/admin_settings_screen.dart';
 import 'package:fieldtrack/features/admin/profile/admin_profile_screen.dart';
 import 'package:fieldtrack/core/utils/toast_service.dart';
 import 'package:fieldtrack/features/admin/users/user_profile_screen.dart';
-
+import 'package:fieldtrack/features/admin/users/edit_user_screen.dart';
+import 'package:fieldtrack/shared/screens/not_found_screen.dart';
 
 class _AdminRouterNotifier extends ChangeNotifier {
   _AdminRouterNotifier(this._ref) {
@@ -66,6 +67,10 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/admin/login',
     refreshListenable: notifier,
     redirect: notifier.redirect,
+    errorBuilder: (context, state) => NotFoundScreen(
+      location: state.uri.toString(),
+      homeRoute: '/admin/dashboard',
+    ),
     routes: [
       GoRoute(
         path: '/admin/login',
@@ -111,6 +116,16 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
           return AdminScaffold(
             currentLocation: '/admin/users',
             child: UserProfileScreen(userId: id),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/users/edit/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return AdminScaffold(
+            currentLocation: '/admin/users',
+            child: EditUserScreen(userId: id),
           );
         },
       ),
