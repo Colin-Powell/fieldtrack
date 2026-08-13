@@ -21,6 +21,7 @@ import 'package:fieldtrack/features/admin/audit/admin_audit_screen.dart';
 import 'package:fieldtrack/features/admin/settings/admin_settings_screen.dart';
 import 'package:fieldtrack/features/admin/profile/admin_profile_screen.dart';
 import 'package:fieldtrack/core/utils/toast_service.dart';
+import 'package:fieldtrack/features/admin/users/user_profile_screen.dart';
 
 
 class _AdminRouterNotifier extends ChangeNotifier {
@@ -100,6 +101,16 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
           return const AdminScaffold(
             currentLocation: '/admin/users',
             child: AdminUsersScreen(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/users/profile/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return AdminScaffold(
+            currentLocation: '/admin/users',
+            child: UserProfileScreen(userId: id),
           );
         },
       ),
