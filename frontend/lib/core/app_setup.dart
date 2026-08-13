@@ -2,15 +2,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> loadFrontendEnv() async {
-  final candidates = <String>['.env', 'assets/.env'];
+  // On web builds we don't bundle a .env file — the production API URL is
+  // baked directly into AppConstants.apiUrl. Attempting to load it causes
+  // a 403/404 because nginx correctly blocks .env files from being served.
+  if (kIsWeb) return;
 
-  if (!kIsWeb) {
-    candidates.addAll(<String>[
-      'frontend/.env',
-      '../frontend/.env',
-      '../../frontend/.env',
-    ]);
-  }
+  final candidates = <String>[
+    '.env',
+    'frontend/.env',
+    '../frontend/.env',
+    '../../frontend/.env',
+  ];
 
   for (final candidate in candidates) {
     try {

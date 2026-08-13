@@ -314,7 +314,13 @@
       logs: [],
       requests: [],
       issues: [],
-      dynamicModules: {} 
+      lastAction: {
+        action: 'No action run',
+        status: 'idle',
+        message: 'No operations have been executed yet.',
+        timestamp: new Date().toISOString(),
+      },
+      dynamicModules: {}
     };
 
     // Navigation config
@@ -415,26 +421,25 @@ function expireSession(message = 'Session expired.') {
         dashboardState.logs = aggregateData.logs || [];
         dashboardState.requests = aggregateData.requests || [];
         dashboardState.issues = aggregateData.issues || [];
+        dashboardState.lastAction = aggregateData.lastAction || dashboardState.lastAction;
         dashboardState.overviewData = aggregateData.overviewData || null;
 
         setAuthStatus('Live Sync Active');
-        
-        if (currentView !== 'overview' && currentView !== 'live-api-monitor') {
-          await loadModuleData(currentView);
-        } else if (currentView === 'live-api-monitor') {
-          await loadModuleData('live-api-monitor');
-        } else {
+
+        if (currentView === 'overview') {
           renderPage();
+          return;
         }
+
+        await loadModuleData(currentView);
       } catch (err) {
         setAuthStatus('Failed to load real data.', true);
-        renderPage(); 
+        renderPage();
       }
     }
 
     async function loadModuleData(view) {
-      if (view === 'overview') return; 
-      if (!authToken) return;
+      if (!view || view === 'overview' || !authToken) return;
       try {
         const payload = await loadJson(`/api/v1/developer/modules/${view}`);
         dashboardState.dynamicModules[view] = payload;
@@ -443,6 +448,12 @@ function expireSession(message = 'Session expired.') {
         console.warn(`No API data for ${view}, falling back to template.`);
         renderPage();
       }
+    }
+
+    async function refreshMonitoringModules() {
+      const monitoringViews = ['live-api-monitor', 'server-monitor', 'security-center', 'background-jobs', 'feature-flags', 'database-explorer'];
+      await Promise.allSettled(monitoringViews.map((view) => loadModuleData(view)));
+      if (currentView === 'overview') renderPage();
     }
 
     async function submitTicket(event) {
@@ -641,6 +652,28 @@ function expireSession(message = 'Session expired.') {
         
         <div class="content-layout" style="margin-top: 28px;">
           <div class="main-column">
+            <div class="card highlight-bg">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px;">
+                <h2 style="margin:0;">Operational Actions</h2>
+                <span class="pill ${dashboardState.lastAction.status === 'success' ? '' : dashboardState.lastAction.status === 'error' ? 'danger' : 'neutral'}">
+                  ${dashboardState.lastAction.status.toUpperCase()}
+                </span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:12px;">
+                <div style="background:white; border-radius:16px; padding:16px;">
+                  <div style="font-size:0.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">Last run</div>
+                  <div style="font-weight:700; color:var(--text-dark);">${dashboardState.lastAction.action}</div>
+                  <div style="margin-top:6px; color:var(--text-muted); font-size:0.9rem;">${dashboardState.lastAction.message}</div>
+                  <div style="margin-top:8px; color:var(--text-faint); font-size:0.75rem;">${new Date(dashboardState.lastAction.timestamp).toLocaleString()}</div>
+                </div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+                  <button class="btn-secondary" style="width:100%; justify-content:flex-start;" onclick="triggerAction('maintenance', { enabled: true })"><i class="fa-solid fa-wrench" style="width:24px;"></i> Toggle Maintenance</button>
+                  <button class="btn-secondary" style="width:100%; justify-content:flex-start;" onclick="triggerAction('clear-logs')"><i class="fa-solid fa-broom" style="width:24px;"></i> Clear Old Logs</button>
+                  <button class="btn-secondary" style="width:100%; justify-content:flex-start; color:#DC2626; border-color:#FEE2E2;" onclick="triggerAction('restart')"><i class="fa-solid fa-power-off" style="width:24px;"></i> Restart Server</button>
+                </div>
+              </div>
+            </div>
+
             <div class="card">
               <h2 style="padding:12px;">7-Day Activity Trend</h2>
               <div style="height: 250px; padding: 0 16px 16px;">
@@ -939,7 +972,7 @@ function expireSession(message = 'Session expired.') {
             <div class="card highlight-bg">
               <h2>Quick Actions</h2>
               <div style="display:flex; flex-direction:column; gap:12px;">
-                <button class="btn-secondary" style="width:100%; justify-content:flex-start;" onclick="triggerAction('maintenance')">
+                <button class="btn-secondary" style="width:100%; justify-content:flex-start;" onclick="triggerAction('maintenance', { enabled: true })">
                   <i class="fa-solid fa-wrench" style="width:24px;"></i> Toggle Maintenance
                 </button>
                 <button class="btn-secondary" style="width:100%; justify-content:flex-start;" onclick="triggerAction('clear-logs')">
@@ -963,16 +996,18 @@ function expireSession(message = 'Session expired.') {
       return html;
     }
 
-    async function triggerAction(action) {
+    async function triggerAction(action, payload = {}) {
       if (!confirm(`Are you sure you want to execute action: ${action}?`)) return;
       try {
-        const payload = action === 'maintenance' ? { enabled: true } : {};
+        const actionPayload = { ...payload };
         const res = await loadJson(`/api/v1/developer/actions/${action}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(actionPayload)
         });
         alert(res.message || 'Action executed successfully');
+        await loadData();
+        await refreshMonitoringModules();
       } catch(e) {
         alert('Action failed: ' + e.message);
       }
@@ -1004,9 +1039,37 @@ function expireSession(message = 'Session expired.') {
       term.scrollTop = term.scrollHeight;
     }
 
+    function renderChartFallback(canvasId, title, message) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const parent = canvas.parentElement;
+      if (!parent) return;
+      parent.innerHTML = `
+        <div style="height:100%; border:1px dashed rgba(17,24,39,0.18); border-radius:12px; background:#F9FAFB; display:flex; align-items:center; justify-content:center; text-align:center; padding:16px; color:#6B7280;">
+          <div>
+            <div style="font-weight:700; margin-bottom:6px; color:#111827;">${title}</div>
+            <div style="font-size:0.82rem;">${message}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function ensureChartLibrary() {
+      if (typeof window.Chart === 'undefined') {
+        console.error('Chart.js failed to load. Charts are unavailable.');
+        return false;
+      }
+      return true;
+    }
+
     // Chart.js initialization
     window.sysChart = null;
     function initSysChart(data) {
+      if (!ensureChartLibrary()) {
+        renderChartFallback('sysChartCanvas', 'System Monitor', 'Chart.js could not load, so live telemetry is unavailable.');
+        return;
+      }
+
       const ctx = document.getElementById('sysChartCanvas');
       if (!ctx) return;
       window.sysChart = new Chart(ctx, {
@@ -1022,6 +1085,12 @@ function expireSession(message = 'Session expired.') {
     window.trendChart = null;
     window.storageChart = null;
     function initOverviewCharts(data) {
+      if (!ensureChartLibrary()) {
+        renderChartFallback('overviewTrendCanvas', '7-Day Activity Trend', 'Chart.js failed to load, so the activity graph is disabled.');
+        renderChartFallback('storagePieCanvas', 'Storage Distribution', 'Chart.js failed to load, so the storage chart is disabled.');
+        return;
+      }
+
       const trendCtx = document.getElementById('overviewTrendCanvas');
       if (trendCtx) {
         window.trendChart = new Chart(trendCtx, {
@@ -1049,6 +1118,12 @@ function expireSession(message = 'Session expired.') {
     window.errorPieChart = null;
     window.endpointsChart = null;
     function initApiCharts(data) {
+      if (!ensureChartLibrary()) {
+        renderChartFallback('apiEndpointsCanvas', 'Top Endpoints', 'Chart.js failed to load, so API traffic charts are unavailable.');
+        renderChartFallback('apiErrorsCanvas', 'Error Rates', 'Chart.js failed to load, so API error ratios are unavailable.');
+        return;
+      }
+
       const endpointsCtx = document.getElementById('apiEndpointsCanvas');
       if (endpointsCtx) {
         window.endpointsChart = new Chart(endpointsCtx, {
@@ -1287,10 +1362,15 @@ function expireSession(message = 'Session expired.') {
         renderNav();
         setPageMeta();
         renderPage();
-        
+
         window.history.replaceState({ view: currentView }, '', currentView === 'overview' ? '/developer-dashboard' : `/developer-dashboard/${currentView}`);
 
-        loadData(); 
+        loadData();
+        if (currentView !== 'overview') {
+          loadModuleData(currentView);
+        } else {
+          refreshMonitoringModules();
+        }
       }
     }
 
