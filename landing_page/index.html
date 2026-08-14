@@ -3,268 +3,3892 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FieldTrack - Field Operations Management</title>
-    <meta name="description" content="FieldTrack is a comprehensive solution for managing field operations, students, and supervisors.">
+
+    <title>FieldTrack | Postgraduate Fieldwork, Connected in Real Time</title>
+
+    <meta
+        name="description"
+        content="FieldTrack connects postgraduate students, supervisors and universities through real-time field activity tracking, evidence management and remote supervision."
+    >
+
+    <meta name="theme-color" content="#1BA654">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="FieldTrack | Postgraduate Fieldwork, Connected in Real Time">
+    <meta
+        property="og:description"
+        content="Monitor field activities, verify evidence and supervise postgraduate research remotely."
+    >
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="/assets/fieldtrack-preview.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/assets/favicon-32.png">
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
+
     <style>
+
+        /* =========================================================
+           FIELDTRACK DESIGN SYSTEM
+        ========================================================= */
+
         :root {
             --primary: #1BA654;
-            --primary-hover: #158743;
-            --bg: #F3F4F6;
+            --primary-dark: #158743;
+            --primary-light: #EAF8EF;
+
+            --background: #F7F8F9;
             --surface: #FFFFFF;
-            --text-main: #111827;
+            --surface-soft: #F3F4F6;
+
+            --text: #111827;
+            --text-secondary: #4B5563;
             --text-muted: #6B7280;
+
             --border: #E5E7EB;
+
+            --success: #16A34A;
+            --warning: #F59E0B;
+            --danger: #DC2626;
+
+            --shadow-sm:
+                0 4px 15px rgba(17, 24, 39, 0.05);
+
+            --shadow-md:
+                0 15px 40px rgba(17, 24, 39, 0.08);
+
+            --shadow-lg:
+                0 30px 70px rgba(17, 24, 39, 0.12);
+
+            --radius-sm: 12px;
+            --radius-md: 20px;
+            --radius-lg: 28px;
+            --radius-xl: 36px;
+
+            --max-width: 1180px;
         }
+
+
+        /* =========================================================
+           RESET
+        ========================================================= */
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        html {
+            scroll-behavior: smooth;
         }
 
         body {
-            background-color: var(--bg);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background-image: 
-                radial-gradient(at 0% 0%, hsla(145, 72%, 92%, 1) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, hsla(145, 72%, 92%, 1) 0px, transparent 50%);
-            background-attachment: fixed;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
         }
+
+        img {
+            max-width: 100%;
+            display: block;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        button {
+            font-family: inherit;
+        }
+
+
+        /* =========================================================
+           GLOBAL
+        ========================================================= */
 
         .container {
-            max-width: 1000px;
-            width: 100%;
-            padding: 2rem;
-            text-align: center;
+            width: min(var(--max-width), calc(100% - 40px));
+            margin: 0 auto;
         }
 
-        .logo-container {
+        section {
+            padding: 110px 0;
+        }
+
+        .section-label {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            width: 80px;
-            height: 80px;
-            background-color: var(--primary);
-            border-radius: 24px;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 25px -5px rgba(27, 166, 84, 0.4);
-            animation: float 6s ease-in-out infinite;
+            gap: 8px;
+
+            padding: 7px 13px;
+
+            background: var(--primary-light);
+            color: var(--primary-dark);
+
+            border-radius: 999px;
+
+            font-size: 0.78rem;
+            font-weight: 700;
+
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+
+            margin-bottom: 18px;
         }
 
-        .logo-container svg {
-            width: 40px;
-            height: 40px;
-            color: white;
+        .section-label::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+
+            background: var(--primary);
+
+            border-radius: 50%;
         }
 
-        h1 {
-            font-size: 3.5rem;
+        .section-title {
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            line-height: 1.15;
+
+            letter-spacing: -0.04em;
+
             font-weight: 800;
-            letter-spacing: -0.03em;
-            margin-bottom: 1rem;
-            color: var(--text-main);
+
+            max-width: 720px;
         }
 
-        p.subtitle {
-            font-size: 1.25rem;
+        .section-description {
             color: var(--text-muted);
-            max-width: 600px;
-            margin: 0 auto 4rem auto;
-            line-height: 1.6;
+
+            font-size: 1.05rem;
+
+            max-width: 650px;
+
+            margin-top: 20px;
         }
 
-        .portals-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            margin-bottom: 4rem;
-        }
 
-        .portal-card {
-            background: var(--surface);
-            border-radius: 24px;
-            padding: 2.5rem 2rem;
-            text-decoration: none;
-            color: var(--text-main);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            position: relative;
-            overflow: hidden;
-        }
+        /* =========================================================
+           NAVBAR
+        ========================================================= */
 
-        .portal-card::before {
-            content: '';
-            position: absolute;
+        .navbar {
+            position: fixed;
+
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
+
+            z-index: 1000;
+
+            background: rgba(255,255,255,0.86);
+
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+
+            border-bottom: 1px solid rgba(229,231,235,0.7);
+        }
+
+        .nav-inner {
+            height: 76px;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+
+            font-weight: 800;
+            font-size: 1.15rem;
+        }
+
+        .brand-mark {
+            width: 38px;
+            height: 38px;
+
+            border-radius: 11px;
+
             background: var(--primary);
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-            transform-origin: left;
-        }
 
-        .portal-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
-            border-color: transparent;
-        }
-
-        .portal-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        .portal-icon {
-            width: 64px;
-            height: 64px;
-            background: #F3F4F6;
-            border-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 1.5rem;
-            color: var(--primary);
-            transition: all 0.3s ease;
+
+            color: white;
+
+            box-shadow:
+                0 7px 18px rgba(27,166,84,0.25);
         }
 
-        .portal-card:hover .portal-icon {
+        .brand-mark svg {
+            width: 23px;
+            height: 23px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+
+            font-size: 0.88rem;
+            font-weight: 600;
+
+            transition: 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-login {
+            font-size: 0.88rem;
+            font-weight: 700;
+
+            padding: 10px 16px;
+        }
+
+        .nav-download {
             background: var(--primary);
             color: white;
-            transform: scale(1.1);
-        }
 
-        .portal-icon svg {
-            width: 32px;
-            height: 32px;
-        }
+            padding: 11px 18px;
 
-        .portal-title {
-            font-size: 1.5rem;
+            border-radius: 999px;
+
+            font-size: 0.85rem;
             font-weight: 700;
-            margin-bottom: 0.75rem;
+
+            box-shadow: 0 7px 18px rgba(27,166,84,0.2);
+
+            transition: 0.25s ease;
         }
 
-        .portal-desc {
-            font-size: 0.95rem;
-            color: var(--text-muted);
-            line-height: 1.5;
+        .nav-download:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
         }
 
-        .download-section {
-            background: var(--surface);
-            border-radius: 32px;
-            padding: 3rem;
-            display: flex;
-            flex-direction: column;
+        .mobile-menu {
+            display: none;
+
+            border: 0;
+            background: transparent;
+
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+
+        /* =========================================================
+           HERO
+        ========================================================= */
+
+        .hero {
+            position: relative;
+
+            padding-top: 170px;
+            padding-bottom: 100px;
+
+            overflow: hidden;
+
+            background:
+                radial-gradient(
+                    circle at 10% 10%,
+                    rgba(27,166,84,0.12),
+                    transparent 32%
+                ),
+                radial-gradient(
+                    circle at 90% 30%,
+                    rgba(27,166,84,0.08),
+                    transparent 28%
+                );
+        }
+
+        .hero-grid {
+            display: grid;
+
+            grid-template-columns:
+                minmax(0, 0.95fr)
+                minmax(0, 1.05fr);
+
+            gap: 70px;
+
             align-items: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+
+            padding: 8px 14px;
+
+            border-radius: 999px;
+
+            background: white;
+
+            border: 1px solid var(--border);
+
+            box-shadow: var(--shadow-sm);
+
+            color: var(--primary-dark);
+
+            font-size: 0.8rem;
+            font-weight: 700;
+
+            margin-bottom: 22px;
+        }
+
+        .hero-badge span {
+            width: 8px;
+            height: 8px;
+
+            background: var(--primary);
+
+            border-radius: 50%;
+
+            box-shadow: 0 0 0 5px rgba(27,166,84,0.12);
+        }
+
+        .hero h1 {
+            font-size: clamp(3rem, 6vw, 5.2rem);
+
+            line-height: 1.02;
+
+            letter-spacing: -0.06em;
+
+            font-weight: 800;
+
+            max-width: 700px;
+        }
+
+        .hero h1 .green {
+            color: var(--primary);
+        }
+
+        .hero-description {
+            margin-top: 25px;
+
+            color: var(--text-muted);
+
+            font-size: 1.12rem;
+
+            max-width: 620px;
+
+            line-height: 1.75;
+        }
+
+        .hero-actions {
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 12px;
+
+            margin-top: 32px;
+        }
+
+        .btn {
+            display: inline-flex;
+
+            align-items: center;
+            justify-content: center;
+
+            gap: 9px;
+
+            padding: 14px 21px;
+
+            border-radius: 999px;
+
+            font-size: 0.9rem;
+
+            font-weight: 700;
+
+            transition: 0.25s ease;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+
+            box-shadow:
+                0 12px 25px rgba(27,166,84,0.25);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-3px);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--text);
+
             border: 1px solid var(--border);
         }
 
-        .download-btn {
-            display: inline-flex;
+        .btn-secondary:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+
+            transform: translateY(-3px);
+        }
+
+        .hero-trust {
+            display: flex;
             align-items: center;
+
             gap: 12px;
-            background-color: var(--primary);
-            color: white;
-            padding: 1.25rem 2.5rem;
-            border-radius: 100px;
-            font-size: 1.125rem;
+
+            margin-top: 32px;
+
+            color: var(--text-muted);
+
+            font-size: 0.8rem;
+        }
+
+        .trust-dot {
+            width: 8px;
+            height: 8px;
+
+            border-radius: 50%;
+
+            background: var(--primary);
+        }
+
+
+        /* =========================================================
+           HERO PRODUCT VISUAL
+        ========================================================= */
+
+        .hero-visual {
+            position: relative;
+
+            min-height: 570px;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dashboard-window {
+            position: relative;
+
+            width: 100%;
+
+            background: white;
+
+            border-radius: 25px;
+
+            border: 1px solid var(--border);
+
+            box-shadow: var(--shadow-lg);
+
+            overflow: hidden;
+
+            transform: rotate(1deg);
+        }
+
+        .window-top {
+            height: 48px;
+
+            display: flex;
+            align-items: center;
+
+            padding: 0 17px;
+
+            border-bottom: 1px solid var(--border);
+
+            gap: 7px;
+        }
+
+        .window-dot {
+            width: 9px;
+            height: 9px;
+
+            border-radius: 50%;
+
+            background: #D1D5DB;
+        }
+
+        .dashboard-image {
+            width: 100%;
+
+            aspect-ratio: 16 / 10;
+
+            object-fit: cover;
+
+            background: #EEF1F3;
+        }
+
+        .phone {
+            position: absolute;
+
+            width: 190px;
+
+            right: -35px;
+            bottom: -35px;
+
+            padding: 8px;
+
+            background: #111827;
+
+            border-radius: 30px;
+
+            box-shadow: var(--shadow-lg);
+
+            transform: rotate(-5deg);
+        }
+
+        .phone-screen {
+            width: 100%;
+
+            border-radius: 23px;
+
+            overflow: hidden;
+
+            background: white;
+        }
+
+        .phone-screen img {
+            width: 100%;
+            height: 390px;
+
+            object-fit: cover;
+        }
+
+        .live-badge {
+            position: absolute;
+
+            left: -35px;
+            top: 70px;
+
+            display: flex;
+            align-items: center;
+            gap: 9px;
+
+            background: white;
+
+            padding: 12px 15px;
+
+            border-radius: 14px;
+
+            border: 1px solid var(--border);
+
+            box-shadow: var(--shadow-md);
+
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .live-badge::before {
+            content: "";
+
+            width: 8px;
+            height: 8px;
+
+            background: var(--primary);
+
+            border-radius: 50%;
+
+            box-shadow:
+                0 0 0 5px rgba(27,166,84,0.12);
+        }
+
+
+        /* =========================================================
+           PROBLEM SECTION
+        ========================================================= */
+
+        .problem {
+            background: white;
+        }
+
+        .problem-grid {
+            display: grid;
+
+            grid-template-columns: 0.8fr 1.2fr;
+
+            gap: 80px;
+
+            align-items: center;
+        }
+
+        .problem-quote {
+            font-size: clamp(2rem, 4vw, 3rem);
+
+            font-weight: 800;
+
+            line-height: 1.15;
+
+            letter-spacing: -0.045em;
+        }
+
+        .problem-quote span {
+            color: var(--primary);
+        }
+
+        .problem-content p {
+            color: var(--text-muted);
+
+            font-size: 1rem;
+
+            margin-bottom: 20px;
+        }
+
+        .problem-list {
+            margin-top: 25px;
+
+            display: grid;
+
+            gap: 13px;
+        }
+
+        .problem-item {
+            display: flex;
+
+            align-items: flex-start;
+
+            gap: 12px;
+
+            padding: 15px;
+
+            background: var(--background);
+
+            border: 1px solid var(--border);
+
+            border-radius: 15px;
+        }
+
+        .check {
+            flex-shrink: 0;
+
+            width: 25px;
+            height: 25px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border-radius: 50%;
+
+            background: var(--primary-light);
+
+            color: var(--primary);
+
+            font-weight: 800;
+
+            font-size: 0.75rem;
+        }
+
+        .problem-item span:last-child {
+            font-size: 0.88rem;
             font-weight: 600;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 20px -5px rgba(27, 166, 84, 0.4);
         }
 
-        .download-btn:hover {
-            background-color: var(--primary-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 15px 25px -5px rgba(27, 166, 84, 0.5);
+
+        /* =========================================================
+           PROFESSOR / ORIGIN STORY
+        ========================================================= */
+
+        .origin {
+            background: var(--background);
         }
 
-        .download-btn svg {
+        .origin-card {
+            background: var(--text);
+
+            color: white;
+
+            border-radius: var(--radius-xl);
+
+            padding: 70px;
+
+            position: relative;
+
+            overflow: hidden;
+        }
+
+        .origin-card::after {
+            content: "";
+
+            position: absolute;
+
+            width: 400px;
+            height: 400px;
+
+            border-radius: 50%;
+
+            background: rgba(27,166,84,0.14);
+
+            right: -100px;
+            bottom: -170px;
+        }
+
+        .origin-grid {
+            position: relative;
+            z-index: 2;
+
+            display: grid;
+
+            grid-template-columns: 1fr 1fr;
+
+            gap: 70px;
+
+            align-items: center;
+        }
+
+        .origin h2 {
+            font-size: clamp(2rem, 4vw, 3.1rem);
+
+            line-height: 1.15;
+
+            letter-spacing: -0.04em;
+        }
+
+        .origin h2 span {
+            color: #4ADE80;
+        }
+
+        .origin p {
+            color: #D1D5DB;
+
+            margin-top: 22px;
+
+            font-size: 0.98rem;
+
+            line-height: 1.8;
+        }
+
+        .origin-note {
+            margin-top: 25px;
+
+            padding: 18px 20px;
+
+            border-left: 3px solid var(--primary);
+
+            background: rgba(255,255,255,0.05);
+
+            border-radius: 0 12px 12px 0;
+
+            color: #E5E7EB;
+
+            font-size: 0.85rem;
+        }
+
+        .origin-visual {
+            display: flex;
+
+            justify-content: center;
+        }
+
+        .origin-flow {
+            width: 100%;
+
+            max-width: 420px;
+
+            display: grid;
+
+            gap: 10px;
+        }
+
+        .flow-card {
+            display: flex;
+
+            align-items: center;
+
+            gap: 15px;
+
+            padding: 18px;
+
+            background: rgba(255,255,255,0.07);
+
+            border: 1px solid rgba(255,255,255,0.08);
+
+            border-radius: 16px;
+        }
+
+        .flow-number {
+            width: 35px;
+            height: 35px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            flex-shrink: 0;
+
+            border-radius: 10px;
+
+            background: var(--primary);
+
+            font-size: 0.75rem;
+
+            font-weight: 800;
+        }
+
+        .flow-card strong {
+            display: block;
+
+            font-size: 0.85rem;
+        }
+
+        .flow-card small {
+            color: #9CA3AF;
+
+            font-size: 0.7rem;
+        }
+
+        .flow-arrow {
+            text-align: center;
+
+            color: var(--primary);
+
+            font-size: 0.9rem;
+        }
+
+
+        /* =========================================================
+           HOW IT WORKS
+        ========================================================= */
+
+        .steps-header {
+            text-align: center;
+        }
+
+        .steps-header .section-title {
+            margin: 0 auto;
+        }
+
+        .steps-header .section-description {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .steps-grid {
+            margin-top: 65px;
+
+            display: grid;
+
+            grid-template-columns: repeat(4, 1fr);
+
+            gap: 20px;
+        }
+
+        .step-card {
+            position: relative;
+
+            padding: 28px;
+
+            background: white;
+
+            border: 1px solid var(--border);
+
+            border-radius: var(--radius-md);
+
+            transition: 0.3s ease;
+        }
+
+        .step-card:hover {
+            transform: translateY(-6px);
+
+            box-shadow: var(--shadow-md);
+
+            border-color: transparent;
+        }
+
+        .step-number {
+            font-size: 0.75rem;
+
+            font-weight: 800;
+
+            color: var(--primary);
+
+            margin-bottom: 35px;
+        }
+
+        .step-icon {
+            width: 50px;
+            height: 50px;
+
+            border-radius: 15px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            background: var(--primary-light);
+
+            color: var(--primary);
+
+            margin-bottom: 22px;
+        }
+
+        .step-icon svg {
             width: 24px;
             height: 24px;
         }
 
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
+        .step-card h3 {
+            font-size: 1.05rem;
+
+            margin-bottom: 9px;
         }
 
-        @media (max-width: 768px) {
-            h1 { font-size: 2.5rem; }
-            .portals-grid { grid-template-columns: 1fr; }
-            .download-section { padding: 2rem; }
+        .step-card p {
+            color: var(--text-muted);
+
+            font-size: 0.82rem;
+
+            line-height: 1.65;
         }
+
+
+        /* =========================================================
+           PRODUCT SHOWCASE
+        ========================================================= */
+
+        .showcase {
+            background: white;
+        }
+
+        .showcase-row {
+            display: grid;
+
+            grid-template-columns: 0.9fr 1.1fr;
+
+            gap: 80px;
+
+            align-items: center;
+
+            margin-top: 70px;
+        }
+
+        .showcase-row.reverse {
+            grid-template-columns: 1.1fr 0.9fr;
+        }
+
+        .showcase-row + .showcase-row {
+            margin-top: 130px;
+        }
+
+        .showcase-image {
+            position: relative;
+
+            background: var(--background);
+
+            border-radius: var(--radius-lg);
+
+            padding: 20px;
+
+            border: 1px solid var(--border);
+        }
+
+        .showcase-image img {
+            width: 100%;
+
+            border-radius: 15px;
+
+            box-shadow: var(--shadow-md);
+        }
+
+        .showcase-tag {
+            position: absolute;
+
+            left: 35px;
+            bottom: 35px;
+
+            padding: 11px 15px;
+
+            background: white;
+
+            border: 1px solid var(--border);
+
+            border-radius: 13px;
+
+            box-shadow: var(--shadow-md);
+
+            font-size: 0.72rem;
+
+            font-weight: 700;
+        }
+
+        .showcase-copy h3 {
+            font-size: clamp(1.8rem, 3vw, 2.5rem);
+
+            line-height: 1.2;
+
+            letter-spacing: -0.035em;
+        }
+
+        .showcase-copy p {
+            color: var(--text-muted);
+
+            margin-top: 18px;
+
+            font-size: 0.95rem;
+
+            line-height: 1.8;
+        }
+
+        .feature-list {
+            margin-top: 25px;
+
+            display: grid;
+
+            gap: 12px;
+        }
+
+        .feature {
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+            font-size: 0.82rem;
+
+            font-weight: 600;
+        }
+
+        .feature svg {
+            color: var(--primary);
+
+            width: 18px;
+            height: 18px;
+
+            flex-shrink: 0;
+        }
+
+
+        /* =========================================================
+           EVIDENCE SECTION
+        ========================================================= */
+
+        .evidence {
+            background: var(--background);
+        }
+
+        .evidence-grid {
+            display: grid;
+
+            grid-template-columns: 1fr 1fr;
+
+            gap: 70px;
+
+            align-items: center;
+
+            margin-top: 60px;
+        }
+
+        .evidence-card {
+            background: white;
+
+            border: 1px solid var(--border);
+
+            border-radius: 24px;
+
+            padding: 25px;
+
+            box-shadow: var(--shadow-md);
+        }
+
+        .evidence-header {
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            padding-bottom: 20px;
+
+            border-bottom: 1px solid var(--border);
+        }
+
+        .evidence-title {
+            font-size: 0.85rem;
+            font-weight: 800;
+        }
+
+        .status {
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 6px;
+
+            padding: 6px 10px;
+
+            border-radius: 999px;
+
+            background: var(--primary-light);
+
+            color: var(--primary-dark);
+
+            font-size: 0.65rem;
+
+            font-weight: 800;
+        }
+
+        .status::before {
+            content: "";
+
+            width: 6px;
+            height: 6px;
+
+            border-radius: 50%;
+
+            background: var(--primary);
+        }
+
+        .evidence-main {
+            padding: 24px 0;
+        }
+
+        .evidence-main h4 {
+            font-size: 1.1rem;
+
+            margin-bottom: 17px;
+        }
+
+        .evidence-row {
+            display: flex;
+
+            justify-content: space-between;
+
+            gap: 20px;
+
+            padding: 10px 0;
+
+            border-bottom: 1px solid #F3F4F6;
+
+            font-size: 0.75rem;
+        }
+
+        .evidence-row span:first-child {
+            color: var(--text-muted);
+        }
+
+        .verified {
+            color: var(--primary);
+
+            font-weight: 700;
+        }
+
+        .evidence-actions {
+            display: flex;
+
+            gap: 10px;
+
+            margin-top: 20px;
+        }
+
+        .approve {
+            flex: 1;
+
+            padding: 12px;
+
+            border: 0;
+
+            border-radius: 10px;
+
+            background: var(--primary);
+
+            color: white;
+
+            font-weight: 700;
+
+            cursor: pointer;
+        }
+
+        .return {
+            flex: 1;
+
+            padding: 12px;
+
+            border: 1px solid var(--border);
+
+            border-radius: 10px;
+
+            background: white;
+
+            color: var(--text);
+
+            font-weight: 700;
+
+            cursor: pointer;
+        }
+
+        .evidence-copy h3 {
+            font-size: clamp(1.8rem, 3vw, 2.7rem);
+
+            line-height: 1.2;
+
+            letter-spacing: -0.04em;
+        }
+
+        .evidence-copy p {
+            margin-top: 18px;
+
+            color: var(--text-muted);
+
+            font-size: 0.95rem;
+
+            line-height: 1.8;
+        }
+
+
+        /* =========================================================
+           LIVE MAP
+        ========================================================= */
+
+        .map-section {
+            background: white;
+        }
+
+        .map-wrapper {
+            margin-top: 60px;
+
+            position: relative;
+
+            background: #E9F3EC;
+
+            border-radius: var(--radius-xl);
+
+            border: 1px solid var(--border);
+
+            overflow: hidden;
+
+            min-height: 520px;
+
+            background-image: url('assets/map.png');
+            background-size: cover;
+            background-position: center;
+        }
+
+        .map-label {
+            position: absolute;
+
+            top: 25px;
+            left: 25px;
+
+            background: white;
+
+            padding: 16px 19px;
+
+            border-radius: 15px;
+
+            border: 1px solid var(--border);
+
+            box-shadow: var(--shadow-md);
+
+            z-index: 5;
+        }
+
+        .map-label strong {
+            display: block;
+
+            font-size: 0.9rem;
+        }
+
+        .map-label small {
+            color: var(--text-muted);
+
+            font-size: 0.7rem;
+        }
+
+        .map-sidebar {
+            position: absolute;
+
+            right: 25px;
+            top: 25px;
+            bottom: 25px;
+
+            width: 280px;
+
+            background: white;
+
+            border-radius: 20px;
+
+            border: 1px solid var(--border);
+
+            box-shadow: var(--shadow-md);
+
+            padding: 20px;
+
+            z-index: 5;
+        }
+
+        .map-sidebar h4 {
+            font-size: 0.85rem;
+
+            margin-bottom: 18px;
+        }
+
+        .student {
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+            padding: 11px 0;
+
+            border-bottom: 1px solid #F3F4F6;
+        }
+
+        .student-avatar {
+            width: 33px;
+            height: 33px;
+
+            border-radius: 50%;
+
+            background: var(--primary-light);
+
+            color: var(--primary);
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            font-size: 0.7rem;
+
+            font-weight: 800;
+        }
+
+        .student-info {
+            flex: 1;
+        }
+
+        .student-info strong {
+            display: block;
+
+            font-size: 0.72rem;
+        }
+
+        .student-info small {
+            color: var(--text-muted);
+
+            font-size: 0.62rem;
+        }
+
+        .online {
+            width: 7px;
+            height: 7px;
+
+            background: var(--primary);
+
+            border-radius: 50%;
+        }
+
+        .map-pin {
+            position: absolute;
+
+            width: 17px;
+            height: 17px;
+
+            border-radius: 50% 50% 50% 0;
+
+            background: var(--primary);
+
+            transform: rotate(-45deg);
+
+            box-shadow:
+                0 0 0 7px rgba(27,166,84,0.15);
+
+            animation: pulse 2.2s infinite;
+        }
+
+        .map-pin::after {
+            content: "";
+
+            position: absolute;
+
+            width: 6px;
+            height: 6px;
+
+            background: white;
+
+            border-radius: 50%;
+
+            left: 5.5px;
+            top: 5.5px;
+        }
+
+        .pin-1 {
+            left: 35%;
+            top: 35%;
+        }
+
+        .pin-2 {
+            left: 50%;
+            top: 58%;
+        }
+
+        .pin-3 {
+            left: 25%;
+            top: 70%;
+        }
+
+        .pin-4 {
+            left: 55%;
+            top: 25%;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow:
+                    0 0 0 7px rgba(27,166,84,0.15);
+            }
+
+            50% {
+                box-shadow:
+                    0 0 0 15px rgba(27,166,84,0.04);
+            }
+        }
+
+
+        /* =========================================================
+           AUDIENCE
+        ========================================================= */
+
+        .audience {
+            background: var(--background);
+        }
+
+        .audience-header {
+            text-align: center;
+        }
+
+        .audience-header .section-title {
+            margin: auto;
+        }
+
+        .audience-grid {
+            margin-top: 60px;
+
+            display: grid;
+
+            grid-template-columns: repeat(3, 1fr);
+
+            gap: 20px;
+        }
+
+        .audience-card {
+            background: white;
+
+            padding: 35px;
+
+            border: 1px solid var(--border);
+
+            border-radius: 24px;
+
+            transition: 0.3s ease;
+        }
+
+        .audience-card:hover {
+            transform: translateY(-7px);
+
+            box-shadow: var(--shadow-md);
+
+            border-color: transparent;
+        }
+
+        .audience-icon {
+            width: 52px;
+            height: 52px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            background: var(--primary-light);
+
+            color: var(--primary);
+
+            border-radius: 15px;
+
+            margin-bottom: 25px;
+        }
+
+        .audience-icon svg {
+            width: 25px;
+            height: 25px;
+        }
+
+        .audience-card h3 {
+            font-size: 1.1rem;
+
+            margin-bottom: 10px;
+        }
+
+        .audience-card p {
+            color: var(--text-muted);
+
+            font-size: 0.83rem;
+
+            line-height: 1.7;
+        }
+
+
+        /* =========================================================
+           Pwani
+        ========================================================= */
+
+        .pwani {
+            background: white;
+        }
+
+        .pwani-card {
+            border-radius: var(--radius-xl);
+
+            padding: 75px;
+
+            background:
+                radial-gradient(
+                    circle at 90% 20%,
+                    rgba(27,166,84,0.13),
+                    transparent 30%
+                ),
+                #F6FBF7;
+
+            border: 1px solid #DDEFE3;
+
+            text-align: center;
+        }
+
+        .pwani-badge {
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            width: 70px;
+            height: 70px;
+
+            background: white;
+
+            border-radius: 20px;
+
+            border: 1px solid var(--border);
+
+            box-shadow: var(--shadow-sm);
+
+            margin-bottom: 25px;
+
+            font-size: 1.5rem;
+            font-weight: 800;
+
+            color: var(--primary);
+        }
+
+        .pwani-card h2 {
+            font-size: clamp(2rem, 4vw, 3.2rem);
+
+            letter-spacing: -0.045em;
+
+            line-height: 1.15;
+        }
+
+        .pwani-card p {
+            max-width: 680px;
+
+            margin: 20px auto 0;
+
+            color: var(--text-muted);
+
+            font-size: 0.95rem;
+
+            line-height: 1.8;
+        }
+
+
+        /* =========================================================
+           PORTALS
+        ========================================================= */
+
+        .portals {
+            background: var(--background);
+        }
+
+        .portal-header {
+            text-align: center;
+        }
+
+        .portal-header .section-title {
+            margin: auto;
+        }
+
+        .portals-grid {
+            margin-top: 60px;
+
+            display: grid;
+
+            grid-template-columns: repeat(3, 1fr);
+
+            gap: 20px;
+        }
+
+        .portal-card {
+            background: white;
+
+            border: 1px solid var(--border);
+
+            border-radius: 24px;
+
+            padding: 32px;
+
+            transition: 0.3s ease;
+
+            display: flex;
+
+            flex-direction: column;
+        }
+
+        .portal-card:hover {
+            transform: translateY(-7px);
+
+            box-shadow: var(--shadow-md);
+
+            border-color: transparent;
+        }
+
+        .portal-card.featured {
+            border: 1px solid rgba(27,166,84,0.35);
+
+            box-shadow:
+                0 15px 35px rgba(27,166,84,0.08);
+        }
+
+        .portal-icon {
+            width: 55px;
+            height: 55px;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            background: var(--primary-light);
+
+            color: var(--primary);
+
+            border-radius: 16px;
+
+            margin-bottom: 22px;
+        }
+
+        .portal-icon svg {
+            width: 26px;
+            height: 26px;
+        }
+
+        .portal-card h3 {
+            font-size: 1.2rem;
+
+            margin-bottom: 9px;
+        }
+
+        .portal-card p {
+            color: var(--text-muted);
+
+            font-size: 0.82rem;
+
+            line-height: 1.65;
+
+            flex: 1;
+        }
+
+        .portal-link {
+            margin-top: 25px;
+
+            color: var(--primary);
+
+            font-size: 0.82rem;
+
+            font-weight: 800;
+        }
+
+
+        /* =========================================================
+           FINAL CTA
+        ========================================================= */
+
+        .final-cta {
+            padding: 100px 0 120px;
+
+            background: var(--background);
+        }
+
+        .cta-card {
+            position: relative;
+
+            overflow: hidden;
+
+            border-radius: var(--radius-xl);
+
+            padding: 80px 40px;
+
+            text-align: center;
+
+            background:
+                radial-gradient(
+                    circle at 50% -30%,
+                    rgba(255,255,255,0.2),
+                    transparent 45%
+                ),
+                var(--primary);
+
+            color: white;
+        }
+
+        .cta-card::before {
+            content: "";
+
+            position: absolute;
+
+            width: 350px;
+            height: 350px;
+
+            border: 1px solid rgba(255,255,255,0.12);
+
+            border-radius: 50%;
+
+            left: -100px;
+            bottom: -220px;
+        }
+
+        .cta-card h2 {
+            position: relative;
+
+            font-size: clamp(2.2rem, 5vw, 3.7rem);
+
+            line-height: 1.1;
+
+            letter-spacing: -0.05em;
+
+            max-width: 800px;
+
+            margin: auto;
+        }
+
+        .cta-card p {
+            position: relative;
+
+            max-width: 600px;
+
+            margin: 20px auto 30px;
+
+            color: rgba(255,255,255,0.82);
+
+            font-size: 0.95rem;
+        }
+
+        .cta-buttons {
+            position: relative;
+
+            display: flex;
+
+            justify-content: center;
+
+            flex-wrap: wrap;
+
+            gap: 12px;
+        }
+
+        .btn-white {
+            background: white;
+
+            color: var(--primary-dark);
+        }
+
+        .btn-white:hover {
+            transform: translateY(-3px);
+
+            box-shadow:
+                0 12px 25px rgba(0,0,0,0.12);
+        }
+
+        .btn-outline-white {
+            color: white;
+
+            border: 1px solid rgba(255,255,255,0.35);
+        }
+
+        .btn-outline-white:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+
+        /* =========================================================
+           FOOTER
+        ========================================================= */
+
+        footer {
+            background: #111827;
+
+            color: white;
+
+            padding: 55px 0 30px;
+        }
+
+        .footer-grid {
+            display: grid;
+
+            grid-template-columns: 1.5fr 1fr 1fr 1fr;
+
+            gap: 50px;
+        }
+
+        .footer-brand p {
+            color: #9CA3AF;
+
+            font-size: 0.8rem;
+
+            max-width: 300px;
+
+            margin-top: 15px;
+        }
+
+        .footer-column h4 {
+            font-size: 0.8rem;
+
+            margin-bottom: 18px;
+        }
+
+        .footer-column a {
+            display: block;
+
+            color: #9CA3AF;
+
+            font-size: 0.75rem;
+
+            margin-bottom: 11px;
+
+            transition: 0.2s ease;
+        }
+
+        .footer-column a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            margin-top: 50px;
+
+            padding-top: 22px;
+
+            border-top: 1px solid rgba(255,255,255,0.08);
+
+            display: flex;
+
+            justify-content: space-between;
+
+            gap: 20px;
+
+            color: #6B7280;
+
+            font-size: 0.7rem;
+        }
+
+
+        /* =========================================================
+           RESPONSIVE
+        ========================================================= */
+
+        @media (max-width: 1000px) {
+
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-menu {
+                display: block;
+            }
+
+            .hero-grid,
+            .problem-grid,
+            .origin-grid,
+            .showcase-row,
+            .showcase-row.reverse,
+            .evidence-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-grid {
+                gap: 60px;
+            }
+
+            .hero-visual {
+                min-height: 500px;
+            }
+
+            .steps-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .audience-grid,
+            .portals-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .map-wrapper {
+                min-height: 600px;
+            }
+
+            .map-sidebar {
+                top: auto;
+
+                left: 20px;
+                right: 20px;
+
+                bottom: 20px;
+
+                width: auto;
+
+                height: 230px;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+
+        @media (max-width: 650px) {
+
+            section {
+                padding: 75px 0;
+            }
+
+            .container {
+                width: min(100% - 28px, var(--max-width));
+            }
+
+            .nav-inner {
+                height: 68px;
+            }
+
+            .nav-actions {
+                display: none;
+            }
+
+            .hero {
+                padding-top: 125px;
+            }
+
+            .hero h1 {
+                font-size: 3rem;
+            }
+
+            .hero-description {
+                font-size: 0.98rem;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+            }
+
+            .hero-actions .btn {
+                width: 100%;
+            }
+
+            .hero-visual {
+                min-height: 400px;
+            }
+
+            .phone {
+                width: 140px;
+
+                right: -10px;
+                bottom: -10px;
+            }
+
+            .phone-screen img {
+                height: 290px;
+            }
+
+            .live-badge {
+                left: 0;
+                top: 30px;
+            }
+
+            .origin-card,
+            .pwani-card {
+                padding: 40px 25px;
+            }
+
+            .steps-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .showcase-row + .showcase-row {
+                margin-top: 80px;
+            }
+
+            .showcase-row {
+                gap: 35px;
+            }
+
+            .map-wrapper {
+                min-height: 550px;
+            }
+
+            .map-sidebar {
+                height: 220px;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+            }
+        }
+
     </style>
 </head>
+
+
 <body>
 
-    <div class="container">
-        <div class="logo-container">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
+
+<!-- =========================================================
+     NAVIGATION
+========================================================= -->
+
+<header class="navbar">
+
+    <div class="container nav-inner">
+
+        <a href="/" class="brand">
+
+            <div class="brand-mark">
+
+                <!-- Replace with your final FieldTrack logo -->
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z"/>
+                    <circle cx="12" cy="9" r="2.5"/>
+                </svg>
+
+            </div>
+
+            FieldTrack
+
+        </a>
+
+
+        <nav class="nav-links">
+
+            <a href="#how-it-works">How It Works</a>
+
+            <a href="#students">For Students</a>
+
+            <a href="#supervisors">For Supervisors</a>
+
+            <a href="#universities">For Universities</a>
+
+        </nav>
+
+
+        <div class="nav-actions">
+
+            <a href="/supervisor" class="nav-login">
+                Supervisor Login
+            </a>
+
+            <a href="/app-release.apk" class="nav-download">
+                Download App
+            </a>
+
         </div>
 
-        <h1>Welcome to FieldTrack</h1>
-        <p class="subtitle">Streamline your field operations, track student progress, and manage everything from one unified platform.</p>
+
+        <button class="mobile-menu" aria-label="Open menu">
+            ☰
+        </button>
+
+    </div>
+
+</header>
+
+
+
+<!-- =========================================================
+     HERO
+========================================================= -->
+
+<section class="hero">
+
+    <div class="container hero-grid">
+
+
+        <div class="hero-copy">
+
+            <div class="hero-badge">
+
+                <span></span>
+
+                Postgraduate Fieldwork Management
+
+            </div>
+
+
+            <h1>
+
+                Fieldwork,
+
+                <span class="green">
+                    connected in real time.
+                </span>
+
+            </h1>
+
+
+            <p class="hero-description">
+
+                FieldTrack connects postgraduate students and supervisors
+                through real-time field activity tracking, evidence
+                management and remote research supervision.
+
+            </p>
+
+
+            <div class="hero-actions">
+
+                <a
+                    href="/app-release.apk"
+                    class="btn btn-primary"
+                >
+
+                    Download Student App
+
+                    <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M12 3v12"/>
+                        <path d="m7 10 5 5 5-5"/>
+                        <path d="M5 21h14"/>
+                    </svg>
+
+                </a>
+
+
+                <a
+                    href="/supervisor"
+                    class="btn btn-secondary"
+                >
+
+                    Supervisor Portal
+
+                    <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M5 12h14"/>
+                        <path d="m13 6 6 6-6 6"/>
+                    </svg>
+
+                </a>
+
+            </div>
+
+
+            <div class="hero-trust">
+
+                <span class="trust-dot"></span>
+
+                Real-time activity monitoring · GPS verification · Evidence review
+
+            </div>
+
+        </div>
+
+
+
+        <!-- HERO PRODUCT VISUAL -->
+
+        <div class="hero-visual">
+
+            <div class="dashboard-window">
+
+                <div class="window-top">
+
+                    <span class="window-dot"></span>
+                    <span class="window-dot"></span>
+                    <span class="window-dot"></span>
+
+                </div>
+
+
+                <!--
+                    Replace this with your actual Supervisor Dashboard screenshot.
+
+                    Recommended:
+                    /assets/supervisor-dashboard.png
+                -->
+
+                <img
+                    class="dashboard-image"
+                    src="assets/supervisor_dashboard.png"
+                    alt="FieldTrack Supervisor Dashboard"
+                    onerror="this.src='https://placehold.co/1200x750/F3F4F6/1BA654?text=FieldTrack+Supervisor+Dashboard'"
+                >
+
+            </div>
+
+
+            <div class="phone">
+
+                <div class="phone-screen">
+
+                    <!--
+                        Replace with Student Dashboard screenshot.
+                    -->
+
+                    <img
+                        src="assets/student_dashboard.png"
+                        alt="FieldTrack Student Mobile App"
+                        onerror="this.src='https://placehold.co/500x850/FFFFFF/1BA654?text=FieldTrack+Student+App'"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="live-badge">
+
+                Live field activity
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     PROBLEM
+========================================================= -->
+
+<section class="problem">
+
+    <div class="container problem-grid">
+
+
+        <div>
+
+            <div class="section-label">
+                The Challenge
+            </div>
+
+            <div class="problem-quote">
+
+                Fieldwork shouldn't happen
+
+                <span>
+                    in the dark.
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="problem-content">
+
+            <p>
+
+                Postgraduate students can conduct research across
+                multiple field locations while supervisors remain
+                at the university.
+
+            </p>
+
+            <p>
+
+                Traditionally, monitoring that work may depend on
+                physical site visits, manual reports and delayed
+                communication.
+
+            </p>
+
+
+            <div class="problem-list">
+
+                <div class="problem-item">
+
+                    <span class="check">✓</span>
+
+                    <span>
+                        Difficult to continuously monitor students in the field.
+                    </span>
+
+                </div>
+
+
+                <div class="problem-item">
+
+                    <span class="check">✓</span>
+
+                    <span>
+                        Evidence can arrive late or without sufficient context.
+                    </span>
+
+                </div>
+
+
+                <div class="problem-item">
+
+                    <span class="check">✓</span>
+
+                    <span>
+                        Physical supervision visits consume time and resources.
+                    </span>
+
+                </div>
+
+
+                <div class="problem-item">
+
+                    <span class="check">✓</span>
+
+                    <span>
+                        Research activities can become difficult to verify.
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     ORIGIN / PROF OKEYO STORY
+========================================================= -->
+
+<section class="origin">
+
+    <div class="container">
+
+        <div class="origin-card">
+
+            <div class="origin-grid">
+
+
+                <div>
+
+                    <div class="section-label">
+                        Why FieldTrack
+                    </div>
+
+
+                    <h2>
+
+                        A simple question led to a
+
+                        <span>
+                            bigger solution.
+                        </span>
+
+                    </h2>
+
+
+                    <p>
+
+                        What if a postgraduate supervisor could
+                        monitor field activities without having to
+                        physically visit every research site?
+
+                    </p>
+
+
+                    <p>
+
+                        FieldTrack was conceived around this challenge:
+                        connecting students in the field with their
+                        supervisors through verified activities,
+                        evidence and real-time information.
+
+                    </p>
+
+
+                    <div class="origin-note">
+
+                        Developed around the realities of postgraduate
+                        field research and supervision at Pwani University.
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="origin-visual">
+
+                    <div class="origin-flow">
+
+
+                        <div class="flow-card">
+
+                            <div class="flow-number">
+                                01
+                            </div>
+
+                            <div>
+
+                                <strong>
+                                    Student enters the field
+                                </strong>
+
+                                <small>
+                                    Location and time are captured
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="flow-arrow">
+                            ↓
+                        </div>
+
+
+                        <div class="flow-card">
+
+                            <div class="flow-number">
+                                02
+                            </div>
+
+                            <div>
+
+                                <strong>
+                                    Activity is recorded
+                                </strong>
+
+                                <small>
+                                    Notes, photos and evidence
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="flow-arrow">
+                            ↓
+                        </div>
+
+
+                        <div class="flow-card">
+
+                            <div class="flow-number">
+                                03
+                            </div>
+
+                            <div>
+
+                                <strong>
+                                    Supervisor reviews remotely
+                                </strong>
+
+                                <small>
+                                    Evidence and activity timeline
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="flow-arrow">
+                            ↓
+                        </div>
+
+
+                        <div class="flow-card">
+
+                            <div class="flow-number">
+                                04
+                            </div>
+
+                            <div>
+
+                                <strong>
+                                    Evidence is approved
+                                </strong>
+
+                                <small>
+                                    Quality-controlled fieldwork
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     HOW IT WORKS
+========================================================= -->
+
+<section id="how-it-works">
+
+    <div class="container">
+
+        <div class="steps-header">
+
+            <div class="section-label">
+                How It Works
+            </div>
+
+            <h2 class="section-title">
+                From field activity to supervisor approval.
+            </h2>
+
+            <p class="section-description">
+                FieldTrack keeps every step of the fieldwork
+                workflow connected.
+            </p>
+
+        </div>
+
+
+        <div class="steps-grid">
+
+
+            <div class="step-card">
+
+                <div class="step-number">
+                    01
+                </div>
+
+                <div class="step-icon">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/>
+                        <circle cx="12" cy="9" r="2.5"/>
+                    </svg>
+
+                </div>
+
+                <h3>
+                    Check In
+                </h3>
+
+                <p>
+                    Students check into their field activity
+                    with GPS location and timestamp information.
+                </p>
+
+            </div>
+
+
+
+            <div class="step-card">
+
+                <div class="step-number">
+                    02
+                </div>
+
+                <div class="step-icon">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M12 20h9"/>
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>
+                    </svg>
+
+                </div>
+
+                <h3>
+                    Record Activity
+                </h3>
+
+                <p>
+                    Document field activities, observations and
+                    research progress directly from the field.
+                </p>
+
+            </div>
+
+
+
+            <div class="step-card">
+
+                <div class="step-number">
+                    03
+                </div>
+
+                <div class="step-icon">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M4 5h16v14H4z"/>
+                        <circle cx="9" cy="10" r="2"/>
+                        <path d="m4 17 4-4 3 3 2-2 5 4"/>
+                    </svg>
+
+                </div>
+
+                <h3>
+                    Submit Evidence
+                </h3>
+
+                <p>
+                    Upload photographs, documents and other
+                    evidence supporting the field activity.
+                </p>
+
+            </div>
+
+
+
+            <div class="step-card">
+
+                <div class="step-number">
+                    04
+                </div>
+
+                <div class="step-icon">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M20 6 9 17l-5-5"/>
+                    </svg>
+
+                </div>
+
+                <h3>
+                    Review & Approve
+                </h3>
+
+                <p>
+                    Supervisors remotely review submissions and
+                    approve quality evidence or request changes.
+                </p>
+
+            </div>
+
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     STUDENT EXPERIENCE
+========================================================= -->
+
+<section
+    id="students"
+    class="showcase"
+>
+
+    <div class="container">
+
+
+        <div class="showcase-row">
+
+
+            <div class="showcase-image">
+
+                <img
+                    src="assets/check_in.png"
+                    alt="FieldTrack GPS field check-in"
+                    onerror="this.src='https://placehold.co/1000x700/F3F4F6/1BA654?text=Student+GPS+Check-In'"
+                >
+
+                <div class="showcase-tag">
+                    GPS verified field activity
+                </div>
+
+            </div>
+
+
+            <div class="showcase-copy">
+
+                <div class="section-label">
+                    For Students
+                </div>
+
+                <h3>
+                    Your fieldwork, documented as it happens.
+                </h3>
+
+                <p>
+                    FieldTrack gives postgraduate students a simple
+                    mobile workflow for recording field activities,
+                    capturing evidence and keeping their supervisor
+                    updated.
+                </p>
+
+
+                <div class="feature-list">
+
+                    <div class="feature">
+
+                        ✓
+
+                        GPS field check-in and check-out
+
+                    </div>
+
+                    <div class="feature">
+
+                        ✓
+
+                        Activity logging
+
+                    </div>
+
+                    <div class="feature">
+
+                        ✓
+
+                        Photo and document evidence
+
+                    </div>
+
+                    <div class="feature">
+
+                        ✓
+
+                        Field activity history
+
+                    </div>
+
+                    <div class="feature">
+
+                        ✓
+
+                        Offline capture and synchronization
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- SUPERVISOR -->
+
+        <div
+            class="showcase-row reverse"
+            id="supervisors"
+        >
+
+
+            <div class="showcase-copy">
+
+                <div class="section-label">
+                    For Supervisors
+                </div>
+
+                <h3>
+                    Supervise from wherever you are.
+                </h3>
+
+                <p>
+                    Supervisors can monitor student activities,
+                    inspect submitted evidence, follow field
+                    progress and make review decisions without
+                    needing to physically visit every site.
+                </p>
+
+
+                <div class="feature-list">
+
+                    <div class="feature">
+                        ✓
+                        Live student activity monitoring
+                    </div>
+
+                    <div class="feature">
+                        ✓
+                        Field locations and activity timelines
+                    </div>
+
+                    <div class="feature">
+                        ✓
+                        Evidence review
+                    </div>
+
+                    <div class="feature">
+                        ✓
+                        Approve or request changes
+                    </div>
+
+                    <div class="feature">
+                        ✓
+                        Notifications and progress tracking
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="showcase-image">
+
+                <img
+                    src="assets/supervisor_dashboard.png"
+                    alt="FieldTrack Supervisor Dashboard"
+                    onerror="this.src='https://placehold.co/1200x750/F3F4F6/1BA654?text=Supervisor+Dashboard'"
+                >
+
+                <div class="showcase-tag">
+                    Real-time supervision
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     EVIDENCE
+========================================================= -->
+
+<section class="evidence">
+
+    <div class="container">
+
+        <div class="evidence-grid">
+
+
+            <div class="evidence-card">
+
+                <div class="evidence-header">
+
+                    <span class="evidence-title">
+                        Activity Submission
+                    </span>
+
+                    <span class="status">
+                        GPS Verified
+                    </span>
+
+                </div>
+
+
+                <div class="evidence-main">
+
+                    <h4>
+                        Coastal Vegetation Assessment
+                    </h4>
+
+
+                    <div class="evidence-row">
+
+                        <span>
+                            Student
+                        </span>
+
+                        <strong>
+                            Postgraduate Researcher
+                        </strong>
+
+                    </div>
+
+
+                    <div class="evidence-row">
+
+                        <span>
+                            Location
+                        </span>
+
+                        <strong class="verified">
+                            ✓ Verified
+                        </strong>
+
+                    </div>
+
+
+                    <div class="evidence-row">
+
+                        <span>
+                            Timestamp
+                        </span>
+
+                        <strong>
+                            10:42 AM
+                        </strong>
+
+                    </div>
+
+
+                    <div class="evidence-row">
+
+                        <span>
+                            Evidence
+                        </span>
+
+                        <strong>
+                            6 photographs
+                        </strong>
+
+                    </div>
+
+
+                    <div class="evidence-actions">
+
+                        <button class="approve">
+                            Approve Evidence
+                        </button>
+
+                        <button class="return">
+                            Request Changes
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="evidence-copy">
+
+                <div class="section-label">
+                    Verified Evidence
+                </div>
+
+                <h3>
+                    Know what happened, where it happened and when.
+                </h3>
+
+                <p>
+                    FieldTrack brings activity records, evidence,
+                    timestamps and location information together
+                    so supervisors have greater context when
+                    reviewing postgraduate fieldwork.
+                </p>
+
+                <p>
+                    Every review becomes part of a structured
+                    digital fieldwork record.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     LIVE MAP
+========================================================= -->
+
+<section class="map-section">
+
+    <div class="container">
+
+        <div>
+
+            <div class="section-label">
+                Live Monitoring
+            </div>
+
+            <h2 class="section-title">
+                See where fieldwork is happening.
+            </h2>
+
+            <p class="section-description">
+                Supervisors can get a geographic view of active
+                and recent student field activities.
+            </p>
+
+        </div>
+
+
+        <div class="map-wrapper">
+
+
+            <div class="map-label">
+
+                <strong>
+                    Field Activity Map
+                </strong>
+
+                <small>
+                    4 students currently active
+                </small>
+
+            </div>
+
+
+            <!-- Decorative map pins -->
+
+            <div class="map-pin pin-1"></div>
+
+            <div class="map-pin pin-2"></div>
+
+            <div class="map-pin pin-3"></div>
+
+            <div class="map-pin pin-4"></div>
+
+
+            <div class="map-sidebar">
+
+                <h4>
+                    Active Students
+                </h4>
+
+
+                <div class="student">
+
+                    <div class="student-avatar">
+                        AM
+                    </div>
+
+                    <div class="student-info">
+
+                        <strong>
+                            Student A
+                        </strong>
+
+                        <small>
+                            Field activity · 2 min ago
+                        </small>
+
+                    </div>
+
+                    <span class="online"></span>
+
+                </div>
+
+
+                <div class="student">
+
+                    <div class="student-avatar">
+                        JK
+                    </div>
+
+                    <div class="student-info">
+
+                        <strong>
+                            Student B
+                        </strong>
+
+                        <small>
+                            Field activity · 5 min ago
+                        </small>
+
+                    </div>
+
+                    <span class="online"></span>
+
+                </div>
+
+
+                <div class="student">
+
+                    <div class="student-avatar">
+                        RO
+                    </div>
+
+                    <div class="student-info">
+
+                        <strong>
+                            Student C
+                        </strong>
+
+                        <small>
+                            Field activity · 8 min ago
+                        </small>
+
+                    </div>
+
+                    <span class="online"></span>
+
+                </div>
+
+
+                <div class="student">
+
+                    <div class="student-avatar">
+                        MN
+                    </div>
+
+                    <div class="student-info">
+
+                        <strong>
+                            Student D
+                        </strong>
+
+                        <small>
+                            Field activity · 11 min ago
+                        </small>
+
+                    </div>
+
+                    <span class="online"></span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     AUDIENCE
+========================================================= -->
+
+<section
+    id="universities"
+    class="audience"
+>
+
+    <div class="container">
+
+
+        <div class="audience-header">
+
+            <div class="section-label">
+                Built For Research
+            </div>
+
+            <h2 class="section-title">
+                One platform for the entire fieldwork ecosystem.
+            </h2>
+
+        </div>
+
+
+        <div class="audience-grid">
+
+
+            <div class="audience-card">
+
+                <div class="audience-icon">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M12 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
+                        <path d="M4 21a8 8 0 0 1 16 0"/>
+                    </svg>
+
+                </div>
+
+                <h3>
+                    Postgraduate Students
+                </h3>
+
+                <p>
+                    Record field activities, upload evidence,
+                    capture locations and keep a structured
+                    history of research work.
+                </p>
+
+            </div>
+
+
+
+            <div class="audience-card">
+
+                <div class="audience-icon">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                    </svg>
+
+                </div>
+
+                <h3>
+                    Supervisors
+                </h3>
+
+                <p>
+                    Monitor research activities, review evidence,
+                    follow student progress and approve quality
+                    submissions remotely.
+                </p>
+
+            </div>
+
+
+
+            <div class="audience-card">
+
+                <div class="audience-icon">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M3 21h18"/>
+                        <path d="M5 21V5l7-3 7 3v16"/>
+                        <path d="M9 21v-5h6v5"/>
+                        <path d="M9 8h1"/>
+                        <path d="M14 8h1"/>
+                    </svg>
+
+                </div>
+
+                <h3>
+                    Universities
+                </h3>
+
+                <p>
+                    Centralize postgraduate fieldwork management,
+                    supervision, evidence and reporting across
+                    research programmes.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     PWANI UNIVERSITY
+========================================================= -->
+
+<section class="pwani">
+
+    <div class="container">
+
+        <div class="pwani-card">
+
+            <div class="pwani-badge">
+                PU
+            </div>
+
+
+            <h2>
+                Built with the realities of postgraduate research in mind.
+            </h2>
+
+
+            <p>
+                FieldTrack is being developed around the fieldwork
+                supervision needs of postgraduate researchers and
+                supervisors at Pwani University — creating a more
+                connected, transparent and efficient way to manage
+                field activities.
+            </p>
+
+
+            <div
+                style="
+                    margin-top:28px;
+                    color:#158743;
+                    font-size:0.8rem;
+                    font-weight:800;
+                "
+            >
+                Pwani University · Postgraduate Research · Fieldwork
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     PORTALS
+========================================================= -->
+
+<section class="portals">
+
+    <div class="container">
+
+
+        <div class="portal-header">
+
+            <div class="section-label">
+                Access FieldTrack
+            </div>
+
+            <h2 class="section-title">
+                One platform. Different experiences.
+            </h2>
+
+        </div>
+
 
         <div class="portals-grid">
-            <!-- Admin Portal -->
-            <a href="/admin" class="portal-card">
+
+
+            <!-- STUDENT -->
+
+            <div class="portal-card">
+
                 <div class="portal-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <rect
+                            x="5"
+                            y="2"
+                            width="14"
+                            height="20"
+                            rx="2"
+                        />
+
+                        <path d="M9 18h6"/>
+                    </svg>
+
+                </div>
+
+
+                <h3>
+                    Student App
+                </h3>
+
+
+                <p>
+                    Record field activities, check in with GPS,
+                    upload evidence and keep your supervisor
+                    updated from the field.
+                </p>
+
+
+                <a
+                    href="/app-release.apk"
+                    class="portal-link"
+                >
+                    Download Android App →
+                </a>
+
+            </div>
+
+
+
+            <!-- SUPERVISOR -->
+
+            <div class="portal-card featured">
+
+                <div class="portal-icon">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M3 12h18"/>
+                        <path d="M12 3v18"/>
+                        <circle cx="12" cy="12" r="9"/>
+                    </svg>
+
+                </div>
+
+
+                <h3>
+                    Supervisor Portal
+                </h3>
+
+
+                <p>
+                    Monitor students, view field activities,
+                    inspect evidence, follow locations and
+                    manage research supervision.
+                </p>
+
+
+                <a
+                    href="/supervisor"
+                    class="portal-link"
+                >
+                    Open Supervisor Portal →
+                </a>
+
+            </div>
+
+
+
+            <!-- ADMIN -->
+
+            <div class="portal-card">
+
+                <div class="portal-icon">
+
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z"/>
                         <path d="m9 12 2 2 4-4"/>
                     </svg>
-                </div>
-                <h2 class="portal-title">Admin Portal</h2>
-                <p class="portal-desc">Manage users, departments, projects, and access full system analytics.</p>
-            </a>
 
-            <!-- Supervisor Portal -->
-            <a href="/supervisor" class="portal-card">
-                <div class="portal-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
                 </div>
-                <h2 class="portal-title">Supervisor Portal</h2>
-                <p class="portal-desc">Track students in the field, review logs, and manage daily operations.</p>
-            </a>
+
+
+                <h3>
+                    Admin Portal
+                </h3>
+
+
+                <p>
+                    Manage users, supervisors, departments,
+                    research programmes and system-wide
+                    operations.
+                </p>
+
+
+                <a
+                    href="/admin"
+                    class="portal-link"
+                >
+                    Open Admin Portal →
+                </a>
+
+            </div>
+
         </div>
 
-        <div class="download-section">
-            <h2 style="font-size: 1.75rem; margin-bottom: 0.5rem;">Student App</h2>
-            <p style="color: var(--text-muted); margin-bottom: 2rem;">Download the latest Android app for field tracking.</p>
-            <a href="/app-release.apk" class="download-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" x2="12" y1="15" y2="3"/>
-                </svg>
-                Download APK
-            </a>
-        </div>
     </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     FINAL CTA
+========================================================= -->
+
+<section class="final-cta">
+
+    <div class="container">
+
+        <div class="cta-card">
+
+
+            <h2>
+                Take postgraduate fieldwork beyond the field site.
+            </h2>
+
+
+            <p>
+                Give students the tools to document their work
+                and supervisors the visibility to monitor,
+                review and support research progress.
+            </p>
+
+
+            <div class="cta-buttons">
+
+                <a
+                    href="/app-release.apk"
+                    class="btn btn-white"
+                >
+                    Download Student App
+                </a>
+
+
+                <a
+                    href="/supervisor"
+                    class="btn btn-outline-white"
+                >
+                    Supervisor Portal →
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer>
+
+    <div class="container">
+
+
+        <div class="footer-grid">
+
+
+            <div class="footer-brand">
+
+                <a href="/" class="brand">
+
+                    <div
+                        class="brand-mark"
+                        style="background:#1BA654;"
+                    >
+
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z"/>
+                            <circle cx="12" cy="9" r="2.5"/>
+                        </svg>
+
+                    </div>
+
+                    FieldTrack
+
+                </a>
+
+
+                <p>
+                    A connected platform for postgraduate
+                    fieldwork, evidence and supervision.
+                </p>
+
+            </div>
+
+
+
+            <div class="footer-column">
+
+                <h4>
+                    Platform
+                </h4>
+
+                <a href="#how-it-works">
+                    How It Works
+                </a>
+
+                <a href="#students">
+                    Student App
+                </a>
+
+                <a href="#supervisors">
+                    Supervisor Portal
+                </a>
+
+                <a href="/admin">
+                    Admin Portal
+                </a>
+
+            </div>
+
+
+
+            <div class="footer-column">
+
+                <h4>
+                    Resources
+                </h4>
+
+                <a href="#universities">
+                    Universities
+                </a>
+
+                <a href="/app-release.apk">
+                    Download App
+                </a>
+
+                <a href="#">
+                    Support
+                </a>
+
+            </div>
+
+
+
+            <div class="footer-column">
+
+                <h4>
+                    Access
+                </h4>
+
+                <a href="/supervisor">
+                    Supervisor Login
+                </a>
+
+                <a href="/admin">
+                    Admin Login
+                </a>
+
+            </div>
+
+
+        </div>
+
+
+
+        <div class="footer-bottom">
+
+            <span>
+                © 2026 FieldTrack. All rights reserved.
+            </span>
+
+            <span>
+                Built for better postgraduate fieldwork.
+            </span>
+
+        </div>
+
+    </div>
+
+</footer>
+
+
+
+<script>
+
+    /* =========================================================
+       MOBILE MENU
+    ========================================================= */
+
+    const mobileButton =
+        document.querySelector(".mobile-menu");
+
+    const navLinks =
+        document.querySelector(".nav-links");
+
+
+    mobileButton.addEventListener("click", () => {
+
+        if (navLinks.style.display === "flex") {
+
+            navLinks.style.display = "";
+
+        } else {
+
+            navLinks.style.display = "flex";
+
+            navLinks.style.position = "absolute";
+
+            navLinks.style.top = "68px";
+
+            navLinks.style.left = "14px";
+
+            navLinks.style.right = "14px";
+
+            navLinks.style.flexDirection = "column";
+
+            navLinks.style.alignItems = "flex-start";
+
+            navLinks.style.padding = "20px";
+
+            navLinks.style.background = "white";
+
+            navLinks.style.border =
+                "1px solid #E5E7EB";
+
+            navLinks.style.borderRadius = "18px";
+
+            navLinks.style.boxShadow =
+                "0 20px 40px rgba(17,24,39,0.10)";
+
+        }
+
+    });
+
+
+
+    /* =========================================================
+       CLOSE MOBILE MENU WHEN LINK IS CLICKED
+    ========================================================= */
+
+    document
+        .querySelectorAll(".nav-links a")
+        .forEach(link => {
+
+            link.addEventListener("click", () => {
+
+                if (window.innerWidth <= 1000) {
+
+                    navLinks.style.display = "";
+
+                }
+
+            });
+
+        });
+
+
+
+    /* =========================================================
+       SIMPLE SCROLL REVEAL
+    ========================================================= */
+
+    const observer =
+        new IntersectionObserver(
+            entries => {
+
+                entries.forEach(entry => {
+
+                    if (entry.isIntersecting) {
+
+                        entry.target.style.opacity = "1";
+
+                        entry.target.style.transform =
+                            "translateY(0)";
+
+                        observer.unobserve(entry.target);
+
+                    }
+
+                });
+
+            },
+            {
+                threshold: 0.08
+            }
+        );
+
+
+    document
+        .querySelectorAll(
+            ".step-card, .audience-card, .portal-card, .showcase-row, .evidence-card"
+        )
+        .forEach(element => {
+
+            element.style.opacity = "0";
+
+            element.style.transform =
+                "translateY(25px)";
+
+            element.style.transition =
+                "opacity 0.7s ease, transform 0.7s ease";
+
+            observer.observe(element);
+
+        });
+
+</script>
 
 </body>
 </html>
