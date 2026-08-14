@@ -2075,6 +2075,99 @@
             }
         }
 
+        /* --- USER OVERRIDES --- */
+        
+        /* 1. Remove all eyebrows */
+        .section-label, .hero-badge, .showcase-tag {
+            display: none !important;
+        }
+
+        /* 2. Hero images: independent, scaled, centered */
+        .window-top, .phone-notch, .phone-indicator {
+            display: none !important;
+        }
+        .hero-visual {
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 2rem !important;
+        }
+        .dashboard-window {
+            position: static !important;
+            transform: none !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            flex: 1 1 70% !important;
+            display: flex !important;
+            justify-content: center !important;
+            max-width: 800px;
+        }
+        .dashboard-image {
+            width: 100% !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important;
+        }
+        .phone {
+            position: static !important;
+            transform: none !important;
+            margin: 0 !important;
+            flex: 0 0 20% !important;
+            max-width: 250px;
+        }
+        .phone-screen {
+            border: none !important;
+            background: transparent !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+        }
+        .phone-screen img {
+            border-radius: 16px !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important;
+            width: 100% !important;
+            height: auto !important;
+            object-fit: contain !important;
+        }
+
+        /* 3. Showcase images (For Students / For Supervisors) */
+        .showcase-image {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+        }
+        .showcase-image img {
+            max-width: 90% !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important;
+        }
+
+        /* 4. Map section */
+        .map-sidebar, .map-pin, .map-label {
+            display: none !important;
+        }
+        .map-wrapper {
+            background-image: url('assets/map.png') !important;
+            background-size: cover !important;
+            background-position: center !important;
+            border: none !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important;
+            min-height: 500px !important;
+            border-radius: 16px !important;
+        }
+        
+        @media (max-width: 768px) {
+            .hero-visual { flex-direction: column !important; gap: 1rem !important; }
+            .phone { max-width: 150px; }
+            .dashboard-window { max-width: 100%; }
+        }
+
     </style>
 </head>
 
