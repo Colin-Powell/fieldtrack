@@ -1,11 +1,12 @@
 export const getSystemVersion = (req, res) => {
     try {
-        // In a real application, these values might be stored in the database or environment variables.
-        // For now, we are hardcoding them to always prompt an update to 2.0.0.
+        const latestVersion = process.env.APP_LATEST_VERSION || '1.0.0';
+        const requiredVersion = process.env.APP_REQUIRED_VERSION || '1.0.0';
+        const updateUrl = process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update';
         res.json({
-            latestVersion: '2.0.0',
-            requiredVersion: '2.0.0',
-            updateUrl: 'https://example.com/update-placeholder'
+            latestVersion,
+            requiredVersion,
+            updateUrl
         });
     }
     catch (error) {

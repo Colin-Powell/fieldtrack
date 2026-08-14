@@ -43,221 +43,246 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
     const Color activeItemBg = Colors.white;
     const Color activeItemIcon = Color(0xFF1BA654);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      body: Row(
-        children: [
-          // Floating Sidebar
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: _isExpanded ? 240 : 100,
-              margin: const EdgeInsets.only(left: 16, top: 16, bottom: 16),
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height - 32,
-              ),
-              decoration: BoxDecoration(
-                color: sidebarColor,
-                borderRadius: BorderRadius.circular(50),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              child: Column(
+    final bool isMobile = MediaQuery.of(context).size.width < 1024;
+
+    Widget buildSidebar({required bool isDrawer}) {
+      final bool expanded = isDrawer || _isExpanded;
+      return GestureDetector(
+        onTap: () {
+          if (!isDrawer) {
+            setState(() {
+              _isExpanded = !_isExpanded;
+            });
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: expanded ? 240 : 100,
+          margin: isDrawer ? EdgeInsets.zero : const EdgeInsets.only(left: 16, top: 16, bottom: 16),
+          constraints: BoxConstraints(
+            maxHeight: isDrawer ? double.infinity : MediaQuery.of(context).size.height - 32,
+          ),
+          decoration: BoxDecoration(
+            color: sidebarColor,
+            borderRadius: isDrawer ? BorderRadius.zero : BorderRadius.circular(50),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: Column(
+            children: [
+              // Logo
+              Row(
+                mainAxisAlignment: expanded
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
                 children: [
-                  // Logo
-                  Row(
-                    mainAxisAlignment: _isExpanded
-                        ? MainAxisAlignment.start
-                        : MainAxisAlignment.center,
-                    children: [
-                      if (_isExpanded) const SizedBox(width: 8),
-                      Image.asset(
-                        'lib/assets/Images/logo.png',
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.contain,
-                      ),
-                      if (_isExpanded) ...[
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            'FieldTrack',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Poppins',
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                  if (expanded) const SizedBox(width: 8),
+                  Image.asset(
+                    'lib/assets/Images/logo.png',
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.contain,
+                  ),
+                  if (expanded) ...[
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'FieldTrack',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Poppins',
                         ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Divider(
-                      color: Colors.white.withOpacity(0.3),
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Navigation Items (scrollable area)
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          _buildNavItem(
-                            context,
-                            PhosphorIconsFill.house,
-                            PhosphorIconsRegular.house,
-                            'Dashboard',
-                            0,
-                            selectedIndex,
-                            '/supervisor/dashboard',
-                            activeItemBg,
-                            activeItemIcon,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildNavItem(
-                            context,
-                            PhosphorIconsFill.graduationCap,
-                            PhosphorIconsRegular.graduationCap,
-                            'Students',
-                            1,
-                            selectedIndex,
-                            '/supervisor/students',
-                            activeItemBg,
-                            activeItemIcon,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildNavItem(
-                            context,
-                            PhosphorIconsFill.addressBook,
-                            PhosphorIconsRegular.addressBook,
-                            'Reports',
-                            2,
-                            selectedIndex,
-                            '/supervisor/reports',
-                            activeItemBg,
-                            activeItemIcon,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildNavItem(
-                            context,
-                            PhosphorIconsFill.mapTrifold,
-                            PhosphorIconsRegular.mapTrifold,
-                            'Map',
-                            3,
-                            selectedIndex,
-                            '/supervisor/map',
-                            activeItemBg,
-                            activeItemIcon,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildNavItem(
-                            context,
-                            PhosphorIconsFill.gear,
-                            PhosphorIconsRegular.gear,
-                            'Settings',
-                            4,
-                            selectedIndex,
-                            '/supervisor/settings',
-                            activeItemBg,
-                            activeItemIcon,
-                          ),
-                        ],
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Divider(
-                      color: Colors.white.withOpacity(0.3),
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  _buildLogoutItem(context),
-                  const SizedBox(height: 16),
-
-                  // Avatar
-                  GestureDetector(
-                    onTap: () =>
-                        context.go('/supervisor/settings', extra: 'Profile'),
-                    child: Builder(
-                      builder: (ctx) {
-                        final user = ref.watch(authProvider).user;
-                        final avatarUrl = user?.avatarUrl ?? '';
-                        final displayName = user?.name ?? 'Supervisor';
-                        return Row(
-                          mainAxisAlignment: _isExpanded
-                              ? MainAxisAlignment.start
-                              : MainAxisAlignment.center,
-                          children: [
-                            if (_isExpanded) const SizedBox(width: 8),
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                                color: Colors.white.withOpacity(0.2),
-                              ),
-                              child: SizedBox(
-                                width: 48,
-                                height: 48,
-                                child: AppAvatar(
-                                  imagePath: avatarUrl.isNotEmpty
-                                      ? avatarUrl
-                                      : null,
-                                  size: 48,
-                                  shape: AvatarShape.circle,
-                                  initials: displayName.isNotEmpty
-                                      ? displayName
-                                            .split(' ')
-                                            .map(
-                                              (s) => s.isNotEmpty ? s[0] : '',
-                                            )
-                                            .take(2)
-                                            .join()
-                                      : null,
-                                ),
-                              ),
-                            ),
-                            if (_isExpanded) ...[
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  displayName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ],
-                        );
-                      },
-                    ),
-                  ),
+                  ],
                 ],
               ),
-            ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Divider(
+                  color: Colors.white.withOpacity(0.3),
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Navigation Items (scrollable area)
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.house,
+                        PhosphorIconsRegular.house,
+                        'Dashboard',
+                        0,
+                        selectedIndex,
+                        '/supervisor/dashboard',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.graduationCap,
+                        PhosphorIconsRegular.graduationCap,
+                        'Students',
+                        1,
+                        selectedIndex,
+                        '/supervisor/students',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.addressBook,
+                        PhosphorIconsRegular.addressBook,
+                        'Reports',
+                        2,
+                        selectedIndex,
+                        '/supervisor/reports',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.mapTrifold,
+                        PhosphorIconsRegular.mapTrifold,
+                        'Map',
+                        3,
+                        selectedIndex,
+                        '/supervisor/map',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.gear,
+                        PhosphorIconsRegular.gear,
+                        'Settings',
+                        4,
+                        selectedIndex,
+                        '/supervisor/settings',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Divider(
+                  color: Colors.white.withOpacity(0.3),
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              _buildLogoutItem(context, expanded, isDrawer),
+              const SizedBox(height: 16),
+
+              // Avatar
+              GestureDetector(
+                onTap: () {
+                  if (isDrawer) Navigator.pop(context);
+                  context.go('/supervisor/settings', extra: 'Profile');
+                },
+                child: Builder(
+                  builder: (ctx) {
+                    final user = ref.watch(authProvider).user;
+                    final avatarUrl = user?.avatarUrl ?? '';
+                    final displayName = user?.name ?? 'Supervisor';
+                    return Row(
+                      mainAxisAlignment: expanded
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.center,
+                      children: [
+                        if (expanded) const SizedBox(width: 8),
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 2,
+                            ),
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: AppAvatar(
+                              imagePath: avatarUrl.isNotEmpty
+                                  ? avatarUrl
+                                  : null,
+                              size: 48,
+                              shape: AvatarShape.circle,
+                              initials: displayName.isNotEmpty
+                                  ? displayName
+                                        .split(' ')
+                                        .map(
+                                          (s) => s.isNotEmpty ? s[0] : '',
+                                        )
+                                        .take(2)
+                                        .join()
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        if (expanded) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              displayName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      drawer: isMobile ? Drawer(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: buildSidebar(isDrawer: true),
+      ) : null,
+      body: Row(
+        children: [
+          if (!isMobile) buildSidebar(isDrawer: false),
 
           // Main Content Area
           Expanded(child: ClipRRect(child: widget.child)),
@@ -276,24 +301,27 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
     String route,
     Color activeBg,
     Color activeIconColor,
+    bool expanded,
+    bool isDrawer,
   ) {
     final bool isSelected = index == selectedIndex;
 
     return GestureDetector(
       onTap: () {
+        if (isDrawer) Navigator.pop(context);
         if (!isSelected) context.go(route);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        width: _isExpanded ? 208 : 56,
+        width: expanded ? 208 : 56,
         height: 56,
-        padding: EdgeInsets.symmetric(horizontal: _isExpanded ? 16 : 0),
+        padding: EdgeInsets.symmetric(horizontal: expanded ? 16 : 0),
         decoration: BoxDecoration(
           color: isSelected ? activeBg : Colors.transparent,
           borderRadius: BorderRadius.circular(28),
         ),
         child: Row(
-          mainAxisAlignment: _isExpanded
+          mainAxisAlignment: expanded
               ? MainAxisAlignment.start
               : MainAxisAlignment.center,
           children: [
@@ -302,7 +330,7 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
               color: isSelected ? activeIconColor : Colors.white,
               size: 24,
             ),
-            if (_isExpanded) ...[
+            if (expanded) ...[
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
@@ -323,9 +351,10 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
     );
   }
 
-  Widget _buildLogoutItem(BuildContext context) {
+  Widget _buildLogoutItem(BuildContext context, bool expanded, bool isDrawer) {
     return GestureDetector(
       onTap: () async {
+        if (isDrawer) Navigator.pop(context);
         try {
           await ApiClient().dio.post('/auth/logout');
         } catch (_) {}
@@ -333,15 +362,15 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        width: _isExpanded ? 208 : 56,
+        width: expanded ? 208 : 56,
         height: 56,
-        padding: EdgeInsets.symmetric(horizontal: _isExpanded ? 16 : 0),
+        padding: EdgeInsets.symmetric(horizontal: expanded ? 16 : 0),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.2),
           borderRadius: BorderRadius.circular(28),
         ),
         child: Row(
-          mainAxisAlignment: _isExpanded
+          mainAxisAlignment: expanded
               ? MainAxisAlignment.start
               : MainAxisAlignment.center,
           children: [
@@ -350,7 +379,7 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
               color: Colors.white,
               size: 24,
             ),
-            if (_isExpanded) ...[
+            if (expanded) ...[
               const SizedBox(width: 16),
               const Expanded(
                 child: Text(

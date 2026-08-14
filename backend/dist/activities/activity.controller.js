@@ -99,4 +99,22 @@ export class ActivityController {
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }
+    async delete(req, res) {
+        try {
+            const id = req.params.id;
+            const studentId = req.user?.role === 'STUDENT' ? req.user.userId : req.body.studentId;
+            if (!studentId) {
+                return res.status(400).json({ error: 'Missing studentId' });
+            }
+            await activityService.deleteActivity(id, studentId);
+            res.status(200).json({ message: 'Activity deleted successfully' });
+        }
+        catch (error) {
+            if (error.message.includes('not found') || error.message.includes('Unauthorized')) {
+                return res.status(403).json({ error: error.message });
+            }
+            console.error('[deleteActivity]', error);
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
 }

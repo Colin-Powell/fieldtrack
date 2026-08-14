@@ -30,6 +30,7 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
   bool _isNotificationOpen = false;
+  bool _isSearchExpanded = false;
 
   void _toggleNotifications() {
     if (_isNotificationOpen) {
@@ -247,78 +248,116 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.title,
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black,
-                    ),
-                  ),
-                  if (widget.subtitleWidget != null) ...[
-                    const SizedBox(height: 4),
-                    widget.subtitleWidget!,
-                  ] else if (widget.subtitle != null) ...[
-                    const SizedBox(height: 4),
+            if (MediaQuery.of(context).size.width < 1024 && !(_isSearchExpanded && narrow)) ...[
+              IconButton(
+                icon: Icon(PhosphorIcons.list(), color: Colors.black, size: 28),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+              const SizedBox(width: 16),
+            ],
+            if (!(_isSearchExpanded && narrow))
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      widget.subtitle!,
+                      widget.title,
                       style: const TextStyle(
                         fontFamily: 'Poppins',
-                        fontSize: 16,
-                        color: Color(0xFF6B7280),
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
                       ),
                     ),
-                  ],
-                ],
-              ),
-            ),
-            if (widget.onSearchChanged != null) ...[
-              const SizedBox(width: 16),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: narrow ? 160 : 260,
-                  minWidth: 140,
-                ),
-                child: Container(
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(26),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      const Icon(PhosphorIconsRegular.magnifyingGlass, color: Color(0xFF9CA3AF), size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          onChanged: widget.onSearchChanged,
-                          style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
-                          decoration: InputDecoration(
-                            hintText: widget.searchHint,
-                            hintStyle: const TextStyle(
-                              color: Color(0xFF9CA3AF),
-                              fontFamily: 'Poppins',
-                              fontSize: 14,
-                            ),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
+                    if (widget.subtitleWidget != null) ...[
+                      const SizedBox(height: 4),
+                      widget.subtitleWidget!,
+                    ] else if (widget.subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.subtitle!,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 16,
+                          color: Color(0xFF6B7280),
                         ),
                       ),
                     ],
+                  ],
+                ),
+              ),
+            if (widget.onSearchChanged != null && (!narrow || _isSearchExpanded)) ...[
+              if (_isSearchExpanded && narrow)
+                IconButton(
+                  icon: Icon(PhosphorIcons.arrowLeft(), color: Colors.black),
+                  onPressed: () {
+                    setState(() {
+                      _isSearchExpanded = false;
+                    });
+                  },
+                ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: (_isSearchExpanded && narrow) ? 1 : 0,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: (_isSearchExpanded && narrow) ? double.infinity : (narrow ? 160 : 260),
+                    minWidth: 140,
+                  ),
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        const Icon(PhosphorIconsRegular.magnifyingGlass, color: Color(0xFF9CA3AF), size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            onChanged: widget.onSearchChanged,
+                            style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
+                            decoration: InputDecoration(
+                              hintText: widget.searchHint,
+                              hintStyle: const TextStyle(
+                                color: Color(0xFF9CA3AF),
+                                fontFamily: 'Poppins',
+                                fontSize: 14,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
+            ],
+            const SizedBox(width: 16),
+            if (widget.onSearchChanged != null && narrow && !_isSearchExpanded) ...[
+              Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _isSearchExpanded = true;
+                    });
+                  },
+                  icon: Icon(PhosphorIcons.magnifyingGlass(), color: const Color(0xFF4B5563), size: 22),
+                ),
+              ),
+              const SizedBox(width: 8),
             ],
             const SizedBox(width: 16),
             CompositedTransformTarget(

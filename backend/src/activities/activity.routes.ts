@@ -15,8 +15,8 @@ router.put('/:id',         authorizeRole(['STUDENT']), controller.update.bind(co
 router.delete('/:id',      authorizeRole(['STUDENT']), controller.delete.bind(controller));
 router.post('/:id/submit', authorizeRole(['STUDENT']), controller.submit.bind(controller));
 
-// ── Student reads their own activities ────────────────────────────────────
-router.get('/student/all', authorizeRole(['STUDENT']), controller.getForStudent.bind(controller));
+// ── Student reads their own activities (Also readable by Supervisor and Admin) ────────────────────────────────────
+router.get('/student/all', authorizeRole(['STUDENT', 'SUPERVISOR', 'ADMIN']), controller.getForStudent.bind(controller));
 
 // ── Supervisor reads their assigned students' activities ──────────────────
 router.get('/supervisor/all', authorizeRole(['SUPERVISOR']), controller.getForSupervisor.bind(controller));

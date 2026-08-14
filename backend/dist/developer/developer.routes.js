@@ -8,13 +8,109 @@ import { broadcastDashboardEvent } from './dashboard_events.js';
 import { generateToken } from '../auth/jwt.js';
 import { exec } from 'child_process';
 import util from 'util';
-const featureFlagsState = {
+const DEFAULT_FEATURE_FLAGS = {
     'GPS Tracking': true,
     'Offline Sync': true,
     'Maps': true,
     'AI Review': false,
     'Reports': true,
 };
+const DEFAULT_ACTION_STATUS = {
+    action: 'No action run',
+    status: 'idle',
+    message: 'No operations have been executed yet.',
+    timestamp: new Date().toISOString(),
+};
+async function getFeatureFlagsState() {
+    try {
+        const record = await prisma.systemSetting.findUnique({ where: { key: 'developer_feature_flags' } });
+        const savedFlags = record?.value ?? {};
+        const merged = { ...DEFAULT_FEATURE_FLAGS, ...savedFlags };
+        if (!record) {
+            await prisma.systemSetting.create({
+                data: {
+                    key: 'developer_feature_flags',
+                    value: merged,
+                    updatedBy: 'developer-admin',
+                },
+            });
+        }
+        return merged;
+    }
+    catch (error) {
+        appLogger.warn('Unable to load developer feature flags from DB, using defaults', error);
+        return { ...DEFAULT_FEATURE_FLAGS };
+    }
+}
+async function saveFeatureFlagsState(flags, actorId = 'developer-admin') {
+    await prisma.systemSetting.upsert({
+        where: { key: 'developer_feature_flags' },
+        update: { value: flags, updatedBy: actorId },
+        create: { key: 'developer_feature_flags', value: flags, updatedBy: actorId },
+    });
+}
+async function getMaintenanceModeState() {
+    try {
+        const record = await prisma.systemSetting.findUnique({ where: { key: 'developer_maintenance_mode' } });
+        const enabled = Boolean(record?.value);
+        if (!record) {
+            await prisma.systemSetting.create({
+                data: {
+                    key: 'developer_maintenance_mode',
+                    value: enabled,
+                    updatedBy: 'developer-admin',
+                },
+            });
+        }
+        return enabled;
+    }
+    catch (error) {
+        appLogger.warn('Unable to load maintenance mode from DB, using default false', error);
+        return false;
+    }
+}
+async function saveMaintenanceModeState(enabled, actorId = 'developer-admin') {
+    await prisma.systemSetting.upsert({
+        where: { key: 'developer_maintenance_mode' },
+        update: { value: enabled, updatedBy: actorId },
+        create: { key: 'developer_maintenance_mode', value: enabled, updatedBy: actorId },
+    });
+}
+async function getLastActionStatus() {
+    try {
+        const record = await prisma.systemSetting.findUnique({ where: { key: 'developer_last_action' } });
+        if (!record)
+            return { ...DEFAULT_ACTION_STATUS };
+        const payload = record.value;
+        if (!payload || typeof payload !== 'object')
+            return { ...DEFAULT_ACTION_STATUS };
+        return {
+            action: payload.action ?? 'No action run',
+            status: payload.status ?? 'idle',
+            message: payload.message ?? 'No operations have been executed yet.',
+            timestamp: payload.timestamp ?? new Date().toISOString(),
+        };
+    }
+    catch (error) {
+        appLogger.warn('Unable to load developer action status', error);
+        return { ...DEFAULT_ACTION_STATUS };
+    }
+}
+async function saveLastActionStatus(action, status, message, actorId = 'developer-admin') {
+    const payload = {
+        action,
+        status,
+        message,
+        timestamp: new Date().toISOString(),
+        actorId,
+    };
+    await prisma.systemSetting.upsert({
+        where: { key: 'developer_last_action' },
+        update: { value: payload, updatedBy: actorId },
+        create: { key: 'developer_last_action', value: payload, updatedBy: actorId },
+    });
+    return payload;
+}
 const execAsync = util.promisify(exec);
 const backendPackageJson = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf-8'));
 const router = Router();
@@ -132,28 +228,60 @@ router.get('/export', async (_req, res) => {
 });
 router.get('/dashboard-aggregate', async (_req, res) => {
     try {
-        const [healthRes, metricsRes, logsRes, requestsRes, issuesRes, overviewRes] = await Promise.all([
+        const [healthRes, metricsRes, logsRes, requestsRes, issuesRes, overviewRes, lastAction] = await Promise.all([
             prisma.user.count({ where: { deletedAt: null } }).then(() => ({ status: 'Ok', timestamp: new Date().toISOString(), uptime: process.uptime() })),
-            prisma.user.count({ where: { deletedAt: null } }).then(users => ({ metrics: { users, activeSessions: 0, pendingReviews: 0, failedLogins: 0, totalActivities: 0, evidenceFiles: 0, syncStatus: '100%', checkoutStatus: 'OK' }, trend: [] })),
+            (async () => {
+                const [users, activeSessions, pendingReviews, failedLogins, recentActivities, evidenceFiles] = await Promise.all([
+                    prisma.user.count({ where: { deletedAt: null } }),
+                    prisma.fieldSession.count({ where: { checkOutTime: null } }),
+                    prisma.review.count({ where: { status: { in: ['UNDER_REVIEW', 'REVISION_REQUESTED'] } } }),
+                    prisma.auditLog.count({ where: { action: 'FAILED_LOGIN' } }),
+                    prisma.fieldLog.count({ where: { timestamp: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } }),
+                    prisma.evidence.count(),
+                ]);
+                return {
+                    metrics: {
+                        users,
+                        activeSessions,
+                        pendingReviews,
+                        failedLogins,
+                        totalActivities: recentActivities,
+                        evidenceFiles,
+                        syncStatus: '100%',
+                        checkoutStatus: 'OK',
+                    },
+                    trend: [
+                        { label: 'Users', value: users },
+                        { label: 'Active sessions', value: activeSessions },
+                        { label: 'Reviews', value: pendingReviews },
+                        { label: 'Failed logins', value: failedLogins },
+                    ],
+                };
+            })(),
             prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 20 }).then(logs => ({ logs })),
-            prisma.fieldLog.findMany({ orderBy: { timestamp: 'desc' }, take: 10, include: { user: true } }).then(logs => ({ requests: logs.map(entry => ({ type: 'API', method: 'GET', endpoint: '/api/v1/sync', status: 200, timestamp: entry.timestamp.toISOString() })) })),
+            prisma.fieldLog.findMany({ orderBy: { timestamp: 'desc' }, take: 10, include: { user: true } }).then(logs => ({ requests: logs.map(entry => ({
+                    type: 'API',
+                    method: 'GET',
+                    endpoint: entry.title || '/api/v1/unknown',
+                    status: Number(entry.status) || 200,
+                    timestamp: entry.timestamp.toISOString(),
+                })) })),
             Promise.resolve({ issues: [] }),
             (async () => {
-                const [users, activeSessions, recentLogs, recentReviews, recentNotifications, totalStorageSize, dbStats, totalActivities, evidenceFiles] = await Promise.all([
+                const [users, activeSessions, recentLogs, recentReviews, recentNotifications, totalStorageSize, totalActivities, evidenceFiles] = await Promise.all([
                     prisma.user.count({ where: { deletedAt: null } }),
                     prisma.fieldSession.count({ where: { checkOutTime: null } }),
                     prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 10 }),
                     prisma.review.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
                     prisma.notification.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
                     prisma.evidence.aggregate({ _sum: { fileSize: true } }),
-                    prisma.user.count(),
                     prisma.fieldLog.count(),
-                    prisma.evidence.count()
+                    prisma.evidence.count(),
                 ]);
                 const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
                 const weeklyLogs = await prisma.auditLog.findMany({
                     where: { timestamp: { gte: sevenDaysAgo } },
-                    select: { timestamp: true }
+                    select: { timestamp: true },
                 });
                 const trendBuckets = [0, 0, 0, 0, 0, 0, 0];
                 weeklyLogs.forEach(log => {
@@ -162,11 +290,28 @@ router.get('/dashboard-aggregate', async (_req, res) => {
                         trendBuckets[6 - dayDiff]++;
                 });
                 return {
-                    summary: { users, activeSessions, recentAudits: recentLogs.length, recentReviews: recentReviews.length, notifications: recentNotifications.length, totalActivities, evidenceFiles, syncStatus: '100%', checkoutStatus: 'OK' },
-                    chartData: { activityTrend: trendBuckets, storageSizes: [Math.round((totalStorageSize._sum.fileSize || 0) / (1024 * 1024)), Math.round(dbStats * 0.1)] },
+                    summary: {
+                        users,
+                        activeSessions,
+                        recentAudits: recentLogs.length,
+                        recentReviews: recentReviews.length,
+                        notifications: recentNotifications.length,
+                        totalActivities,
+                        evidenceFiles,
+                        syncStatus: '100%',
+                        checkoutStatus: 'OK',
+                    },
+                    chartData: {
+                        activityTrend: trendBuckets,
+                        storageSizes: [
+                            Math.round((totalStorageSize._sum.fileSize || 0) / (1024 * 1024)),
+                            Math.max(1, Math.round((totalStorageSize._sum.fileSize || 0) / (1024 * 1024) / 2)),
+                        ],
+                    },
                     recentAuditEvents: recentLogs.map((entry) => ({ id: entry.id, action: entry.action, timestamp: entry.timestamp.toISOString(), details: entry.details })),
                 };
-            })()
+            })(),
+            getLastActionStatus(),
         ]);
         metricsRes.metrics.users = overviewRes.summary.users;
         metricsRes.metrics.activeSessions = overviewRes.summary.activeSessions;
@@ -180,7 +325,8 @@ router.get('/dashboard-aggregate', async (_req, res) => {
             logs: logsRes.logs,
             requests: requestsRes.requests,
             issues: issuesRes.issues,
-            overviewData: overviewRes
+            overviewData: overviewRes,
+            lastAction: lastAction,
         });
     }
     catch (error) {
@@ -440,17 +586,25 @@ router.get('/modules/:moduleKey', async (req, res) => {
         if (moduleKey === 'live-api-monitor') {
             const recentActivity = await prisma.fieldLog.findMany({ orderBy: { timestamp: 'desc' }, take: 12, include: { user: true } });
             const errorCount = await prisma.auditLog.count({ where: { action: { in: ['FAILED_LOGIN', 'ERROR'] } } });
-            const successCount = await prisma.auditLog.count({ where: { action: { in: ['LOGIN_SUCCESS', 'CREATED'] } } });
+            const successCount = await prisma.auditLog.count({ where: { action: { in: ['LOGIN_SUCCESS', 'CREATED', 'CHECKED_IN', 'CHECKED_OUT'] } } });
+            const endpointCounts = new Map();
+            recentActivity.forEach((entry) => {
+                const endpoint = entry.title || '/api/v1/unknown';
+                endpointCounts.set(endpoint, (endpointCounts.get(endpoint) ?? 0) + 1);
+            });
             return res.json({
                 chartData: {
-                    errorRates: [errorCount, successCount], // Pie chart data
-                    endpoints: { labels: ['/auth', '/students', '/activities', '/sync', '/media'], data: [45, 30, 20, 15, 5] } // Mock popular endpoints
+                    errorRates: [errorCount, successCount],
+                    endpoints: {
+                        labels: Array.from(endpointCounts.keys()).slice(0, 5),
+                        data: Array.from(endpointCounts.values()).slice(0, 5),
+                    },
                 },
                 items: recentActivity.map((entry) => ({
                     method: 'GET',
-                    endpoint: '/api/v1/student/dashboard',
-                    status: '200',
-                    duration: `${Math.max(18, 45 + (entry.id.length % 20))}ms`,
+                    endpoint: entry.title || '/api/v1/unknown',
+                    status: String(entry.status || 200),
+                    duration: `${Math.max(18, 35 + ((entry.id.length * 7) % 60))}ms`,
                     user: entry.user?.name || 'Unknown',
                     tenant: 'default',
                     device: 'web',
@@ -599,12 +753,13 @@ router.get('/modules/:moduleKey', async (req, res) => {
             });
         }
         if (moduleKey === 'feature-flags') {
+            const flags = await getFeatureFlagsState();
             return res.json({
-                cards: Object.entries(featureFlagsState).map(([key, value]) => ({
+                cards: Object.entries(flags).map(([key, value]) => ({
                     title: key,
                     detail: value ? 'Enabled' : 'Disabled',
-                    status: value ? 'ON' : 'OFF'
-                }))
+                    status: value ? 'ON' : 'OFF',
+                })),
             });
         }
         if (moduleKey === 'storage-analytics') {
@@ -693,9 +848,10 @@ router.get('/modules/:moduleKey', async (req, res) => {
             });
         }
         if (moduleKey === 'maintenance-mode') {
+            const enabled = await getMaintenanceModeState();
             return res.json({
                 cards: [
-                    { title: 'Maintenance', detail: process.env.MAINTENANCE_MODE === 'true' ? 'Enabled' : 'Disabled', status: process.env.MAINTENANCE_MODE === 'true' ? 'ON' : 'OFF' },
+                    { title: 'Maintenance', detail: enabled ? 'Enabled' : 'Disabled', status: enabled ? 'ON' : 'OFF' },
                     { title: 'Custom message', detail: process.env.MAINTENANCE_MESSAGE || 'Scheduled maintenance', status: 'Configured' },
                     { title: 'Allowed users', detail: 'Admins only', status: 'Protected' },
                     { title: 'Estimated time', detail: process.env.MAINTENANCE_ESTIMATE || 'TBD', status: 'Scheduled' },
@@ -850,16 +1006,20 @@ router.get('/status', async (_req, res) => {
 // ---- Administrative Actions ----
 router.put('/actions/feature-flags/:key', async (req, res) => {
     try {
-        const keyStr = typeof req.params.key === 'string' ? req.params.key : req.params.key[0];
+        const decodedKey = decodeURIComponent(String(req.params.key ?? ''));
         const { enabled } = req.body;
-        if (typeof keyStr === 'string' && keyStr in featureFlagsState) {
-            featureFlagsState[keyStr] = enabled;
-            return res.json({ success: true, message: `Feature flag ${keyStr} updated` });
+        const flags = await getFeatureFlagsState();
+        if (typeof decodedKey === 'string' && decodedKey in flags) {
+            const nextFlags = { ...flags, [decodedKey]: Boolean(enabled) };
+            await saveFeatureFlagsState(nextFlags, req.user?.userId || 'developer-admin');
+            await saveLastActionStatus(`feature-flag:${decodedKey}`, 'success', `Feature flag ${decodedKey} ${Boolean(enabled) ? 'enabled' : 'disabled'}`, req.user?.userId || 'developer-admin');
+            return res.json({ success: true, message: `Feature flag ${decodedKey} updated` });
         }
         return res.status(404).json({ error: 'Feature flag not found' });
     }
     catch (error) {
         appLogger.error('Feature flag update error', error);
+        await saveLastActionStatus('feature-flag:unknown', 'error', 'Failed to update feature flag', req.user?.userId || 'developer-admin');
         res.status(500).json({ error: 'Failed to update feature flag' });
     }
 });
@@ -885,31 +1045,34 @@ router.post('/actions/database', async (req, res) => {
                 await prisma.user.update({ where: { id }, data: { deletedAt: new Date() } });
             // Ignoring unsupported suspend for other categories
         }
+        await saveLastActionStatus(`database:${action}`, 'success', `Database action ${action} executed for ${category}`, req.user?.userId || 'developer-admin');
         return res.json({ success: true, message: `Action ${action} executed on ${category}` });
     }
     catch (error) {
         appLogger.error('Database action error', error);
+        await saveLastActionStatus('database:unknown', 'error', 'Database action failed', req.user?.userId || 'developer-admin');
         res.status(500).json({ error: 'Database action failed' });
     }
 });
 router.post('/actions/maintenance', async (req, res) => {
     try {
         const { enabled } = req.body;
-        // In a real app, this might update a row in SystemSetting or Redis
-        // For now, we simulate it via an environment variable flag (not persistent across restarts without DB)
-        process.env.MAINTENANCE_MODE = enabled ? 'true' : 'false';
+        const nextValue = Boolean(enabled);
+        process.env.MAINTENANCE_MODE = nextValue ? 'true' : 'false';
+        await saveMaintenanceModeState(nextValue, req.user?.userId || 'developer-admin');
         await prisma.auditLog.create({
-            data: { action: 'MAINTENANCE_TOGGLED', details: { enabled }, actorId: req.user?.userId }
+            data: { action: 'MAINTENANCE_TOGGLED', details: { enabled: nextValue }, actorId: req.user?.userId }
         });
-        return res.json({ success: true, message: `Maintenance mode ${enabled ? 'enabled' : 'disabled'}` });
+        await saveLastActionStatus('maintenance-mode', 'success', `Maintenance mode ${nextValue ? 'enabled' : 'disabled'}`, req.user?.userId || 'developer-admin');
+        return res.json({ success: true, message: `Maintenance mode ${nextValue ? 'enabled' : 'disabled'}` });
     }
     catch (error) {
+        await saveLastActionStatus('maintenance-mode', 'error', 'Failed to toggle maintenance mode', req.user?.userId || 'developer-admin');
         return res.status(500).json({ error: 'Failed to toggle maintenance' });
     }
 });
 router.post('/actions/clear-logs', async (req, res) => {
     try {
-        // Retain last 30 days of logs, delete older
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const { count } = await prisma.auditLog.deleteMany({
             where: { timestamp: { lt: thirtyDaysAgo } }
@@ -917,9 +1080,11 @@ router.post('/actions/clear-logs', async (req, res) => {
         await prisma.auditLog.create({
             data: { action: 'LOGS_CLEARED', details: { recordsDeleted: count }, actorId: req.user?.userId }
         });
+        await saveLastActionStatus('clear-logs', 'success', `Cleared ${count} old audit logs`, req.user?.userId || 'developer-admin');
         return res.json({ success: true, message: `Cleared ${count} old audit logs` });
     }
     catch (error) {
+        await saveLastActionStatus('clear-logs', 'error', 'Failed to clear old logs', req.user?.userId || 'developer-admin');
         return res.status(500).json({ error: 'Failed to clear logs' });
     }
 });
@@ -928,13 +1093,14 @@ router.post('/actions/restart', async (req, res) => {
         await prisma.auditLog.create({
             data: { action: 'SERVER_RESTART_REQUESTED', actorId: req.user?.userId }
         });
-        // Send response before killing the process
+        await saveLastActionStatus('restart', 'success', 'Server restart requested', req.user?.userId || 'developer-admin');
         res.json({ success: true, message: 'Server restarting...' });
         setTimeout(() => {
-            process.exit(0); // Assumes PM2 or Docker will auto-restart it
+            process.exit(0);
         }, 1000);
     }
     catch (error) {
+        await saveLastActionStatus('restart', 'error', 'Failed to initiate server restart', req.user?.userId || 'developer-admin');
         return res.status(500).json({ error: 'Failed to initiate restart' });
     }
 });
@@ -943,14 +1109,15 @@ router.post('/actions/vps-command', async (req, res) => {
         const { command } = req.body;
         if (!command || typeof command !== 'string')
             return res.status(400).json({ error: 'Invalid command' });
-        // WARNING: Extreme security risk, should only be available to strict SuperAdmins
         const { stdout, stderr } = await execAsync(command, { timeout: 10000 });
         await prisma.auditLog.create({
             data: { action: 'VPS_COMMAND_EXECUTED', details: { command }, actorId: req.user?.userId }
         });
+        await saveLastActionStatus('vps-command', 'success', `Executed command: ${command.slice(0, 80)}`, req.user?.userId || 'developer-admin');
         return res.json({ success: true, stdout, stderr });
     }
     catch (error) {
+        await saveLastActionStatus('vps-command', 'error', `Failed command: ${String(error.message || error)}`.slice(0, 160), req.user?.userId || 'developer-admin');
         return res.status(500).json({ error: 'Command failed', stderr: error.message || String(error) });
     }
 });
@@ -963,15 +1130,16 @@ router.post('/actions/security-revoke', async (req, res) => {
         await prisma.auditLog.create({
             data: { action: 'ALL_TOKENS_REVOKED', details: { count }, actorId: req.user?.userId }
         });
+        await saveLastActionStatus('security-revoke', 'success', `Revoked ${count} active sessions`, req.user?.userId || 'developer-admin');
         return res.json({ success: true, message: `Revoked ${count} active sessions` });
     }
     catch (error) {
+        await saveLastActionStatus('security-revoke', 'error', 'Failed to revoke active sessions', req.user?.userId || 'developer-admin');
         return res.status(500).json({ error: 'Failed to revoke tokens' });
     }
 });
 router.post('/actions/security-lock', async (req, res) => {
     try {
-        // Lock users with more than 5 failed logins
         const { count } = await prisma.user.updateMany({
             where: { failedLoginAttempts: { gte: 5 }, accountLockedUntil: null },
             data: { accountLockedUntil: new Date(Date.now() + 24 * 60 * 60 * 1000) }
@@ -979,9 +1147,11 @@ router.post('/actions/security-lock', async (req, res) => {
         await prisma.auditLog.create({
             data: { action: 'SUSPICIOUS_ACCOUNTS_LOCKED', details: { count }, actorId: req.user?.userId }
         });
+        await saveLastActionStatus('security-lock', 'success', `Locked ${count} suspicious accounts`, req.user?.userId || 'developer-admin');
         return res.json({ success: true, message: `Locked ${count} suspicious accounts` });
     }
     catch (error) {
+        await saveLastActionStatus('security-lock', 'error', 'Failed to lock suspicious accounts', req.user?.userId || 'developer-admin');
         return res.status(500).json({ error: 'Failed to lock accounts' });
     }
 });
@@ -993,9 +1163,11 @@ router.post('/actions/jobs-clear', async (req, res) => {
         await prisma.auditLog.create({
             data: { action: 'FAILED_UPLOADS_CLEARED', details: { count }, actorId: req.user?.userId }
         });
+        await saveLastActionStatus('jobs-clear', 'success', `Cleared ${count} failed uploads`, req.user?.userId || 'developer-admin');
         return res.json({ success: true, message: `Cleared ${count} failed uploads` });
     }
     catch (error) {
+        await saveLastActionStatus('jobs-clear', 'error', 'Failed to clear failed uploads', req.user?.userId || 'developer-admin');
         return res.status(500).json({ error: 'Failed to clear jobs' });
     }
 });

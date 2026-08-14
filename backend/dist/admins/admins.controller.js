@@ -519,11 +519,26 @@ export async function getDepartmentDetails(req, res) {
             studentName: s.user.name,
             studentId: s.userId
         }));
+        const studentIds = students.map(s => s.userId);
+        const fieldLogs = await prisma.fieldLog.findMany({
+            where: { studentId: { in: studentIds } },
+            include: { evidence: true, user: true }
+        });
+        const evidenceList = fieldLogs.flatMap(log => log.evidence.map(e => ({
+            id: e.id,
+            activityTitle: log.title,
+            studentName: log.user.name,
+            storedName: e.storedName,
+            originalName: e.originalName,
+            mimeType: e.mimeType,
+            uploadedAt: e.uploadedAt
+        })));
         return res.status(200).json({
             department: dbDept ?? { id: deptNameParam, name: exactName },
             students: studentsMapped,
             supervisors: supervisorsMapped,
-            projects
+            projects,
+            evidence: evidenceList
         });
     }
     catch (error) {
@@ -613,6 +628,7 @@ export async function getProjects(req, res) {
                 studentName: sp.user.name,
                 registrationNo: sp.registrationNo,
                 department: sp.department ?? '',
+                studentUserId: sp.userId,
             };
         }));
         return res.status(200).json({ projects });
