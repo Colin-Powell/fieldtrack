@@ -509,8 +509,11 @@ class StudentRepository {
   // ── Activities ────────────────────────────────────────────────────────
 
   /// Fetch activities for a student.
-  Future<List<FieldActivity>> fetchStudentActivities(String studentId) async {
-    final response = await _api.dio.get(ApiEndpoints.studentActivities(studentId));
+  Future<List<FieldActivity>> fetchStudentActivities(String studentId, {int page = 1, int limit = 50}) async {
+    final response = await _api.dio.get(
+      ApiEndpoints.studentActivities(studentId),
+      queryParameters: {'page': page, 'limit': limit},
+    );
     final List<dynamic> data = response.data as List<dynamic>;
     return data
         .map((e) => FieldActivityJson.fromJson(e as Map<String, dynamic>))

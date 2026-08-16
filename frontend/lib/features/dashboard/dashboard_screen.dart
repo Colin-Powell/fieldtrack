@@ -639,13 +639,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildRecentActivities(BuildContext context, WidgetRef ref) {
-    final activitiesAsync = ref.watch(studentActivitiesProvider);
+    final activitiesAsync = ref.watch(studentActivitiesProvider(const {'page': 1, 'limit': 5}));
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: ApiResultBuilder<List<dynamic>>(
         asyncValue: activitiesAsync,
-        onRetry: () => ref.refresh(studentActivitiesProvider),
+        onRetry: () => ref.refresh(studentActivitiesProvider(const {'page': 1, 'limit': 5})),
         customLoading: const Padding(
           padding: EdgeInsets.symmetric(vertical: 12),
           child: ListSkeletonLoader(itemCount: 3, itemHeight: 90),

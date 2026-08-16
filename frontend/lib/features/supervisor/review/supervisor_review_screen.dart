@@ -8,6 +8,9 @@ import 'package:fieldtrack/features/activities/providers/student_activities_prov
 import 'package:fieldtrack/core/providers/auth_provider.dart';
 import 'package:fieldtrack/core/network/api_result.dart';
 import 'package:fieldtrack/core/network/error_handler.dart';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:fieldtrack/features/activities/activity_service.dart';
 
 // --- Design Tokens ---
 class _Colors {
@@ -44,8 +47,39 @@ class _SupervisorReviewScreenState
   double _rating = 0.0;
   String _selectedStatus = 'Approved';
   bool _isSubmitting = false;
+  List<PlatformFile> _selectedFiles = [];
 
   final TextEditingController _commentController = TextEditingController();
+
+  Future<void> _pickFiles() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'png', 'pdf', 'doc', 'docx'],
+      );
+      if (result != null) {
+        setState(() {
+          // Add new files, preventing duplicates by path
+          for (var file in result.files) {
+            if (!_selectedFiles.any((f) => f.path == file.path)) {
+              _selectedFiles.add(file);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking files: $e'), backgroundColor: _Colors.red),
+      );
+    }
+  }
+
+  void _removeFile(int index) {
+    setState(() {
+      _selectedFiles.removeAt(index);
+    });
+  }
 
   @override
   void dispose() {
@@ -138,6 +172,24 @@ class _SupervisorReviewScreenState
         comments: _commentController.text,
       );
 
+      // Upload files if any
+      if (_selectedFiles.isNotEmpty) {
+        final activityService = ActivityService();
+        for (var file in _selectedFiles) {
+          if (file.path != null) {
+            await activityService.uploadEvidence(
+              activityId: widget.activityId,
+              uploaderId: supervisorId,
+              filePath: file.path!,
+              latitude: 0.0,
+              longitude: 0.0,
+              gpsAccuracy: 0.0,
+              evidenceType: 'DOCUMENT', // Supervisor review attachment
+            );
+          }
+        }
+      }
+
       if (!mounted) return;
 
       Color modalColor = _Colors.primaryGreen;
@@ -187,7 +239,7 @@ class _SupervisorReviewScreenState
                 // Invalidate providers so the activity status refreshes on return
                 ref.invalidate(activityDetailsProvider(widget.activityId));
                 ref.invalidate(
-                  studentActivitiesByStudentIdProvider(widget.studentId),
+                  studentActivitiesByStudentIdProvider({'studentId': widget.studentId}),
                 );
                 // Navigate back to student profile (don't use Navigator.pop — we're embedded in a tab)
                 context.go('/supervisor/student/${widget.studentId}');
@@ -420,7 +472,7 @@ class _SupervisorReviewScreenState
                   ),
                   const SizedBox(height: 12),
                   InkWell(
-                    onTap: () {},
+                    onTap: _pickFiles,
                     borderRadius: BorderRadius.circular(_Colors.cornerRadius),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -453,6 +505,49 @@ class _SupervisorReviewScreenState
                       ),
                     ),
                   ),
+                  if (_selectedFiles.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _selectedFiles.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final file = _selectedFiles[index];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: _Colors.border),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(PhosphorIconsRegular.file, size: 20, color: _Colors.textFaint),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  file.name,
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 13,
+                                    color: _Colors.textDark,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(PhosphorIconsRegular.x, size: 16, color: _Colors.red),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () => _removeFile(index),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),

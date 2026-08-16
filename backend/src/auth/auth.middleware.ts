@@ -28,7 +28,7 @@ function parseCookieHeader(cookieHeader: string | undefined): Record<string, str
   }, {});
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction) {
+export async function authenticate(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   const cookies = parseCookieHeader(req.headers.cookie);
   const cookieToken = cookies.fieldtrack_developer_token;
@@ -41,9 +41,26 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = verifyToken(token);
     req.user = payload;
+
+    const deviceId = req.headers['x-device-id'] as string | undefined;
+    if (deviceId) {
+      const { prisma } = await import('../db.js');
+      const deviceSession = await prisma.deviceSession.findFirst({
+        where: {
+          userId: payload.id,
+          deviceId: deviceId,
+          isActive: true,
+        },
+      });
+
+      if (!deviceSession) {
+        return res.status(401).json({ error: 'Unauthorized: Device not recognized or session revoked' });
+      }
+    }
+
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    return res.status(401).json({ error: 'Unauthorized: Invalid token or session error' });
   }
 }
 

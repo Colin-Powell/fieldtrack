@@ -137,11 +137,25 @@ class ActivityService {
     }
   }
 
-  Future<ApiResult<List<dynamic>>> getStudentActivities(String studentId) async {
+  Future<ApiResult<List<dynamic>>> getStudentActivities(
+    String studentId, {
+    int page = 1,
+    int limit = 50,
+    String? status,
+    String? search,
+  }) async {
     try {
+      final queryParams = {
+        'studentId': studentId,
+        'page': page,
+        'limit': limit,
+      };
+      if (status != null && status.isNotEmpty) queryParams['status'] = status;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
       final response = await _apiClient.dio.get(
         '/activities/student/all',
-        queryParameters: {'studentId': studentId},
+        queryParameters: queryParams,
       );
       return Success(response.data as List<dynamic>);
     } on DioException catch (e) {

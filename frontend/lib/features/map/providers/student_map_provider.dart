@@ -56,8 +56,8 @@ class StudentMapNotifier extends StateNotifier<StudentMapState> {
     state = state.copyWith(supervisorLocation: const LatLng(-3.6350, 39.8470));
 
     // 2. Listen to activities to pull activity locations and map the route
-    _ref.listen(studentActivitiesProvider, (previous, next) {
-      next.whenData((activitiesResult) {
+    _ref.listen(studentActivitiesProvider(const {}), (previous, next) {
+      next?.whenData((activitiesResult) {
         if (activitiesResult is Success) {
           final activities = (activitiesResult as Success).data as List<dynamic>;
           final List<ActivityMarkerData> activityMarkers = [];

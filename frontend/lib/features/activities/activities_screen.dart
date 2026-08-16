@@ -64,9 +64,16 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
             child: RefreshIndicator(
               color: const Color(0xFF1BA654),
               onRefresh: () async {
+                final params = <String, dynamic>{
+                  'page': _currentPage + 1,
+                  'limit': _activitiesPerPage,
+                };
+                final status = _getStatusString(_selectedFilterIndex);
+                if (status.isNotEmpty) params['status'] = status;
+                if (_searchQuery.isNotEmpty) params['search'] = _searchQuery;
+
                 ref.invalidate(studentActivitiesProvider);
-                // Wait for the new provider state to settle
-                await ref.read(studentActivitiesProvider.future);
+                await ref.read(studentActivitiesProvider(params).future);
               },
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -205,12 +212,28 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   }
 
   // Determines which content to show based on state
+  String _getStatusString(int index) {
+    if (index == 1) return 'TODAY';
+    if (index == 2) return 'DRAFT';
+    if (index == 3) return 'SUBMITTED';
+    if (index == 4) return 'REVISION_REQUESTED';
+    return '';
+  }
+
   Widget _buildContent() {
-    final activitiesAsync = ref.watch(studentActivitiesProvider);
+    final params = <String, dynamic>{
+      'page': _currentPage + 1,
+      'limit': _activitiesPerPage,
+    };
+    final status = _getStatusString(_selectedFilterIndex);
+    if (status.isNotEmpty) params['status'] = status;
+    if (_searchQuery.isNotEmpty) params['search'] = _searchQuery;
+
+    final activitiesAsync = ref.watch(studentActivitiesProvider(params));
 
     return ApiResultBuilder<List<dynamic>>(
       asyncValue: activitiesAsync,
-      onRetry: () => ref.refresh(studentActivitiesProvider),
+      onRetry: () => ref.refresh(studentActivitiesProvider(params)),
       customLoading: const Padding(
         padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: ListSkeletonLoader(itemCount: 4, itemHeight: 120),
@@ -220,62 +243,13 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
           return _buildEmptyState();
         }
 
-        // Apply filter based on _selectedFilterIndex
-        // 0: 'All', 1: 'Today', 2: 'Drafts', 3: 'Submitted', 4: 'Needs Revision'
-        final filteredActivities = activities.where((activity) {
-          if (_searchQuery.isNotEmpty) {
-            final title = (activity['title'] as String?)?.toLowerCase() ?? '';
-            final description =
-                (activity['description'] as String?)?.toLowerCase() ?? '';
-            if (!title.contains(_searchQuery) &&
-                !description.contains(_searchQuery)) {
-              return false;
-            }
-          }
-
-          if (_selectedFilterIndex == 0) return true;
-
-          final status = activity['status'] ?? '';
-          if (_selectedFilterIndex == 2) return status == 'DRAFT';
-          if (_selectedFilterIndex == 3)
-            return status == 'SUBMITTED' ||
-                status == 'RESUBMITTED' ||
-                status == 'UNDER_REVIEW' ||
-                status == 'APPROVED';
-          if (_selectedFilterIndex == 4)
-            return status == 'REVISION_REQUESTED' || status == 'REJECTED';
-
-          if (_selectedFilterIndex == 1) {
-            // Today
-            if (activity['timestamp'] == null) return false;
-            final dt = DateTime.parse(activity['timestamp']).toLocal();
-            final now = DateTime.now();
-            return dt.year == now.year &&
-                dt.month == now.month &&
-                dt.day == now.day;
-          }
-          return true;
-        }).toList();
-
-        if (filteredActivities.isEmpty) {
+        // Server-side filtered and paginated activities
+        final paginatedActivities = activities;
+        final bool hasMore = paginatedActivities.length == _activitiesPerPage;
+        
+        if (paginatedActivities.isEmpty && _currentPage == 0) {
           return _buildEmptyState();
         }
-
-        // Calculate pagination
-        final totalPages = (filteredActivities.length / _activitiesPerPage)
-            .ceil();
-        final startIndex = _currentPage * _activitiesPerPage;
-        final endIndex = (startIndex + _activitiesPerPage).clamp(
-          0,
-          filteredActivities.length,
-        );
-        final paginatedActivities = filteredActivities.sublist(
-          startIndex,
-          endIndex,
-        );
-        final showingStart = startIndex + 1;
-        final showingEnd = endIndex;
-        final total = filteredActivities.length;
 
         return Column(
           children: [
@@ -347,63 +321,37 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                 imageUrl: imageUrl,
               );
             }).toList(),
-
-            // Pagination controls
-            if (totalPages > 1)
+              // Pagination controls
               Padding(
                 padding: const EdgeInsets.symmetric(
-                  vertical: 24,
                   horizontal: 24,
+                  vertical: 16,
                 ),
-                child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _currentPage > 0
-                              ? () => setState(() => _currentPage--)
-                              : null,
-                          icon: Icon(PhosphorIconsRegular.arrowLeft, size: 16),
-                          label: const Text('Previous'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _currentPage > 0
-                                ? const Color(0xFF1BA654)
-                                : Colors.grey[300],
-                            foregroundColor: _currentPage > 0
-                                ? Colors.white
-                                : Colors.grey[600],
-                          ),
+                    ElevatedButton.icon(
+                      onPressed: _currentPage > 0
+                          ? () => setState(() => _currentPage--)
+                          : null,
+                      icon: Icon(PhosphorIconsRegular.arrowLeft, size: 16),
+                      label: const Text('Previous'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _currentPage > 0
+                            ? const Color(0xFF1BA654)
+                            : Colors.grey[300],
+                        foregroundColor: _currentPage > 0
+                            ? Colors.white
+                            : Colors.grey[600],
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(48),
                         ),
-                        const SizedBox(width: 16),
-                        Text(
-                          'Page ${_currentPage + 1}/$totalPages',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        ElevatedButton.icon(
-                          onPressed: _currentPage < totalPages - 1
-                              ? () => setState(() => _currentPage++)
-                              : null,
-                          icon: Icon(PhosphorIconsRegular.arrowRight, size: 16),
-                          label: const Text('Next'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _currentPage < totalPages - 1
-                                ? const Color(0xFF1BA654)
-                                : Colors.grey[300],
-                            foregroundColor: _currentPage < totalPages - 1
-                                ? Colors.white
-                                : Colors.grey[600],
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(width: 16),
                     Text(
-                      'Showing $showingStart–$showingEnd of $total activities',
+                      'Page ${_currentPage + 1}',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],

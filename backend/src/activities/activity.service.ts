@@ -103,9 +103,33 @@ export class ActivityService {
   /**
    * Get all activities for a student
    */
-  async getStudentActivities(studentId: string, limit: number = 50, offset: number = 0) {
+  async getStudentActivities(studentId: string, limit: number = 50, offset: number = 0, status?: string, search?: string) {
+    const whereClause: any = { studentId };
+    
+    if (status) {
+      // Handle the complex status mapping from frontend
+      if (status === 'DRAFT') {
+        whereClause.status = 'DRAFT';
+      } else if (status === 'SUBMITTED') {
+        whereClause.status = { in: ['SUBMITTED', 'RESUBMITTED', 'UNDER_REVIEW', 'APPROVED'] };
+      } else if (status === 'REVISION_REQUESTED') {
+        whereClause.status = { in: ['REVISION_REQUESTED', 'REJECTED'] };
+      } else if (status === 'TODAY') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        whereClause.timestamp = { gte: today };
+      }
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
     return prisma.fieldLog.findMany({
-      where: { studentId },
+      where: whereClause,
       take: limit,
       skip: offset,
       include: {

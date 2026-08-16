@@ -135,64 +135,45 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Row(
+                    Wrap(
+                      spacing: 24,
+                      runSpacing: 16,
                       children: [
-                        Expanded(
+                        SizedBox(
+                          width: 200,
                           child: _buildDropdown(
                             'Date Range',
                             filters.period,
                             periods,
-                            (val) =>
-                                ref
-                                    .read(adminReportFiltersProvider.notifier)
-                                    .state = filters.copyWith(
-                                  period: val,
-                                ),
+                            (val) => ref.read(adminReportFiltersProvider.notifier).state = filters.copyWith(period: val),
                           ),
                         ),
-                        const SizedBox(width: 24),
-                        Expanded(
+                        SizedBox(
+                          width: 200,
                           child: _buildDropdown(
                             'Department',
                             filters.department,
                             departments,
-                            (val) =>
-                                ref
-                                    .read(adminReportFiltersProvider.notifier)
-                                    .state = filters.copyWith(
-                                  department: val,
-                                ),
+                            (val) => ref.read(adminReportFiltersProvider.notifier).state = filters.copyWith(department: val),
                           ),
                         ),
-                        const SizedBox(width: 24),
-                        Expanded(
+                        SizedBox(
+                          width: 200,
                           child: _buildDropdown(
                             'Supervisor',
                             filters.supervisorId,
                             supervisors.map((s) => s['id'] as String).toList(),
-                            (val) =>
-                                ref
-                                    .read(adminReportFiltersProvider.notifier)
-                                    .state = filters.copyWith(
-                                  supervisorId: val,
-                                ),
-                            displayItems: supervisors
-                                .map((s) => s['name'] as String)
-                                .toList(),
+                            (val) => ref.read(adminReportFiltersProvider.notifier).state = filters.copyWith(supervisorId: val),
+                            displayItems: supervisors.map((s) => s['name'] as String).toList(),
                           ),
                         ),
-                        const SizedBox(width: 24),
-                        Expanded(
+                        SizedBox(
+                          width: 200,
                           child: _buildDropdown(
                             'County',
                             filters.county,
                             counties,
-                            (val) =>
-                                ref
-                                    .read(adminReportFiltersProvider.notifier)
-                                    .state = filters.copyWith(
-                                  county: val,
-                                ),
+                            (val) => ref.read(adminReportFiltersProvider.notifier).state = filters.copyWith(county: val),
                           ),
                         ),
                       ],
@@ -305,31 +286,61 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
                       ),
                       const SizedBox(height: 24),
                       Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: _buildChartCard(
-                                title: 'Activity Trend (${filters.period})',
-                                child: _buildActivityLineChart(
-                                  data['trendData'] as List<dynamic>? ?? [],
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isNarrow = constraints.maxWidth < 900;
+                            if (isNarrow) {
+                              return ListView(
+                                children: [
+                                  SizedBox(
+                                    height: 400,
+                                    child: _buildChartCard(
+                                      title: 'Activity Trend (${filters.period})',
+                                      child: _buildActivityLineChart(
+                                        data['trendData'] as List<dynamic>? ?? [],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  SizedBox(
+                                    height: 400,
+                                    child: _buildChartCard(
+                                      title: 'County Distribution',
+                                      child: _buildCountyPieChart(
+                                        data['countyDistribution'] as Map<String, dynamic>? ?? {},
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildChartCard(
+                                    title: 'Activity Trend (${filters.period})',
+                                    child: _buildActivityLineChart(
+                                      data['trendData'] as List<dynamic>? ?? [],
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 24),
-                            Expanded(
-                              flex: 1,
-                              child: _buildChartCard(
-                                title: 'County Distribution',
-                                child: _buildCountyPieChart(
-                                  data['countyDistribution']
-                                          as Map<String, dynamic>? ??
-                                      {},
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  flex: 1,
+                                  child: _buildChartCard(
+                                    title: 'County Distribution',
+                                    child: _buildCountyPieChart(
+                                      data['countyDistribution']
+                                              as Map<String, dynamic>? ??
+                                          {},
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ],

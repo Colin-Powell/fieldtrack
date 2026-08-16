@@ -268,7 +268,7 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
       child: Consumer(
               builder: (context, ref, _) {
                 final gpsAsync = ref.watch(supervisorStudentGpsProvider(widget.studentId));
-                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider(widget.studentId));
+                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider({'studentId': widget.studentId}));
                 List<GPSLocation> gpsHistory = gpsAsync.asData?.value ?? [];
                 
                 String fieldSession = '-';
@@ -416,7 +416,7 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
             Consumer(
               builder: (context, ref, _) {
                 final gpsAsync = ref.watch(supervisorStudentGpsProvider(widget.studentId));
-                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider(widget.studentId));
+                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider({'studentId': widget.studentId}));
 
                 List<GPSLocation> gpsHistory = gpsAsync.asData?.value ?? [];
                 
@@ -600,7 +600,7 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
           Expanded(
             child: Consumer(
               builder: (context, ref, _) {
-                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider(widget.studentId));
+                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider({'studentId': widget.studentId}));
                 
                 if (activitiesAsync.isLoading) {
                   return const Center(child: CircularProgressIndicator());

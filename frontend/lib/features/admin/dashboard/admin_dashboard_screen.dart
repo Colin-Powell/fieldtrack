@@ -511,6 +511,65 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                       ),
                               ),
                               const SizedBox(height: 24),
+                              if (isNarrow) ...[
+                                _buildChartCard(
+                                  title: 'Field Attendance Trend (%)',
+                                  height: 320,
+                                  child: stats.attendanceTrend.isEmpty
+                                      ? _buildEmptyState('No attendance data available yet')
+                                      : _TouchFriendlyHoverRegion(
+                                          onHover: (pos) => _updateLineHover(
+                                            pos,
+                                            constraints.maxWidth - 64,
+                                            stats.attendanceTrend,
+                                          ),
+                                          onExit: () => setState(() => _hoveredLineIndex = null),
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            child: CustomPaint(
+                                              painter: _SmoothLineChartPainter(
+                                                dataPoints: stats.attendanceTrend,
+                                                activeIndex: _hoveredLineIndex,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                                const SizedBox(height: 24),
+                                _buildChartCard(
+                                  title: 'Submission Status',
+                                  height: 320,
+                                  child: stats.submissionStatus.isEmpty ||
+                                          stats.submissionStatus.every((s) => s.value == 0)
+                                      ? _buildEmptyState('No submissions yet')
+                                      : _TouchFriendlyHoverRegion(
+                                          onHover: (pos) => _updateDonutHover(
+                                            pos,
+                                            Size(
+                                              constraints.maxWidth * 0.4 - 48,
+                                              320 - 96,
+                                            ),
+                                            donutSegments,
+                                          ),
+                                          onExit: () => setState(() {
+                                            _hoveredDonutIndex = null;
+                                            _donutHoverPos = null;
+                                          }),
+                                          child: LayoutBuilder(
+                                            builder: (context, donutConstraints) => SizedBox(
+                                              width: double.infinity,
+                                              child: CustomPaint(
+                                                painter: _DonutChartPainter(
+                                                  segments: donutSegments,
+                                                  activeIndex: _hoveredDonutIndex,
+                                                  hoverPos: _donutHoverPos,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                              ] else
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -526,16 +585,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                           : _TouchFriendlyHoverRegion(
                                               onHover: (pos) => _updateLineHover(
                                                 pos,
-                                                isNarrow
-                                                    ? (constraints.maxWidth -
-                                                              24) /
-                                                          2
-                                                    : ((constraints.maxWidth -
-                                                                          32) *
-                                                                      0.7 -
-                                                                  24) *
-                                                              0.6 -
-                                                          64,
+                                                ((constraints.maxWidth - 32) * 0.7 - 24) * 0.6 - 64,
                                                 stats.attendanceTrend,
                                               ),
                                               onExit: () => setState(
@@ -574,15 +624,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                               onHover: (pos) => _updateDonutHover(
                                                 pos,
                                                 Size(
-                                                  (isNarrow
-                                                              ? constraints
-                                                                    .maxWidth
-                                                              : (constraints.maxWidth -
-                                                                            32) *
-                                                                        0.7 -
-                                                                    24) *
-                                                          0.4 -
-                                                      48,
+                                                  ((constraints.maxWidth - 32) * 0.7 - 24) * 0.4 - 48,
                                                   320 - 96,
                                                 ),
                                                 donutSegments,

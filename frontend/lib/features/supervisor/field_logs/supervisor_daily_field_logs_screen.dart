@@ -63,11 +63,11 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
   }
 
   Widget _buildBody(BuildContext context, WidgetRef ref) {
-    final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider(studentId));
+    final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider({'studentId': studentId}));
 
     return ApiResultBuilder<List<dynamic>>(
       asyncValue: activitiesAsync,
-      onRetry: () => ref.refresh(studentActivitiesByStudentIdProvider(studentId)),
+      onRetry: () => ref.refresh(studentActivitiesByStudentIdProvider({'studentId': studentId})),
       customLoading: const Padding(
         padding: EdgeInsets.all(24.0),
         child: ListSkeletonLoader(itemCount: 4, itemHeight: 120),

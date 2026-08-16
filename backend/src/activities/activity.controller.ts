@@ -78,8 +78,12 @@ export class ActivityController {
       }
 
       const limit = parseInt(req.query.limit as string, 10) || 50;
-      const offset = parseInt(req.query.offset as string, 10) || 0;
-      const activities = await activityService.getStudentActivities(studentId, limit, offset);
+      const page = parseInt(req.query.page as string, 10) || 1;
+      const offset = (page - 1) * limit;
+      const status = req.query.status as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      const activities = await activityService.getStudentActivities(studentId, limit, offset, status, search);
       res.status(200).json(activities);
     } catch (error) {
       console.error('[getForStudent]', error);
