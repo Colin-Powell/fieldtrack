@@ -9,6 +9,7 @@ import { generateToken } from '../auth/jwt.js';
 import { exec } from 'child_process';
 import util from 'util';
 import { cacheMiddleware } from '../utils/cache.js';
+import { emailService } from '../auth/email.service.js';
 
 const DEFAULT_FEATURE_FLAGS = {
   'GPS Tracking': true,
@@ -1037,6 +1038,22 @@ router.post('/support-request', async (req: Request, res: Response) => {
     });
 
     broadcastDashboardEvent({ type: 'support_request', payload });
+
+    // Send email to the support inbox
+    try {
+      await emailService.sendEmail(
+        process.env.SMTP_USER || 'support@fieldtrack.top',
+        `[${payload.category.toUpperCase()}] ${payload.title} - ${payload.severity} severity`,
+        `<p><strong>From:</strong> ${payload.contactEmail} (User ID: ${payload.reporterId})</p>
+         <p><strong>Category:</strong> ${payload.category}</p>
+         <p><strong>Severity:</strong> ${payload.severity}</p>
+         <p><strong>Description:</strong></p>
+         <p>${payload.description}</p>`
+      );
+    } catch (emailError) {
+      appLogger.error('Failed to send support email, but ticket was logged', emailError);
+    }
+
     res.status(201).json({ success: true, payload });
   } catch (error) {
     appLogger.error('Support request creation failed', error);
