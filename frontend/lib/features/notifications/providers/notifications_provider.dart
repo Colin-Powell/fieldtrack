@@ -63,7 +63,11 @@ class NotificationsNotifier
     state = const AsyncValue.loading();
     try {
       final response = await _api.dio.get('/notifications');
-      final data = response.data as List<dynamic>;
+      final rawData = response.data;
+      final List<dynamic> data = rawData is List 
+          ? rawData 
+          : (rawData['data'] as List<dynamic>? ?? []);
+          
       final notifications = data
           .map((e) => NotificationModel.fromJson(e))
           .toList();
