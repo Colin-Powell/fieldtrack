@@ -1276,7 +1276,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
 
     try {
       await ApiClient().dio.post(
-        '/developer/support-request',
+        'developer/support-request',
         data: {
           'category': _category,
           'title': _title.trim(),
@@ -1322,7 +1322,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
           },
         ];
     final supportEmail =
-        widget.helpInfo['supportEmail'] as String? ?? 'support@fieldtrack.com';
+        widget.helpInfo['supportEmail'] as String? ?? 'support@fieldtrack.top';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -1369,8 +1369,15 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
           ),
           const SizedBox(height: 16),
           InkWell(
-            onTap: () {
-              // TODO: launchUrl to email client
+            onTap: () async {
+              final uri = Uri(
+                scheme: 'mailto',
+                path: supportEmail,
+                query: 'subject=FieldTrack%20Support%20Request',
+              );
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+              }
             },
             borderRadius: BorderRadius.circular(40), // Updated to 40px
             child: Container(

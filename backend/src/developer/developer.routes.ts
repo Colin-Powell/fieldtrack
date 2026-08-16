@@ -146,6 +146,54 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/support-request', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { category, title, description, contactEmail, severity } = req.body;
+    const payload = {
+      id: `support-${Date.now()}`,
+      category: category || 'bug_report',
+      title: title || 'Support request',
+      description: description || '',
+      contactEmail: contactEmail || '',
+      severity: severity || 'medium',
+      reporterId: req.user?.userId || 'anonymous',
+      createdAt: new Date().toISOString(),
+    };
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'SUPPORT_REQUEST_CREATED',
+        details: payload,
+        actorId: req.user?.userId,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    });
+
+    broadcastDashboardEvent({ type: 'support_request', payload });
+
+    // Send email to the support inbox
+    try {
+      await emailService.sendEmail(
+        process.env.SMTP_USER || 'support@fieldtrack.top',
+        `[${payload.category.toUpperCase()}] ${payload.title} - ${payload.severity} severity`,
+        `<p><strong>From:</strong> ${payload.contactEmail} (User ID: ${payload.reporterId})</p>
+         <p><strong>Category:</strong> ${payload.category}</p>
+         <p><strong>Severity:</strong> ${payload.severity}</p>
+         <p><strong>Description:</strong></p>
+         <p>${payload.description}</p>`
+      );
+    } catch (emailError) {
+      appLogger.error('Failed to send support email, but ticket was logged', emailError);
+    }
+
+    res.status(201).json({ success: true, payload });
+  } catch (error) {
+    appLogger.error('Support request creation failed', error);
+    res.status(500).json({ error: 'Unable to create support request' });
+  }
+});
+
 router.use(authenticate, authorizeRole(['ADMIN']));
 
 function getStatusColor(status: string) {
@@ -1013,53 +1061,7 @@ router.get('/metrics', async (_req: Request, res: Response) => {
   }
 });
 
-router.post('/support-request', async (req: Request, res: Response) => {
-  try {
-    const { category, title, description, contactEmail, severity } = req.body;
-    const payload = {
-      id: `support-${Date.now()}`,
-      category: category || 'bug_report',
-      title: title || 'Support request',
-      description: description || '',
-      contactEmail: contactEmail || '',
-      severity: severity || 'medium',
-      reporterId: req.user?.userId || 'anonymous',
-      createdAt: new Date().toISOString(),
-    };
 
-    await prisma.auditLog.create({
-      data: {
-        action: 'SUPPORT_REQUEST_CREATED',
-        details: payload,
-        actorId: req.user?.userId,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-      },
-    });
-
-    broadcastDashboardEvent({ type: 'support_request', payload });
-
-    // Send email to the support inbox
-    try {
-      await emailService.sendEmail(
-        process.env.SMTP_USER || 'support@fieldtrack.top',
-        `[${payload.category.toUpperCase()}] ${payload.title} - ${payload.severity} severity`,
-        `<p><strong>From:</strong> ${payload.contactEmail} (User ID: ${payload.reporterId})</p>
-         <p><strong>Category:</strong> ${payload.category}</p>
-         <p><strong>Severity:</strong> ${payload.severity}</p>
-         <p><strong>Description:</strong></p>
-         <p>${payload.description}</p>`
-      );
-    } catch (emailError) {
-      appLogger.error('Failed to send support email, but ticket was logged', emailError);
-    }
-
-    res.status(201).json({ success: true, payload });
-  } catch (error) {
-    appLogger.error('Support request creation failed', error);
-    res.status(500).json({ error: 'Unable to create support request' });
-  }
-});
 
 router.get('/status', async (_req: Request, res: Response) => {
   try {
