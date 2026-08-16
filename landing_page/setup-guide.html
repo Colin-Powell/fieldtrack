@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Setup Guide | FieldTrack</title>
+    <meta name="description" content="Step-by-step instructions on how to download, install, and set up the FieldTrack student app and supervisor portal.">
+    <link rel="canonical" href="https://fieldtrack.top/setup-guide.html">
+    
+    <!-- Icons & Manifest -->
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <link rel="manifest" href="site.webmanifest">
+    <meta name="theme-color" content="#1BA654">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1BA654',
+                            dark: '#158743',
+                            light: '#EAF8EF'
+                        },
+                        surface: '#F7F8F9',
+                        text: {
+                            main: '#111827',
+                            muted: '#4B5563',
+                            light: '#6B7280'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 15px 40px rgba(17, 24, 39, 0.08)',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface text-text-main font-sans selection:bg-primary selection:text-white">
+
+<!-- NAVIGATION -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-md border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-3 font-extrabold text-lg tracking-tight hover:opacity-80 transition-opacity">
+            <img src="assets/logo.png" alt="FieldTrack Logo" class="h-10 w-auto object-contain">
+            FieldTrack
+        </a>
+        <nav class="hidden lg:flex items-center gap-8">
+            <a href="/setup-guide.html" class="text-sm font-semibold text-primary">Setup Guide</a>
+            <a href="/help-center.html" class="text-sm font-semibold text-text-muted hover:text-primary transition-colors">Help Center</a>
+        </nav>
+        <div class="flex items-center gap-4">
+            <a href="/supervisor" class="hidden sm:inline-block text-sm font-bold text-text-main hover:text-primary px-4 py-2 transition-colors">Supervisor Login</a>
+            <a href="/Fieldtrack.apk" class="bg-primary hover:bg-primary-dark text-white text-sm font-bold px-6 py-3 rounded-full shadow-lg shadow-primary/20 hover:-translate-y-0.5 transition-all">Download App</a>
+        </div>
+    </div>
+</header>
+
+<!-- CONTENT -->
+<main class="pt-32 pb-24 max-w-4xl mx-auto px-6 min-h-screen">
+    <div class="mb-12">
+        <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Setup Guide</h1>
+        <p class="text-xl text-text-light">Everything you need to get started with FieldTrack.</p>
+    </div>
+
+    <!-- Student Setup -->
+    <div class="bg-white rounded-3xl shadow-soft p-8 md:p-12 border border-gray-100 mb-10">
+        <div class="flex items-center gap-4 mb-8">
+            <div class="w-12 h-12 bg-primary-light text-primary rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 18h6"/></svg>
+            </div>
+            <h2 class="text-2xl font-bold">Student App Installation (Android)</h2>
+        </div>
+        
+        <div class="space-y-8">
+            <div class="flex gap-4">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-surface text-text-muted font-bold flex items-center justify-center">1</div>
+                <div>
+                    <h3 class="text-lg font-bold mb-2">Download the APK</h3>
+                    <p class="text-text-muted leading-relaxed">Click the "Download App" button on this website to download the <strong>Fieldtrack.apk</strong> file to your Android device.</p>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-surface text-text-muted font-bold flex items-center justify-center">2</div>
+                <div>
+                    <h3 class="text-lg font-bold mb-2">Allow Unknown Sources</h3>
+                    <p class="text-text-muted leading-relaxed mb-3">Because the app is downloaded directly (not from the Play Store), Android will ask you for permission to install it.</p>
+                    <ul class="list-disc ml-5 text-sm text-text-muted space-y-1">
+                        <li>Open the downloaded APK file.</li>
+                        <li>If prompted, tap <strong>Settings</strong>.</li>
+                        <li>Toggle on <strong>Allow from this source</strong> for your browser or file manager.</li>
+                        <li>Go back and tap <strong>Install</strong>.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-surface text-text-muted font-bold flex items-center justify-center">3</div>
+                <div>
+                    <h3 class="text-lg font-bold mb-2">Grant Required Permissions</h3>
+                    <p class="text-text-muted leading-relaxed mb-3">When you first open FieldTrack, you must grant permissions for it to work properly:</p>
+                    <ul class="list-disc ml-5 text-sm text-text-muted space-y-1">
+                        <li><strong>Location:</strong> Required to verify your fieldwork site when checking in. Select "Allow while using the app".</li>
+                        <li><strong>Camera & Storage:</strong> Required to upload photos and documents as evidence for your activities.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-surface text-text-muted font-bold flex items-center justify-center">4</div>
+                <div>
+                    <h3 class="text-lg font-bold mb-2">Log In</h3>
+                    <p class="text-text-muted leading-relaxed">Use the student credentials provided by your university administrator to log in. You will be prompted to change your temporary password on your first login.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supervisor Setup -->
+    <div class="bg-white rounded-3xl shadow-soft p-8 md:p-12 border border-gray-100">
+        <div class="flex items-center gap-4 mb-8">
+            <div class="w-12 h-12 bg-primary-light text-primary rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12h18"/><path d="M12 3v18"/><circle cx="12" cy="12" r="9"/></svg>
+            </div>
+            <h2 class="text-2xl font-bold">Supervisor Portal Access</h2>
+        </div>
+        
+        <div class="space-y-8">
+            <div class="flex gap-4">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-surface text-text-muted font-bold flex items-center justify-center">1</div>
+                <div>
+                    <h3 class="text-lg font-bold mb-2">Access the Portal</h3>
+                    <p class="text-text-muted leading-relaxed">No installation is required. Simply navigate to <a href="/supervisor" class="text-primary font-semibold hover:underline">fieldtrack.top/supervisor</a> on any desktop or tablet browser.</p>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-surface text-text-muted font-bold flex items-center justify-center">2</div>
+                <div>
+                    <h3 class="text-lg font-bold mb-2">Log In</h3>
+                    <p class="text-text-muted leading-relaxed">Log in using the supervisor credentials provided by the university administrator.</p>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-surface text-text-muted font-bold flex items-center justify-center">3</div>
+                <div>
+                    <h3 class="text-lg font-bold mb-2">Review Notifications</h3>
+                    <p class="text-text-muted leading-relaxed">Ensure you allow browser notifications if you wish to receive real-time alerts when your students submit activities or check in to a site.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="bg-[#111827] text-white pt-20 pb-10">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+            <div class="lg:col-span-1">
+                <a href="/" class="flex items-center gap-3 font-extrabold text-lg tracking-tight mb-4 text-white">
+                    <img src="assets/logo.png" alt="FieldTrack Logo" class="h-8 w-auto object-contain brightness-0 invert">
+                    FieldTrack
+                </a>
+                <p class="text-gray-400 text-sm leading-relaxed max-w-xs">
+                    The platform that connects remote student fieldwork directly to university supervisors.
+                </p>
+            </div>
+            <div>
+                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Features</h4>
+                <ul class="space-y-4 text-sm text-gray-400 font-medium">
+                    <li><a href="/#workflow" class="hover:text-white transition-colors">How It Works</a></li>
+                    <li><a href="/#students" class="hover:text-white transition-colors">Student Features</a></li>
+                    <li><a href="/#supervisors" class="hover:text-white transition-colors">Supervisor Features</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Downloads & Help</h4>
+                <ul class="space-y-4 text-sm text-gray-400 font-medium">
+                    <li><a href="/Fieldtrack.apk" class="hover:text-white transition-colors">Download Android App</a></li>
+                    <li><a href="/setup-guide.html" class="hover:text-white transition-colors">Setup Guide</a></li>
+                    <li><a href="/help-center.html" class="hover:text-white transition-colors">Help Center</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Access</h4>
+                <ul class="space-y-4 text-sm text-gray-400 font-medium">
+                    <li><a href="/supervisor" class="hover:text-white transition-colors">Supervisor Login</a></li>
+                    <li><a href="/admin" class="hover:text-white transition-colors">Admin Login</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4 text-xs font-medium text-gray-500">
+            <span>&copy; 2026 FieldTrack. All rights reserved.</span>
+            <span>Built for better postgraduate fieldwork.</span>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>

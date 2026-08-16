@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Help Center | FieldTrack</title>
+    <meta name="description" content="Frequently asked questions and support for the FieldTrack application.">
+    <link rel="canonical" href="https://fieldtrack.top/help-center.html">
+    
+    <!-- Icons & Manifest -->
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <link rel="manifest" href="site.webmanifest">
+    <meta name="theme-color" content="#1BA654">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1BA654',
+                            dark: '#158743',
+                            light: '#EAF8EF'
+                        },
+                        surface: '#F7F8F9',
+                        text: {
+                            main: '#111827',
+                            muted: '#4B5563',
+                            light: '#6B7280'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 15px 40px rgba(17, 24, 39, 0.08)',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface text-text-main font-sans selection:bg-primary selection:text-white">
+
+<!-- NAVIGATION -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-md border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-3 font-extrabold text-lg tracking-tight hover:opacity-80 transition-opacity">
+            <img src="assets/logo.png" alt="FieldTrack Logo" class="h-10 w-auto object-contain">
+            FieldTrack
+        </a>
+        <nav class="hidden lg:flex items-center gap-8">
+            <a href="/setup-guide.html" class="text-sm font-semibold text-text-muted hover:text-primary transition-colors">Setup Guide</a>
+            <a href="/help-center.html" class="text-sm font-semibold text-primary">Help Center</a>
+        </nav>
+        <div class="flex items-center gap-4">
+            <a href="/supervisor" class="hidden sm:inline-block text-sm font-bold text-text-main hover:text-primary px-4 py-2 transition-colors">Supervisor Login</a>
+            <a href="/Fieldtrack.apk" class="bg-primary hover:bg-primary-dark text-white text-sm font-bold px-6 py-3 rounded-full shadow-lg shadow-primary/20 hover:-translate-y-0.5 transition-all">Download App</a>
+        </div>
+    </div>
+</header>
+
+<!-- CONTENT -->
+<main class="pt-32 pb-24 max-w-4xl mx-auto px-6 min-h-screen">
+    <div class="mb-12 text-center">
+        <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Help Center</h1>
+        <p class="text-xl text-text-light">Frequently asked questions and support for FieldTrack.</p>
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="space-y-6">
+        
+        <!-- FAQ 1 -->
+        <div class="bg-white rounded-2xl shadow-soft p-6 border border-gray-100">
+            <h3 class="text-xl font-bold mb-3">I can't check in on the student app. What should I do?</h3>
+            <p class="text-text-muted leading-relaxed">
+                Check-ins require a verified GPS location. Ensure that your device's <strong>Location (GPS)</strong> is turned on, and that you have granted the FieldTrack app permission to access your location. If you are inside a building, try stepping outside to get a clearer GPS signal.
+            </p>
+        </div>
+
+        <!-- FAQ 2 -->
+        <div class="bg-white rounded-2xl shadow-soft p-6 border border-gray-100">
+            <h3 class="text-xl font-bold mb-3">Does the app work without an internet connection?</h3>
+            <p class="text-text-muted leading-relaxed">
+                Yes! You can log activities, take photos, and record evidence completely offline. The app will securely save your data locally on your device. Once you connect to the internet (Wi-Fi or Mobile Data), the app will automatically sync your activities with your supervisor.
+            </p>
+        </div>
+
+        <!-- FAQ 3 -->
+        <div class="bg-white rounded-2xl shadow-soft p-6 border border-gray-100">
+            <h3 class="text-xl font-bold mb-3">My supervisor hasn't reviewed my activity log yet.</h3>
+            <p class="text-text-muted leading-relaxed">
+                Supervisors receive real-time notifications on their portal as soon as your data syncs. Review times vary depending on your supervisor's schedule. You will receive an in-app notification the moment they approve your log or request revisions.
+            </p>
+        </div>
+
+        <!-- FAQ 4 -->
+        <div class="bg-white rounded-2xl shadow-soft p-6 border border-gray-100">
+            <h3 class="text-xl font-bold mb-3">I forgot my password. How do I reset it?</h3>
+            <p class="text-text-muted leading-relaxed">
+                On the login screen (for both the mobile app and the web portal), click the <strong>"Forgot Password"</strong> link. Enter your registered university email address, and you will receive a One-Time Password (OTP) to reset it securely.
+            </p>
+        </div>
+
+    </div>
+
+    <!-- Contact Support -->
+    <div class="mt-16 bg-primary-light border border-primary/20 rounded-3xl p-8 md:p-12 text-center">
+        <h2 class="text-2xl font-bold text-text-main mb-4">Still need help?</h2>
+        <p class="text-text-muted mb-8 max-w-lg mx-auto">
+            If you're experiencing technical issues or have a question not answered here, please contact your university administrator or our technical support team.
+        </p>
+        <a href="mailto:support@fieldtrack.top" class="inline-block bg-primary hover:bg-primary-dark text-white font-bold py-3 px-8 rounded-full shadow-lg shadow-primary/25 transition-all">
+            Email Support
+        </a>
+    </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="bg-[#111827] text-white pt-20 pb-10">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+            <div class="lg:col-span-1">
+                <a href="/" class="flex items-center gap-3 font-extrabold text-lg tracking-tight mb-4 text-white">
+                    <img src="assets/logo.png" alt="FieldTrack Logo" class="h-8 w-auto object-contain brightness-0 invert">
+                    FieldTrack
+                </a>
+                <p class="text-gray-400 text-sm leading-relaxed max-w-xs">
+                    The platform that connects remote student fieldwork directly to university supervisors.
+                </p>
+            </div>
+            <div>
+                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Features</h4>
+                <ul class="space-y-4 text-sm text-gray-400 font-medium">
+                    <li><a href="/#workflow" class="hover:text-white transition-colors">How It Works</a></li>
+                    <li><a href="/#students" class="hover:text-white transition-colors">Student Features</a></li>
+                    <li><a href="/#supervisors" class="hover:text-white transition-colors">Supervisor Features</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Downloads & Help</h4>
+                <ul class="space-y-4 text-sm text-gray-400 font-medium">
+                    <li><a href="/Fieldtrack.apk" class="hover:text-white transition-colors">Download Android App</a></li>
+                    <li><a href="/setup-guide.html" class="hover:text-white transition-colors">Setup Guide</a></li>
+                    <li><a href="/help-center.html" class="hover:text-white transition-colors">Help Center</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Access</h4>
+                <ul class="space-y-4 text-sm text-gray-400 font-medium">
+                    <li><a href="/supervisor" class="hover:text-white transition-colors">Supervisor Login</a></li>
+                    <li><a href="/admin" class="hover:text-white transition-colors">Admin Login</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4 text-xs font-medium text-gray-500">
+            <span>&copy; 2026 FieldTrack. All rights reserved.</span>
+            <span>Built for better postgraduate fieldwork.</span>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>

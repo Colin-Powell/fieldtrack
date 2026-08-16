@@ -7,7 +7,9 @@ import 'package:fieldtrack/features/auth/login_screen.dart';
 import 'package:fieldtrack/core/network/error_handler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fieldtrack/core/providers/auth_provider.dart';
-
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:fieldtrack/core/services/version_check_service.dart';
+import 'package:fieldtrack/shared/widgets/update_dialog.dart';
 // --- Theme Colors ---
 const Color _lightGreen = Color(0xFFCDE8D5);
 const Color _primaryGreen = Color(0xFF1B934F);
@@ -1571,9 +1573,92 @@ class PrivacyPolicyScreen extends StatelessWidget {
   }
 }
 
-class AboutScreen extends StatelessWidget {
+class AboutScreen extends StatefulWidget {
   final Map<String, dynamic>? aboutInfo;
   const AboutScreen({super.key, this.aboutInfo});
+
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  String _appVersion = 'Loading...';
+  bool _isChecking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      setState(() {
+        _appVersion = 'Version ${packageInfo.version} (Build ${packageInfo.buildNumber})';
+      });
+    } catch (e) {
+      setState(() {
+        _appVersion = widget.aboutInfo?['version'] as String? ?? 'Version 1.0.0 (Build 42)';
+      });
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    setState(() {
+      _isChecking = true;
+    });
+
+    try {
+      final versionService = VersionCheckService(ApiClient().dio);
+      final versionResult = await versionService.checkVersion();
+
+      if (!mounted) return;
+
+      if (versionResult['updateRequired'] == true) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => UpdateDialog(
+            isRequired: true,
+            updateUrl: versionResult['updateUrl'],
+          ),
+        );
+      } else if (versionResult['updateAvailable'] == true) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => UpdateDialog(
+            isRequired: false,
+            updateUrl: versionResult['updateUrl'],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('FieldTrack is up to date.'),
+            backgroundColor: _primaryGreen,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to check for updates. Please check your connection.'),
+            backgroundColor: _dangerRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isChecking = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1595,7 +1680,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              aboutInfo?['title'] as String? ?? 'FieldTrack',
+              widget.aboutInfo?['title'] as String? ?? 'FieldTrack',
               style: const TextStyle(
                 fontFamily: _fontFamily,
                 fontSize: 24,
@@ -1605,7 +1690,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              aboutInfo?['version'] as String? ?? 'Version 1.0.0 (Build 42)',
+              _appVersion,
               style: const TextStyle(
                 fontFamily: _fontFamily,
                 color: _textLight,
@@ -1613,7 +1698,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             Text(
-              aboutInfo?['description'] as String? ??
+              widget.aboutInfo?['description'] as String? ??
                   'Developed for\nPwani University, Environmental Sciences',
               textAlign: TextAlign.center,
               style: const TextStyle(
@@ -1621,6 +1706,36 @@ class AboutScreen extends StatelessWidget {
                 fontSize: 16,
                 height: 1.5,
               ),
+            ),
+            const SizedBox(height: 48),
+            ElevatedButton(
+              onPressed: _isChecking ? null : _checkForUpdates,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primaryGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: _isChecking
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Check for Updates',
+                      style: TextStyle(
+                        fontFamily: _fontFamily,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
           ],
         ),
