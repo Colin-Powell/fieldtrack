@@ -42,7 +42,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-platform', 'x-app-version', 'x-device-id', 'x-fingerprint'],
 } satisfies cors.CorsOptions;
 
 if (!process.env.JWT_SECRET) {
