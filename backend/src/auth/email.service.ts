@@ -7,12 +7,19 @@ class EmailService {
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
 
+    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
+    // True for 465, false for other ports
+    const smtpSecure = smtpPort === 465;
+
     if (!smtpUser || !smtpPass) {
       throw new Error('SMTP credentials must be configured via environment variables.');
     }
 
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
       auth: {
         user: smtpUser,
         pass: smtpPass,
