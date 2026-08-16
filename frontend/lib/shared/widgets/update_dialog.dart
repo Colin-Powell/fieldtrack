@@ -12,11 +12,24 @@ class UpdateDialog extends StatelessWidget {
     this.updateUrl,
   }) : super(key: key);
 
-  Future<void> _launchUpdateUrl() async {
+  Future<void> _launchUpdateUrl(BuildContext context) async {
     if (updateUrl == null) return;
     final uri = Uri.parse(updateUrl!);
-    if (await canLaunchUrl(uri)) {
+    
+    try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!isRequired && context.mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open the update link.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -87,7 +100,7 @@ class UpdateDialog extends StatelessWidget {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: _launchUpdateUrl,
+                  onPressed: () => _launchUpdateUrl(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF16A34A),
                     elevation: 0,

@@ -15,7 +15,8 @@ class ConnectivityService {
 
   ConnectivityService._internal() {
     _connectivity.onConnectivityChanged.listen((result) async {
-      if (result == ConnectivityResult.none) {
+      // result is List<ConnectivityResult> in connectivity_plus ^6.0.0
+      if (result.contains(ConnectivityResult.none) || result.isEmpty) {
         currentStatus = ConnectionStatus.offline;
         _controller.add(ConnectionStatus.offline);
       } else {
@@ -31,7 +32,7 @@ class ConnectivityService {
 
   Future<void> _checkInitial() async {
     final result = await _connectivity.checkConnectivity();
-    if (result == ConnectivityResult.none) {
+    if (result.contains(ConnectivityResult.none) || result.isEmpty) {
       currentStatus = ConnectionStatus.offline;
       _controller.add(ConnectionStatus.offline);
     } else {
