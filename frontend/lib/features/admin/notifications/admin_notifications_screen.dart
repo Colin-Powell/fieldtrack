@@ -242,7 +242,7 @@ class _AdminNotificationsScreenState
                                 }
                                 setModalState(() => _isSending = true);
                                 try {
-                                  await ApiClient().dio.post(
+                                  final response = await ApiClient().dio.post(
                                     '/admin/notifications/broadcast',
                                     data: {
                                       'title': _titleController.text.trim(),
@@ -250,9 +250,28 @@ class _AdminNotificationsScreenState
                                       'type': _selectedType,
                                     },
                                   );
-                                  ToastService.showSuccess(
-                                    'Broadcast sent successfully',
-                                  );
+
+                                  // Show detailed feedback with recipient count and queue status
+                                  final recipientCount =
+                                      response.data['recipientCount'] ?? 0;
+                                  final queueStatus =
+                                      response.data['queueStatus'] ?? 'QUEUED';
+                                  final broadcastId =
+                                      response.data['broadcastId'] ?? '';
+
+                                  String feedbackMessage =
+                                      'Broadcast queued successfully';
+                                  if (recipientCount > 0) {
+                                    feedbackMessage =
+                                        'Broadcast queued for $recipientCount recipient${recipientCount != 1 ? 's' : ''}';
+                                  }
+                                  if (queueStatus == 'PROCESSING') {
+                                    feedbackMessage += ' - Processing now';
+                                  } else if (queueStatus == 'SCHEDULED') {
+                                    feedbackMessage += ' - Scheduled for later';
+                                  }
+
+                                  ToastService.showSuccess(feedbackMessage);
                                   _titleController.clear();
                                   _messageController.clear();
                                   if (ctx.mounted) Navigator.pop(ctx);
@@ -301,6 +320,7 @@ class _AdminNotificationsScreenState
   @override
   Widget build(BuildContext context) {
     final notificationsAsync = ref.watch(adminNotificationsProvider);
+    final isNarrow = MediaQuery.of(context).size.width < 900;
 
     return Padding(
       padding: const EdgeInsets.all(48.0),
@@ -310,15 +330,18 @@ class _AdminNotificationsScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Broadcast Center & Notifications',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black,
+              Expanded(
+                child: const Text(
+                  'Broadcast Center & Notifications',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
                 ),
               ),
+              if (!isNarrow) const SizedBox(width: 16),
               ElevatedButton.icon(
                 onPressed: _showBroadcastDialog,
                 icon: Icon(PhosphorIcons.paperPlaneRight(), size: 18),
@@ -342,138 +365,249 @@ class _AdminNotificationsScreenState
           Expanded(
             child: notificationsAsync.when(
               data: (notifications) {
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Sidebar categories
-                    Expanded(
-                      flex: 1,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                final categoriesWidget = isNarrow
+                    ? SizedBox(
+                        height: 60,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _categories.length,
+                          itemBuilder: (context, i) {
+                            final isSelected = _selectedCategory == i;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: ChoiceChip(
+                                label: Text(
+                                  _categories[i],
+                                  style: const TextStyle(fontFamily: 'Poppins'),
+                                ),
+                                selected: isSelected,
+                                selectedColor: const Color(
+                                  0xFF1BA654,
+                                ).withValues(alpha: 0.2),
+                                onSelected: (val) {
+                                  if (val)
+                                    setState(() => _selectedCategory = i);
+                                },
+                              ),
+                            );
+                          },
                         ),
-                        child: ListView(
-                          padding: const EdgeInsets.all(24),
-                          children: List.generate(
-                            _categories.length,
-                            (i) => _buildCategoryItem(
-                              _categories[i],
-                              _getIconForCategory(_categories[i]),
-                              _selectedCategory == i,
-                              () => setState(() => _selectedCategory = i),
+                      )
+                    : Expanded(
+                        flex: 1,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                          child: ListView(
+                            padding: const EdgeInsets.all(24),
+                            children: List.generate(
+                              _categories.length,
+                              (i) => _buildCategoryItem(
+                                _categories[i],
+                                _getIconForCategory(_categories[i]),
+                                _selectedCategory == i,
+                                () => setState(() => _selectedCategory = i),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    // Notifications list
-                    Expanded(
-                      flex: 3,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                        ),
-                        child: () {
-                          final filteredList = _selectedCategory == 0 
-                            ? notifications 
-                            : notifications.where((n) => n.category == _categories[_selectedCategory]).toList();
-                            
-                          if (filteredList.isEmpty) {
-                            return Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    PhosphorIcons.tray(),
-                                    size: 64,
-                                    color: const Color(0xFFD1D5DB),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'No notifications yet',
-                                    style: TextStyle(
-                                      fontFamily: 'Poppins',
-                                      color: Color(0xFF6B7280),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                          
-                          return ListView.builder(
-                            itemCount: filteredList.length,
-                            itemBuilder: (context, i) =>
-                                _buildNotificationCard(filteredList[i]),
-                          );
-                        }(),
-                      ),
-                    ),
-                  ],
-                );
-              },
-              loading: () => Row(
-                children: [
-                  Expanded(flex: 1, child: Container()),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    flex: 3,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF1BA654),
-                        ),
-                      ),
-                    ),
+                      );
+
+                final listWidget = Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
                   ),
-                ],
-              ),
-              error: (err, stack) => Row(
-                children: [
-                  Expanded(flex: 1, child: Container()),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    flex: 3,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: Center(
+                  child: () {
+                    final filteredList = _selectedCategory == 0
+                        ? notifications
+                        : notifications
+                              .where(
+                                (n) =>
+                                    n.category ==
+                                    _categories[_selectedCategory],
+                              )
+                              .toList();
+
+                    if (filteredList.isEmpty) {
+                      return Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              PhosphorIcons.warning(),
-                              size: 48,
-                              color: const Color(0xFFEF4444),
+                              PhosphorIcons.tray(),
+                              size: 64,
+                              color: const Color(0xFFD1D5DB),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 16),
                             const Text(
-                              'Failed to load notifications',
+                              'No notifications yet',
                               style: TextStyle(
                                 fontFamily: 'Poppins',
-                                color: Color(0xFFEF4444),
+                                color: Color(0xFF6B7280),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      itemCount: filteredList.length,
+                      itemBuilder: (context, i) =>
+                          _buildNotificationCard(filteredList[i]),
+                    );
+                  }(),
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      categoriesWidget,
+                      const SizedBox(height: 16),
+                      Expanded(child: listWidget),
+                    ],
+                  );
+                }
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    categoriesWidget,
+                    const SizedBox(width: 24),
+                    Expanded(flex: 3, child: listWidget),
+                  ],
+                );
+              },
+              loading: () {
+                return isNarrow
+                    ? Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF1BA654),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(flex: 1, child: Container()),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            flex: 3,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF1BA654),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+              },
+              error: (err, stack) {
+                return isNarrow
+                    ? Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      PhosphorIcons.warning(),
+                                      size: 48,
+                                      color: const Color(0xFFEF4444),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'Failed to load notifications',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        color: Color(0xFFEF4444),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(flex: 1, child: Container()),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            flex: 3,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      PhosphorIcons.warning(),
+                                      size: 48,
+                                      color: const Color(0xFFEF4444),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'Failed to load notifications',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        color: Color(0xFFEF4444),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+              },
             ),
           ),
         ],

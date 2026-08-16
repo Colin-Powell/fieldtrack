@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../notifications/providers/notifications_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -51,11 +52,33 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
   }
 
   void _showNotifications() {
-    _overlayEntry = _createNotificationOverlay();
-    Overlay.of(context).insert(_overlayEntry!);
-    setState(() {
-      _isNotificationOpen = true;
-    });
+    final isMobile = MediaQuery.of(context).size.width < 900;
+    
+    if (isMobile) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (context) {
+          return SafeArea(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
+              ),
+              child: _buildNotificationContent(isModal: true),
+            ),
+          );
+        },
+      );
+    } else {
+      _overlayEntry = _createNotificationOverlay();
+      Overlay.of(context).insert(_overlayEntry!);
+      setState(() {
+        _isNotificationOpen = true;
+      });
+    }
   }
 
   OverlayEntry _createNotificationOverlay() {
@@ -91,91 +114,111 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
                       ),
                     ],
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Notifications',
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                // Mark all as read conceptually
-                                _closeNotifications();
-                              },
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: const Text(
-                                'Mark all read',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 12,
-                                  color: Color(0xFF16A34A),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      Flexible(
-                        child: Consumer(
-                          builder: (context, ref, child) {
-                            final notifsAsync = ref.watch(notificationsProvider);
-                            return notifsAsync.when(
-                              data: (notifs) {
-                                if (notifs.isEmpty) {
-                                  return const Padding(
-                                    padding: EdgeInsets.all(32.0),
-                                    child: Center(child: Text('No notifications', style: TextStyle(color: Colors.grey))),
-                                  );
-                                }
-                                return ListView.builder(
-                                  shrinkWrap: true,
-                                  padding: EdgeInsets.zero,
-                                  itemCount: notifs.length,
-                                  itemBuilder: (context, index) {
-                                    final n = notifs[index];
-                                    return _buildNotificationItem(
-                                      n.title,
-                                      n.message,
-                                      DateFormat('MMM d, h:mm a').format(n.createdAt),
-                                      isUnread: !n.isRead,
-                                      onTap: () {
-                                        ref.read(notificationsProvider.notifier).markAsRead(n.id);
-                                        _closeNotifications();
-                                      }
-                                    );
-                                  },
-                                );
-                              },
-                              loading: () => const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())),
-                              error: (_, __) => const Center(child: Text('Failed to load notifications')),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: _buildNotificationContent(isModal: false),
                 ),
               ),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildNotificationContent({required bool isModal}) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (isModal)
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Notifications',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  // Mark all as read conceptually
+                  if (!isModal) _closeNotifications();
+                },
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Mark all read',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 12,
+                    color: Color(0xFF16A34A),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Flexible(
+          child: Consumer(
+            builder: (context, ref, child) {
+              final notifsAsync = ref.watch(notificationsProvider);
+              return notifsAsync.when(
+                data: (notifs) {
+                  if (notifs.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Center(child: Text('No notifications', style: TextStyle(color: Colors.grey))),
+                    );
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: notifs.length,
+                    itemBuilder: (context, index) {
+                      final n = notifs[index];
+                      return _buildNotificationItem(
+                        n.title,
+                        n.message,
+                        DateFormat('MMM d, h:mm a').format(n.createdAt),
+                        isUnread: !n.isRead,
+                        onTap: () {
+                          ref.read(notificationsProvider.notifier).markAsRead(n.id);
+                          if (isModal) {
+                            Navigator.pop(context);
+                          } else {
+                            _closeNotifications();
+                          }
+                        }
+                      );
+                    },
+                  );
+                },
+                loading: () => const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())),
+                error: (_, __) => const Center(child: Text('Failed to load notifications')),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -244,11 +287,13 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = constraints.maxWidth < 600;
+        final isDesktop = MediaQuery.of(context).size.width >= 1024;
 
-        return Row(
+        final titleSection = Row(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (MediaQuery.of(context).size.width < 1024 && !(_isSearchExpanded && narrow)) ...[
+            if (!isDesktop && !(_isSearchExpanded && narrow)) ...[
               IconButton(
                 icon: Icon(PhosphorIcons.list(), color: Colors.black, size: 28),
                 onPressed: () => Scaffold.of(context).openDrawer(),
@@ -256,7 +301,7 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
               const SizedBox(width: 16),
             ],
             if (!(_isSearchExpanded && narrow))
-              Expanded(
+              Flexible(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -287,6 +332,12 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
                   ],
                 ),
               ),
+          ],
+        );
+
+        final actionsSection = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             if (widget.onSearchChanged != null && (!narrow || _isSearchExpanded)) ...[
               if (_isSearchExpanded && narrow)
                 IconButton(
@@ -297,51 +348,47 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
                     });
                   },
                 ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: (_isSearchExpanded && narrow) ? 1 : 0,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: (_isSearchExpanded && narrow) ? double.infinity : (narrow ? 160 : 260),
-                    minWidth: 140,
+              if (_isSearchExpanded && narrow) const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: (_isSearchExpanded && narrow) ? constraints.maxWidth - 60 : 260,
+                  minWidth: 140,
+                ),
+                child: Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(26),
                   ),
-                  child: Container(
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(26),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        const Icon(PhosphorIconsRegular.magnifyingGlass, color: Color(0xFF9CA3AF), size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            onChanged: widget.onSearchChanged,
-                            style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
-                            decoration: InputDecoration(
-                              hintText: widget.searchHint,
-                              hintStyle: const TextStyle(
-                                color: Color(0xFF9CA3AF),
-                                fontFamily: 'Poppins',
-                                fontSize: 14,
-                              ),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      const Icon(PhosphorIconsRegular.magnifyingGlass, color: Color(0xFF9CA3AF), size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          onChanged: widget.onSearchChanged,
+                          style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText: widget.searchHint,
+                            hintStyle: const TextStyle(
+                              color: Color(0xFF9CA3AF),
+                              fontFamily: 'Poppins',
+                              fontSize: 14,
                             ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
-            const SizedBox(width: 16),
             if (widget.onSearchChanged != null && narrow && !_isSearchExpanded) ...[
               Container(
                 decoration: const BoxDecoration(
@@ -357,46 +404,70 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
                   icon: Icon(PhosphorIcons.magnifyingGlass(), color: const Color(0xFF4B5563), size: 22),
                 ),
               ),
-              const SizedBox(width: 8),
             ],
-            const SizedBox(width: 16),
-            CompositedTransformTarget(
-              link: _layerLink,
-              child: InkWell(
-                onTap: _toggleNotifications,
-                borderRadius: BorderRadius.circular(26),
-                child: Container(
-                  width: 52,
-                  height: 52,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      const Icon(PhosphorIconsRegular.bell, color: Color(0xFF6B7280), size: 24),
-                      if (hasUnread) Positioned(
-                        top: 14,
-                        right: 14,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF16A34A),
-                            shape: BoxShape.circle,
+            if (!_isSearchExpanded || !narrow) ...[
+              const SizedBox(width: 16),
+              CompositedTransformTarget(
+                link: _layerLink,
+                child: InkWell(
+                  onTap: _toggleNotifications,
+                  borderRadius: BorderRadius.circular(26),
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const Icon(PhosphorIconsRegular.bell, color: Color(0xFF6B7280), size: 24),
+                        if (hasUnread) Positioned(
+                          top: 14,
+                          right: 14,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF16A34A),
+                              shape: BoxShape.circle,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            if (widget.trailingWidget != null) ...[
-              const SizedBox(width: 16),
-              widget.trailingWidget!,
+              if (widget.trailingWidget != null) ...[
+                const SizedBox(width: 16),
+                widget.trailingWidget!,
+              ],
             ],
+          ],
+        );
+
+        if (constraints.maxWidth < 900) {
+          // On tablets/mobile, wrap to two lines if needed, or stack them
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              titleSection,
+              const SizedBox(height: 16),
+              actionsSection,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: titleSection),
+            const SizedBox(width: 24),
+            actionsSection,
           ],
         );
       },

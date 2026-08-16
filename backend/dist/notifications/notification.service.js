@@ -72,12 +72,17 @@ export class NotificationService {
         }
         return notification;
     }
-    async getUserNotifications(userId) {
-        return prisma.notification.findMany({
-            where: { recipientId: userId },
-            orderBy: { createdAt: 'desc' },
-            take: 50
-        });
+    async getUserNotifications(userId, limit = 50, offset = 0) {
+        const [data, total] = await Promise.all([
+            prisma.notification.findMany({
+                where: { recipientId: userId },
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+                skip: offset,
+            }),
+            prisma.notification.count({ where: { recipientId: userId } }),
+        ]);
+        return { data, total, limit, offset };
     }
     async markAsRead(id) {
         return prisma.notification.update({
@@ -114,4 +119,26 @@ export class NotificationService {
             }
         });
     }
+}
+export async function processBulkNotifications(data) {
+    const service = new NotificationService();
+    const results = { success: 0, failed: 0 };
+    for (const recipientId of data.recipientIds) {
+        try {
+            await service.sendNotification({
+                recipientId,
+                senderId: data.senderId,
+                title: data.title,
+                message: data.message,
+                type: data.type
+            });
+            results.success++;
+        }
+        catch (error) {
+            console.error(`Bulk notification failed for user ${recipientId}:`, error);
+            results.failed++;
+        }
+    }
+    console.log(`Bulk Notification Background Job Completed`, results);
+    return results;
 }

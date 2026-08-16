@@ -251,16 +251,25 @@ class _SupervisorMapScreenState extends State<SupervisorMapScreen> {
     return Container(
       color: _C.bg,
       child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTopHeader(),
-              const SizedBox(height: 32),
-              _buildMainContent(allStudents, filteredStudents, rawStudents),
-            ],
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 32, 32, 0),
+              child: _buildTopHeader(),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMainContent(allStudents, filteredStudents, rawStudents),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

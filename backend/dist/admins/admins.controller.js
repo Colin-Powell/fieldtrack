@@ -159,21 +159,28 @@ export async function createSupervisor(req, res) {
 }
 export async function getAllUsers(req, res) {
     try {
-        const users = await prisma.user.findMany({
-            include: {
-                studentProfile: {
-                    include: {
-                        supervisor: {
-                            include: { user: true }
+        const limit = parseInt(req.query.limit, 10) || 50;
+        const offset = parseInt(req.query.offset, 10) || 0;
+        const [users, total] = await Promise.all([
+            prisma.user.findMany({
+                take: limit,
+                skip: offset,
+                include: {
+                    studentProfile: {
+                        include: {
+                            supervisor: {
+                                include: { user: true }
+                            }
                         }
+                    },
+                    supervisorProfile: {
+                        include: { assignedStudents: true }
                     }
                 },
-                supervisorProfile: {
-                    include: { assignedStudents: true }
-                }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
+                orderBy: { createdAt: 'desc' }
+            }),
+            prisma.user.count()
+        ]);
         const mappedUsers = users.map(user => {
             let regNo;
             let department = '-';
@@ -206,7 +213,7 @@ export async function getAllUsers(req, res) {
                 avatarUrl,
             };
         });
-        return res.status(200).json({ users: mappedUsers });
+        return res.status(200).json({ users: mappedUsers, total, limit, offset });
     }
     catch (error) {
         console.error('Get all users error:', error);
@@ -724,17 +731,17 @@ export async function broadcastNotification(req, res) {
             select: { id: true },
         });
         const notificationType = type || 'SYSTEM_ALERT';
-        // Create notifications and push for all active users
-        for (const user of allUsers) {
-            await notificationService.sendNotification({
-                recipientId: user.id,
-                senderId: actorId,
-                title,
-                message,
-                type: notificationType,
-                priority: 1,
-            });
-        }
+        // Extract just the user IDs for the background job
+        const recipientIds = allUsers.map(u => u.id);
+        // Using BullMQ for background processing
+        const { notificationQueue } = await import('../utils/queue.js');
+        await notificationQueue.add('bulkNotification', {
+            recipientIds,
+            senderId: actorId,
+            title,
+            message,
+            type: notificationType,
+        });
         if (actorId) {
             await AuditLogService.log({
                 actorId,

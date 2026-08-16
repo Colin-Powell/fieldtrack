@@ -120,7 +120,7 @@ export async function getAdminDashboard(req, res) {
                 });
             }
         }
-        for (const inv of intervals) {
+        await Promise.all(intervals.map(async (inv) => {
             // Activity
             const actCount = await prisma.fieldLog.count({
                 where: {
@@ -128,7 +128,6 @@ export async function getAdminDashboard(req, res) {
                     status: { not: 'DRAFT' },
                 },
             });
-            activityTrend.push({ label: inv.label, value: actCount, dateLabel: inv.dateLabel });
             // Attendance
             const activeSessionsCount = await prisma.fieldSession.groupBy({
                 by: ['studentId'],
@@ -141,8 +140,15 @@ export async function getAdminDashboard(req, res) {
                 },
                 _count: { id: true },
             });
-            attendanceTrend.push({ label: inv.label, value: activeSessionsCount.length, dateLabel: inv.dateLabel });
-        }
+            return { inv, actCount, activeSessionsCount: activeSessionsCount.length };
+        })).then(results => {
+            // Ensure the order is maintained by sorting or just assigning based on original interval index
+            // Since Promise.all preserves order of map:
+            results.forEach(res => {
+                activityTrend.push({ label: res.inv.label, value: res.actCount, dateLabel: res.inv.dateLabel });
+                attendanceTrend.push({ label: res.inv.label, value: res.activeSessionsCount, dateLabel: res.inv.dateLabel });
+            });
+        });
         // ── Submission Status Breakdown ──
         const approvedCount = await prisma.fieldLog.count({ where: { status: 'APPROVED' } });
         const pendingStatusCount = await prisma.fieldLog.count({

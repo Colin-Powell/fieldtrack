@@ -3,6 +3,8 @@ import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { RedisStore } from 'rate-limit-redis';
+import { redis } from './utils/redis.js';
 import morgan from 'morgan';
 import { appLogger } from './utils/logger.js';
 import { prisma } from './db.js';
@@ -22,6 +24,7 @@ import systemRoutes from './system/system.routes.js';
 import { initializeDashboardSocket } from './developer/dashboard_events.js';
 import { startScheduler } from './background/scheduler.js';
 import { initFirebaseAdmin } from './firebase_admin.js';
+import './utils/queue.js'; // Initialize BullMQ workers
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (Nginx) for accurate client IP
 const port = process.env.PORT || 3000;
@@ -96,13 +99,20 @@ app.use((req, res, next) => {
 });
 // Log HTTP requests using Morgan and Winston
 app.use(morgan('combined', { stream: { write: (msg) => appLogger.info(msg.trim()) } }));
-// Global Rate Limiter
+// Global Rate Limiter backed by Redis
 const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+    windowMs: 60 * 1000, // 1 minute
+    max: 100, // Limit each user/IP to 100 requests per minute
     standardHeaders: true,
     legacyHeaders: false,
-    message: 'Too many requests from this IP, please try again after 15 minutes',
+    message: 'Too many requests, please try again later',
+    store: new RedisStore({
+        sendCommand: (...args) => redis.call(args[0], ...args.slice(1)),
+    }),
+    keyGenerator: (req) => {
+        // If authenticated, use userId, otherwise fallback to IP
+        return req.user?.userId || req.ip;
+    }
 });
 app.use('/api', globalLimiter);
 app.put('/api/v1/fcm-token', authenticate, async (req, res) => {

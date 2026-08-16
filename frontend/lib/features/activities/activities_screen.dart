@@ -22,9 +22,17 @@ class ActivitiesScreen extends ConsumerStatefulWidget {
 class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   // State variables for our tabs and loading skeleton
   int _selectedFilterIndex = 0;
-  final List<String> _filters = ['All', 'Today', 'Drafts', 'Submitted', 'Needs Revision'];
+  final List<String> _filters = [
+    'All',
+    'Today',
+    'Drafts',
+    'Submitted',
+    'Needs Revision',
+  ];
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  int _currentPage = 0;
+  static const int _activitiesPerPage = 10;
 
   @override
   void initState() {
@@ -32,6 +40,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.trim().toLowerCase();
+        _currentPage = 0; // Reset pagination on search
       });
     });
   }
@@ -216,25 +225,34 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
         final filteredActivities = activities.where((activity) {
           if (_searchQuery.isNotEmpty) {
             final title = (activity['title'] as String?)?.toLowerCase() ?? '';
-            final description = (activity['description'] as String?)?.toLowerCase() ?? '';
-            if (!title.contains(_searchQuery) && !description.contains(_searchQuery)) {
+            final description =
+                (activity['description'] as String?)?.toLowerCase() ?? '';
+            if (!title.contains(_searchQuery) &&
+                !description.contains(_searchQuery)) {
               return false;
             }
           }
 
           if (_selectedFilterIndex == 0) return true;
-          
+
           final status = activity['status'] ?? '';
           if (_selectedFilterIndex == 2) return status == 'DRAFT';
-          if (_selectedFilterIndex == 3) return status == 'SUBMITTED' || status == 'RESUBMITTED' || status == 'UNDER_REVIEW' || status == 'APPROVED';
-          if (_selectedFilterIndex == 4) return status == 'REVISION_REQUESTED' || status == 'REJECTED';
-          
+          if (_selectedFilterIndex == 3)
+            return status == 'SUBMITTED' ||
+                status == 'RESUBMITTED' ||
+                status == 'UNDER_REVIEW' ||
+                status == 'APPROVED';
+          if (_selectedFilterIndex == 4)
+            return status == 'REVISION_REQUESTED' || status == 'REJECTED';
+
           if (_selectedFilterIndex == 1) {
             // Today
             if (activity['timestamp'] == null) return false;
             final dt = DateTime.parse(activity['timestamp']).toLocal();
             final now = DateTime.now();
-            return dt.year == now.year && dt.month == now.month && dt.day == now.day;
+            return dt.year == now.year &&
+                dt.month == now.month &&
+                dt.day == now.day;
           }
           return true;
         }).toList();
@@ -243,69 +261,155 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
           return _buildEmptyState();
         }
 
-        return Column(
-          children: filteredActivities.map((activity) {
-            final title = activity['title'] ?? 'Untitled Activity';
-            final status = activity['status'] ?? 'DRAFT';
-            
-            Color statusColor = const Color(0xFF1BA654);
-            Color statusBgColor = const Color(0xFFC3DFCC);
-            String statusText = status;
-            
-            if (status == 'DRAFT') {
-              statusColor = const Color(0xFF3B82F6);
-              statusBgColor = const Color(0xFFDBEAFE);
-              statusText = 'Draft';
-            } else if (status == 'UNDER_REVIEW') {
-              statusColor = const Color(0xFFEAB308);
-              statusBgColor = const Color(0xFFFEF08A);
-              statusText = 'Under Review';
-            } else if (status == 'REJECTED') {
-              statusColor = const Color(0xFFEF4444);
-              statusBgColor = const Color(0xFFFEE2E2);
-              statusText = 'Rejected';
-            } else if (status == 'REVISION_REQUESTED') {
-              statusColor = const Color(0xFFF97316);
-              statusBgColor = const Color(0xFFFFEDD5);
-              statusText = 'Needs Revision';
-            } else if (status == 'APPROVED' || status == 'SUBMITTED' || status == 'RESUBMITTED') {
-              statusText = 'Submitted';
-            }
+        // Calculate pagination
+        final totalPages = (filteredActivities.length / _activitiesPerPage)
+            .ceil();
+        final startIndex = _currentPage * _activitiesPerPage;
+        final endIndex = (startIndex + _activitiesPerPage).clamp(
+          0,
+          filteredActivities.length,
+        );
+        final paginatedActivities = filteredActivities.sublist(
+          startIndex,
+          endIndex,
+        );
+        final showingStart = startIndex + 1;
+        final showingEnd = endIndex;
+        final total = filteredActivities.length;
 
-            String timeStr = '';
-            if (activity['timestamp'] != null) {
-              final dt = DateTime.parse(activity['timestamp']).toLocal();
-              timeStr = DateFormat('dd MMM yyyy – hh:mm a').format(dt);
-            }
-            
-            String? imageUrl;
-            final evidenceList = activity['evidence'] as List<dynamic>? ?? [];
-            for (final ev in evidenceList) {
-              final mimeType = ev['mimeType'] as String? ?? '';
-              if (mimeType.startsWith('image/')) {
-                final path = ev['storagePath'];
-                if (path != null) {
-                  imageUrl = path;
-                  break;
+        return Column(
+          children: [
+            // Activity list
+            ...paginatedActivities.map((activity) {
+              final title = activity['title'] ?? 'Untitled Activity';
+              final status = activity['status'] ?? 'DRAFT';
+
+              Color statusColor = const Color(0xFF1BA654);
+              Color statusBgColor = const Color(0xFFC3DFCC);
+              String statusText = status;
+
+              if (status == 'DRAFT') {
+                statusColor = const Color(0xFF3B82F6);
+                statusBgColor = const Color(0xFFDBEAFE);
+                statusText = 'Draft';
+              } else if (status == 'UNDER_REVIEW') {
+                statusColor = const Color(0xFFEAB308);
+                statusBgColor = const Color(0xFFFEF08A);
+                statusText = 'Under Review';
+              } else if (status == 'REJECTED') {
+                statusColor = const Color(0xFFEF4444);
+                statusBgColor = const Color(0xFFFEE2E2);
+                statusText = 'Rejected';
+              } else if (status == 'REVISION_REQUESTED') {
+                statusColor = const Color(0xFFF97316);
+                statusBgColor = const Color(0xFFFFEDD5);
+                statusText = 'Needs Revision';
+              } else if (status == 'APPROVED' ||
+                  status == 'SUBMITTED' ||
+                  status == 'RESUBMITTED') {
+                statusText = 'Submitted';
+              }
+
+              String timeStr = '';
+              if (activity['timestamp'] != null) {
+                final dt = DateTime.parse(activity['timestamp']).toLocal();
+                timeStr = DateFormat('dd MMM yyyy – hh:mm a').format(dt);
+              }
+
+              String? imageUrl;
+              final evidenceList = activity['evidence'] as List<dynamic>? ?? [];
+              for (final ev in evidenceList) {
+                final mimeType = ev['mimeType'] as String? ?? '';
+                if (mimeType.startsWith('image/')) {
+                  final path = ev['storagePath'];
+                  if (path != null) {
+                    imageUrl = path;
+                    break;
+                  }
                 }
               }
-            }
 
-            final locName = activity['locationName'] as String?;
-            final fallbackLoc = "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
+              final locName = activity['locationName'] as String?;
+              final fallbackLoc =
+                  "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
 
-            return _buildActivityCard(
-              id: activity['id'] ?? '',
-              title: title,
-              location: locName != null && locName.isNotEmpty ? locName : fallbackLoc,
-              time: timeStr,
-              statusText: statusText,
-              statusColor: statusColor,
-              statusBgColor: statusBgColor,
-              gpsVerifiedColor: const Color(0xFF1BA654),
-              imageUrl: imageUrl,
-            );
-          }).toList(),
+              return _buildActivityCard(
+                id: activity['id'] ?? '',
+                title: title,
+                location: locName != null && locName.isNotEmpty
+                    ? locName
+                    : fallbackLoc,
+                time: timeStr,
+                statusText: statusText,
+                statusColor: statusColor,
+                statusBgColor: statusBgColor,
+                gpsVerifiedColor: const Color(0xFF1BA654),
+                imageUrl: imageUrl,
+              );
+            }).toList(),
+
+            // Pagination controls
+            if (totalPages > 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 24,
+                  horizontal: 24,
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _currentPage > 0
+                              ? () => setState(() => _currentPage--)
+                              : null,
+                          icon: Icon(PhosphorIconsRegular.arrowLeft, size: 16),
+                          label: const Text('Previous'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _currentPage > 0
+                                ? const Color(0xFF1BA654)
+                                : Colors.grey[300],
+                            foregroundColor: _currentPage > 0
+                                ? Colors.white
+                                : Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          'Page ${_currentPage + 1}/$totalPages',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: _currentPage < totalPages - 1
+                              ? () => setState(() => _currentPage++)
+                              : null,
+                          icon: Icon(PhosphorIconsRegular.arrowRight, size: 16),
+                          label: const Text('Next'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _currentPage < totalPages - 1
+                                ? const Color(0xFF1BA654)
+                                : Colors.grey[300],
+                            foregroundColor: _currentPage < totalPages - 1
+                                ? Colors.white
+                                : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Showing $showingStart–$showingEnd of $total activities',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         );
       },
     );
@@ -315,8 +419,14 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Activity', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to permanently delete this activity? This cannot be undone.', style: TextStyle(fontFamily: 'Roboto')),
+        title: const Text(
+          'Delete Activity',
+          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Are you sure you want to permanently delete this activity? This cannot be undone.',
+          style: TextStyle(fontFamily: 'Roboto'),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actions: [
           TextButton(
@@ -325,7 +435,12 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -339,7 +454,9 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
         ref.invalidate(studentActivitiesProvider);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text((res as Failure).message)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text((res as Failure).message)));
         }
       }
     }
@@ -349,7 +466,8 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   Widget _buildEmptyState() {
     return EmptyStateWidget(
       title: 'No Activities',
-      message: 'You have not added any activities yet. Click the + button to create a new draft activity for your field session.',
+      message:
+          'You have not added any activities yet. Click the + button to create a new draft activity for your field session.',
       icon: PhosphorIconsRegular.clipboardText,
     );
   }
@@ -375,135 +493,137 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
           borderRadius: BorderRadius.circular(40),
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: imageUrl != null ? Image.network(
-              ImageUtils.getFullImageUrl(imageUrl),
-              width: 64,
-              height: 64,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 64,
-                  height: 64,
-                  color: const Color(0xFFF3F4F6),
-                  child: const Icon(
-                    PhosphorIconsRegular.image,
-                    color: Color(0xFF9CA3AF),
-                    size: 32,
-                  ),
-                );
-              },
-            ) : Container(
-              width: 64,
-              height: 64,
-              color: const Color(0xFFF3F4F6),
-              child: const Icon(
-                PhosphorIconsRegular.image,
-                color: Color(0xFF9CA3AF),
-                size: 32,
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: imageUrl != null
+                  ? Image.network(
+                      ImageUtils.getFullImageUrl(imageUrl),
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 64,
+                          height: 64,
+                          color: const Color(0xFFF3F4F6),
+                          child: const Icon(
+                            PhosphorIconsRegular.image,
+                            color: Color(0xFF9CA3AF),
+                            size: 32,
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      width: 64,
+                      height: 64,
+                      color: const Color(0xFFF3F4F6),
+                      child: const Icon(
+                        PhosphorIconsRegular.image,
+                        color: Color(0xFF9CA3AF),
+                        size: 32,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: statusBgColor,
-                        borderRadius: BorderRadius.circular(20),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusBgColor,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: statusColor,
+                          ),
+                        ),
                       ),
-                      child: Text(
-                        statusText,
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          location,
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFF737373),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'GPS Verified',
                         style: TextStyle(
                           fontFamily: 'Roboto',
                           fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: statusColor,
+                          fontWeight: FontWeight.w600,
+                          color: gpsVerifiedColor,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        location,
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xFF737373),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'GPS Verified',
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: gpsVerifiedColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  time,
-                  style: const TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF737373),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    time,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF737373),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(PhosphorIconsRegular.trash, color: Colors.red),
-            onPressed: () => _deleteActivity(id),
-          ),
-          const Icon(
-            PhosphorIconsRegular.caretRight,
-            color: Colors.black,
-            size: 24,
-          ),
-        ],
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(PhosphorIconsRegular.trash, color: Colors.red),
+              onPressed: () => _deleteActivity(id),
+            ),
+            const Icon(
+              PhosphorIconsRegular.caretRight,
+              color: Colors.black,
+              size: 24,
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -639,4 +759,3 @@ class _SkeletonCard extends StatelessWidget {
     );
   }
 }
-

@@ -23,19 +23,36 @@ export class AuditLogService {
     device?: string;
   }) {
     try {
-      await prisma.auditLog.create({
-        data: {
-          actorId,
-          userId,
-          action,
-          details: details ? JSON.parse(JSON.stringify(details)) : undefined,
-          ipAddress,
-          userAgent,
-          device,
-        },
+      const { auditQueue } = await import('../utils/queue.js');
+      await auditQueue.add('logAudit', {
+        actorId,
+        userId,
+        action,
+        details: details ? JSON.parse(JSON.stringify(details)) : undefined,
+        ipAddress,
+        userAgent,
+        device,
       });
     } catch (error) {
-      appLogger.error('Failed to write audit log:', { error, action, actorId, userId });
+      appLogger.error('Failed to queue audit log:', { error, action, actorId, userId });
     }
+  }
+}
+
+export async function processAuditLog(data: any) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        actorId: data.actorId,
+        userId: data.userId,
+        action: data.action,
+        details: data.details,
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
+        device: data.device,
+      },
+    });
+  } catch (error) {
+    appLogger.error('Failed to write audit log from queue:', { error, action: data.action });
   }
 }

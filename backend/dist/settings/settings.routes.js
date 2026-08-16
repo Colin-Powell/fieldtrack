@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { getSettingsInfo, getProfileSettings, updateProfileSettings, updatePassword, updateSecuritySettings, logoutOtherSessions, deactivateAccount, updatePreferences, uploadAvatar, revokeSession } from './settings.controller.js';
 import { authenticate } from '../auth/auth.middleware.js';
+import { cacheMiddleware } from '../utils/cache.js';
 const router = Router();
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -16,8 +17,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 // All settings routes require authentication
 router.use(authenticate);
-router.get('/info', getSettingsInfo);
-router.get('/profile', getProfileSettings);
+router.get('/info', cacheMiddleware(300), getSettingsInfo);
+router.get('/profile', cacheMiddleware(60), getProfileSettings);
 router.put('/profile', updateProfileSettings);
 router.patch('/profile', updateProfileSettings);
 router.put('/password', updatePassword);

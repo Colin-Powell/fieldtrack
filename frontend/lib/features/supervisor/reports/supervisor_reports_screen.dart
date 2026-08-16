@@ -413,28 +413,36 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
     return Container(
       color: _C.bg,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTopHeader(),
-              const SizedBox(height: 32),
-              _buildActionFilters(),
-              const SizedBox(height: 24),
-              _buildStatCards(),
-              const SizedBox(height: 24),
-              _buildChartsRow(),
-              const SizedBox(height: 24),
-              Expanded(
-                child: RefreshIndicator(
-                  color: _C.green,
-                  onRefresh: _loadDashboard,
-                  child: _buildTable(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: _buildTopHeader(),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                color: _C.green,
+                onRefresh: _loadDashboard,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildActionFilters(),
+                      const SizedBox(height: 24),
+                      _buildStatCards(),
+                      const SizedBox(height: 24),
+                      _buildChartsRow(),
+                      const SizedBox(height: 24),
+                      _buildTable(),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1305,22 +1313,17 @@ class _SupervisorReportsScreenState extends State<SupervisorReportsScreen> {
                   ),
                 )
               else
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minWidth: tableWidth,
-                          maxWidth: tableWidth,
-                        ),
-                        child: Column(
-                          children: _filteredStudents
-                              .map((s) => _buildStudentRow(s))
-                              .toList(),
-                        ),
-                      ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: tableWidth,
+                      maxWidth: tableWidth,
+                    ),
+                    child: Column(
+                      children: _filteredStudents
+                          .map((s) => _buildStudentRow(s))
+                          .toList(),
                     ),
                   ),
                 ),

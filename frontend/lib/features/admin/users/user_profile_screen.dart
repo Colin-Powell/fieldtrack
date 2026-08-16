@@ -338,7 +338,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   Row(
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () => context.push('/admin/users/${widget.userId}/edit'),
+                        onPressed: () => context.push('/admin/users/edit/${widget.userId}'),
                         icon: Icon(PhosphorIcons.pencilSimple(), size: 18),
                         label: const Text('Edit Details'),
                         style: OutlinedButton.styleFrom(

@@ -77,7 +77,9 @@ export class ActivityController {
         return res.status(400).json({ error: 'Missing studentId' });
       }
 
-      const activities = await activityService.getStudentActivities(studentId);
+      const limit = parseInt(req.query.limit as string, 10) || 50;
+      const offset = parseInt(req.query.offset as string, 10) || 0;
+      const activities = await activityService.getStudentActivities(studentId, limit, offset);
       res.status(200).json(activities);
     } catch (error) {
       console.error('[getForStudent]', error);
@@ -92,7 +94,9 @@ export class ActivityController {
         return res.status(400).json({ error: 'Missing supervisorId' });
       }
 
-      const activities = await activityService.getSupervisorActivities(supervisorId);
+      const limit = parseInt(req.query.limit as string, 10) || 50;
+      const offset = parseInt(req.query.offset as string, 10) || 0;
+      const activities = await activityService.getSupervisorActivities(supervisorId, limit, offset);
       res.status(200).json(activities);
     } catch (error) {
       console.error('[getForSupervisor]', error);

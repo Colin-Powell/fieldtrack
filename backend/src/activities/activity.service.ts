@@ -103,11 +103,13 @@ export class ActivityService {
   /**
    * Get all activities for a student
    */
-  async getStudentActivities(studentId: string) {
+  async getStudentActivities(studentId: string, limit: number = 50, offset: number = 0) {
     return prisma.fieldLog.findMany({
       where: { studentId },
+      take: limit,
+      skip: offset,
       include: {
-        evidence: true,
+        evidence: { select: { id: true, fileUrl: true, fileType: true, fileSize: true, description: true } },
         reviews: true,
         user: { select: { id: true, name: true, email: true } },
       },
@@ -138,10 +140,10 @@ export class ActivityService {
   /**
    * Get activities for assigned students (Supervisor view)
    */
-  async getSupervisorActivities(supervisorId: string) {
+  async getSupervisorActivities(supervisorId: string, limit: number = 50, offset: number = 0) {
     const supervisorProfile = await prisma.supervisorProfile.findUnique({
       where: { userId: supervisorId },
-      include: { assignedStudents: true }
+      include: { assignedStudents: { select: { userId: true } } }
     });
 
     if (!supervisorProfile) {
@@ -155,9 +157,12 @@ export class ActivityService {
         studentId: { in: studentIds },
         status: { in: ['SUBMITTED', 'UNDER_REVIEW', 'RESUBMITTED', 'REVISION_REQUESTED', 'APPROVED', 'REJECTED'] }
       },
+      take: limit,
+      skip: offset,
       include: {
-        evidence: true,
+        evidence: { select: { id: true, fileUrl: true, fileType: true, fileSize: true, description: true } },
         user: { select: { id: true, name: true, email: true } },
+        reviews: { select: { id: true, status: true } },
       },
       orderBy: { timestamp: 'desc' },
     });

@@ -9,6 +9,9 @@ import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import 'package:fieldtrack/features/supervisor/dashboard/dashboard_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/core/network/api_result.dart';
 import '../widgets/supervisor_top_header.dart';
 
 // ==========================================
@@ -121,9 +124,9 @@ class _SupervisorStudentsScreenState extends State<SupervisorStudentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _C.bg,
-      body: SafeArea(
+    return Container(
+      color: _C.bg,
+      child: SafeArea(
         // Outer layout is fixed (no scroll view)
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -343,43 +346,67 @@ class _SupervisorStudentsScreenState extends State<SupervisorStudentsScreen> {
         borderRadius: BorderRadius.circular(_C.cardRadius),
         border: Border.all(color: _C.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Row(
-              children: const [
-                Expanded(flex: 3, child: _TableHeader('Student')),
-                Expanded(flex: 2, child: _TableHeader('Reg. Number')),
-                Expanded(flex: 2, child: _TableHeader('Programme')),
-                Expanded(flex: 3, child: _TableHeader('Research Topic')),
-                Expanded(flex: 2, child: _TableHeader('Status')),
-                Expanded(flex: 2, child: _TableHeader('Check-in-status')),
-                Expanded(flex: 2, child: _TableHeader('Last Activity')),
-                SizedBox(
-                  width: 40,
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: _TableHeader('Actions'),
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: max(constraints.maxWidth, 1000),
+              ),
+              child: SizedBox(
+                width: max(constraints.maxWidth, 1000),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: const [
+                          Expanded(flex: 3, child: _TableHeader('Student')),
+                          Expanded(flex: 2, child: _TableHeader('Reg. Number')),
+                          Expanded(flex: 2, child: _TableHeader('Programme')),
+                          Expanded(
+                            flex: 3,
+                            child: _TableHeader('Research Topic'),
+                          ),
+                          Expanded(flex: 2, child: _TableHeader('Status')),
+                          Expanded(flex: 2, child: _TableHeader('Review')),
+                          Expanded(
+                            flex: 2,
+                            child: _TableHeader('Last Activity'),
+                          ),
+                          SizedBox(
+                            width: 40,
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: _TableHeader('Actions'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: _C.border),
+                    // Rows
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: list.length,
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1, color: _C.border),
+                        itemBuilder: (context, index) =>
+                            _StudentTableRow(student: list[index]),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-          const Divider(height: 1, color: _C.border),
-          // Rows (Using Expanded + ListView for potential overflow, but guaranteed 6 rows)
-          Expanded(
-            child: ListView.separated(
-              itemCount: list.length,
-              separatorBuilder: (context, index) =>
-                  const Divider(height: 1, color: _C.border),
-              itemBuilder: (context, index) =>
-                  _StudentTableRow(student: list[index]),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -626,7 +653,7 @@ class _TableHeader extends StatelessWidget {
   }
 }
 
-class _StudentTableRow extends StatelessWidget {
+class _StudentTableRow extends ConsumerWidget {
   final StudentData student;
   const _StudentTableRow({required this.student});
 
@@ -651,7 +678,7 @@ class _StudentTableRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return InkWell(
       onTap: () => _navigateToProfile(context),
       child: Padding(
@@ -739,7 +766,77 @@ class _StudentTableRow extends StatelessWidget {
               flex: 2,
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: _PillBadge(label: student.checkInStatus),
+                child: Builder(
+                  builder: (context) {
+                    final activitiesAsync = ref.watch(
+                      studentActivitiesByStudentIdProvider(student.id),
+                    );
+
+                    return activitiesAsync.when(
+                      data: (result) {
+                        if (result is Success<List<dynamic>>) {
+                          final activities = result.data;
+                          final pendingCount = activities.where((a) {
+                            final map = a as Map<String, dynamic>;
+                            final status = map['status'] as String? ?? '';
+                            return status == 'SUBMITTED' ||
+                                status == 'UNDER_REVIEW';
+                          }).length;
+
+                          if (pendingCount > 0) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF7ED),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(
+                                    0xFFF97316,
+                                  ).withOpacity(0.3),
+                                ),
+                              ),
+                              child: Text(
+                                '$pendingCount Pending',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  color: Color(0xFFC2410C),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                        return const Text(
+                          '—',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            color: _C.textMuted,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        );
+                      },
+                      loading: () => const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      error: (_, __) => const Text(
+                        '—',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          color: _C.textMuted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             Expanded(

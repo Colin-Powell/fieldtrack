@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 // Note: Ensure these imports point to your actual files
 import 'package:fieldtrack/features/activities/activities_screen.dart';
 import 'package:fieldtrack/features/dashboard/dashboard_screen.dart';
@@ -7,6 +6,7 @@ import 'package:fieldtrack/features/map/map_screen.dart';
 import 'package:fieldtrack/features/notifications/notifications_screen.dart';
 import 'package:fieldtrack/features/notifications/providers/notifications_provider.dart';
 import 'package:fieldtrack/features/profile/profile_screen.dart';
+import 'package:fieldtrack/core/widgets/error_boundary.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fieldtrack/core/providers/navigation_provider.dart';
@@ -15,12 +15,11 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
 
   @override
-  ConsumerState<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  ConsumerState<MainNavigationScreen> createState() =>
+      _MainNavigationScreenState();
 }
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
-  int _selectedIndex = 0;
-
   static const _pages = <Widget>[
     DashboardScreen(),
     ActivitiesScreen(),
@@ -33,8 +32,10 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   Widget build(BuildContext context) {
     const greenColor = Color(0xFF1BA654);
     final selectedIndex = ref.watch(navigationIndexProvider);
+    final isSelectionMode = ref.watch(notificationSelectionModeProvider);
     final notifsAsync = ref.watch(notificationsProvider);
-    final unreadCount = notifsAsync.valueOrNull?.where((n) => !n.isRead).length ?? 0;
+    final unreadCount =
+        notifsAsync.valueOrNull?.where((n) => !n.isRead).length ?? 0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -42,44 +43,76 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       extendBody: true,
       body: Stack(
         children: [
-          // Main content screens
-          IndexedStack(
-            index: selectedIndex,
-            children: _pages,
+          // Main content screens - wrapped in ErrorBoundary to prevent app crashes
+          ErrorBoundary(
+            title: 'Screen Error',
+            child: IndexedStack(index: selectedIndex, children: _pages),
           ),
-          
+
           // Floating Navigation Bar
-          Positioned(
-            bottom: 24,
-            left: 24,
-            right: 24,
-            child: Container(
-              height: 72,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: greenColor,
-                borderRadius: BorderRadius.circular(36), // Pill shape
-                boxShadow: [
-                  BoxShadow(
-                    color: greenColor.withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildNavItem(Icons.home, 'Home', 0, selectedIndex, greenColor),
-                  _buildNavItem(Icons.article, 'Activities', 1, selectedIndex, greenColor),
-                  _buildNavItem(Icons.location_on, 'Map', 2, selectedIndex, greenColor),
-                  _buildNavItem(Icons.notifications, 'Alerts', 3, selectedIndex, greenColor, badgeCount: unreadCount),
-                  _buildNavItem(Icons.account_circle, 'Profile', 4, selectedIndex, greenColor),
-                ],
+          if (!isSelectionMode)
+            Positioned(
+              bottom: 24,
+              left: 24,
+              right: 24,
+              child: Container(
+                height: 72,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: greenColor,
+                  borderRadius: BorderRadius.circular(36), // Pill shape
+                  boxShadow: [
+                    BoxShadow(
+                      color: greenColor.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _buildNavItem(
+                      Icons.home,
+                      'Home',
+                      0,
+                      selectedIndex,
+                      greenColor,
+                    ),
+                    _buildNavItem(
+                      Icons.article,
+                      'Activities',
+                      1,
+                      selectedIndex,
+                      greenColor,
+                    ),
+                    _buildNavItem(
+                      Icons.location_on,
+                      'Map',
+                      2,
+                      selectedIndex,
+                      greenColor,
+                    ),
+                    _buildNavItem(
+                      Icons.notifications,
+                      'Alerts',
+                      3,
+                      selectedIndex,
+                      greenColor,
+                      badgeCount: unreadCount,
+                    ),
+                    _buildNavItem(
+                      Icons.account_circle,
+                      'Profile',
+                      4,
+                      selectedIndex,
+                      greenColor,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -89,10 +122,17 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     ref.read(navigationIndexProvider.notifier).state = index;
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index, int selectedIndex, Color activeColor, {int badgeCount = 0}) {
+  Widget _buildNavItem(
+    IconData icon,
+    String label,
+    int index,
+    int selectedIndex,
+    Color activeColor, {
+    int badgeCount = 0,
+  }) {
     final isSelected = selectedIndex == index;
     const activeBgColor = Color(0xFFC3DFCC); // Light Green
-    
+
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
@@ -151,7 +191,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                   fontSize: 13,
                 ),
               ),
-            ]
+            ],
           ],
         ),
       ),

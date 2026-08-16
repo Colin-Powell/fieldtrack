@@ -140,10 +140,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
 
     try {
       final apiClient = ApiClient();
-      final response = await apiClient.dio.get('/admin/users');
+      // Use pagination: fetch 50 users per page, starting from page 0
+      final response = await apiClient.dio.get(
+        '/admin/users',
+        queryParameters: {'limit': 50, 'offset': 0},
+      );
 
       if (response.statusCode == 200) {
-        final List<dynamic> usersData = response.data['users'];
+        final List<dynamic> usersData = response.data['users'] ?? [];
         final fetchedUsers = usersData.map((u) {
           UserRole parsedRole;
           switch (u['role']) {
@@ -193,7 +197,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
         if (mounted) ToastService.showError('Failed to fetch users');
       }
     } catch (e) {
-      if (mounted) ToastService.showError('Error fetching users: ${ErrorHandler.getFriendlyErrorMessage(e)}');
+      if (mounted)
+        ToastService.showError(
+          'Error fetching users: ${ErrorHandler.getFriendlyErrorMessage(e)}',
+        );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -231,6 +238,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
     }
     return list;
   }
+
   Future<void> _importUsersCsv() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -246,10 +254,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
         setState(() => _isLoading = true);
 
         final formData = FormData.fromMap({
-          'file': MultipartFile.fromBytes(
-            file.bytes!,
-            filename: file.name,
-          ),
+          'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
         });
 
         final response = await ApiClient().dio.post(
@@ -258,7 +263,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
         );
 
         ToastService.showSuccess(
-            'Import successful: ${response.data['imported']} users imported.');
+          'Import successful: ${response.data['imported']} users imported.',
+        );
         if (response.data['errors'] != null &&
             (response.data['errors'] as List).isNotEmpty) {
           debugPrint('Import Errors: ${response.data['errors']}');
@@ -278,12 +284,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
     try {
       setState(() => _isLoading = true);
       final response = await ApiClient().dio.get('/admin/users/export');
-      
+
       final csvString = response.data.toString();
       final bytes = utf8.encode(csvString);
       final base64Str = base64Encode(bytes);
       final dataUri = 'data:text/csv;base64,$base64Str';
-      
+
       await launchUrl(Uri.parse(dataUri));
       setState(() => _isLoading = false);
     } catch (e) {
@@ -371,47 +377,46 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
           ],
         );
 
-        final searchAndAdd = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: isNarrow ? double.infinity : 320,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+        final searchBar = Container(
+          width: isNarrow ? null : 320,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              Icon(
+                PhosphorIcons.magnifyingGlass(),
+                color: _C.textFaint,
+                size: 20,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Icon(
-                    PhosphorIcons.magnifyingGlass(),
-                    color: _C.textFaint,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      onChanged: (v) => setState(() => _searchQuery = v),
-                      style: const TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 14,
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'Search users...',
-                        hintStyle: TextStyle(
-                          fontFamily: 'Poppins',
-                          color: _C.textFaint,
-                          fontSize: 14,
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                      ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
+                  decoration: const InputDecoration(
+                    hintText: 'Search users...',
+                    hintStyle: TextStyle(
+                      fontFamily: 'Poppins',
+                      color: _C.textFaint,
+                      fontSize: 14,
                     ),
+                    border: InputBorder.none,
+                    isDense: true,
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
+          ),
+        );
+
+        final searchAndAdd = Row(
+          mainAxisSize: isNarrow ? MainAxisSize.max : MainAxisSize.min,
+          children: [
+            isNarrow ? Expanded(child: searchBar) : searchBar,
             const SizedBox(width: 16),
             ElevatedButton.icon(
               onPressed: () {
@@ -493,7 +498,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
             children: [
               OutlinedButton.icon(
                 onPressed: _exportUsersCsv,
-                icon: const Icon(PhosphorIconsRegular.downloadSimple, size: 18, color: _C.textDark),
+                icon: const Icon(
+                  PhosphorIconsRegular.downloadSimple,
+                  size: 18,
+                  color: _C.textDark,
+                ),
                 label: const Text(
                   'Export',
                   style: TextStyle(
@@ -505,7 +514,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                 ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: _C.border),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -514,7 +526,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
               const SizedBox(width: 12),
               OutlinedButton.icon(
                 onPressed: _importUsersCsv,
-                icon: const Icon(PhosphorIconsRegular.uploadSimple, size: 18, color: _C.textDark),
+                icon: const Icon(
+                  PhosphorIconsRegular.uploadSimple,
+                  size: 18,
+                  color: _C.textDark,
+                ),
                 label: const Text(
                   'Import',
                   style: TextStyle(
@@ -526,7 +542,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                 ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: _C.border),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -1732,14 +1751,18 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                 // Actions
                 _buildActionTile(PhosphorIcons.eye(), 'View Profile', () {
                   Navigator.pop(ctx);
-                  context.push('/admin/users/profile/${user.id}').then((_) => _fetchUsers());
+                  context
+                      .push('/admin/users/profile/${user.id}')
+                      .then((_) => _fetchUsers());
                 }),
                 _buildActionTile(
                   PhosphorIcons.pencilSimple(),
                   'Edit Details',
                   () {
                     Navigator.pop(ctx);
-                    context.push('/admin/users/edit/${user.id}').then((_) => _fetchUsers());
+                    context
+                        .push('/admin/users/edit/${user.id}')
+                        .then((_) => _fetchUsers());
                   },
                 ),
 
@@ -1762,6 +1785,38 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                     'Suspend User',
                     () async {
                       Navigator.pop(ctx);
+                      // Add confirmation dialog
+                      bool confirmed =
+                          await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Suspend User'),
+                              content: Text(
+                                'Are you sure you want to suspend ${user.name}? They will not be able to log in or access the system.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                  child: const Text(
+                                    'Suspend',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ) ??
+                          false;
+
+                      if (!confirmed) return;
+
                       try {
                         await ApiClient().dio.patch(
                           '/admin/users/${user.id}/status',
@@ -1785,6 +1840,32 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                     'Activate User',
                     () async {
                       Navigator.pop(ctx);
+                      // Add confirmation dialog
+                      bool confirmed =
+                          await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Activate User'),
+                              content: Text(
+                                'Reactivate ${user.name}? They will be able to log in again.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('Activate'),
+                                ),
+                              ],
+                            ),
+                          ) ??
+                          false;
+
+                      if (!confirmed) return;
+
                       try {
                         await ApiClient().dio.patch(
                           '/admin/users/${user.id}/status',

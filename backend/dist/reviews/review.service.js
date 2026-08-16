@@ -54,4 +54,20 @@ export class ReviewService {
         }
         return review;
     }
+    /**
+     * List reviews for a given reviewer (supervisor) with pagination.
+     */
+    async getReviews(reviewerId, limit = 50, offset = 0) {
+        const [data, total] = await Promise.all([
+            prisma.review.findMany({
+                where: { reviewerId },
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+                skip: offset,
+                include: { log: { select: { title: true, studentId: true } } },
+            }),
+            prisma.review.count({ where: { reviewerId } }),
+        ]);
+        return { data, total, limit, offset };
+    }
 }

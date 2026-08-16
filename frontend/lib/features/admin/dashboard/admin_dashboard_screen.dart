@@ -2,10 +2,10 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'providers/admin_dashboard_provider.dart';
-import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
 import 'package:fieldtrack/core/network/error_handler.dart';
 
@@ -24,13 +24,13 @@ class DonutSegment {
   });
 }
 
-class DeptStat {
+class DashboardDepartmentStat {
   final String name;
   final int count;
   final double percentage; // 0.0 to 1.0
   final Color color;
 
-  const DeptStat({
+  const DashboardDepartmentStat({
     required this.name,
     required this.count,
     required this.percentage,
@@ -38,20 +38,77 @@ class DeptStat {
   });
 }
 
-class SysActivity {
+class DashboardSystemActivity {
   final String title;
   final String desc;
   final String time;
   final IconData icon;
   final Color color;
 
-  const SysActivity({
+  const DashboardSystemActivity({
     required this.title,
     required this.desc,
     required this.time,
     required this.icon,
     required this.color,
   });
+}
+
+/// Wrapper widget that handles both mouse hover and touch events for charts
+/// Provides consistent interaction on desktop, tablet, and mobile
+class _TouchFriendlyHoverRegion extends StatefulWidget {
+  final Widget child;
+  final Function(Offset) onHover;
+  final VoidCallback onExit;
+
+  const _TouchFriendlyHoverRegion({
+    required this.child,
+    required this.onHover,
+    required this.onExit,
+  });
+
+  @override
+  State<_TouchFriendlyHoverRegion> createState() =>
+      _TouchFriendlyHoverRegionState();
+}
+
+class _TouchFriendlyHoverRegionState extends State<_TouchFriendlyHoverRegion> {
+  bool _isCurrentlyHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onHover: (event) {
+        if (!_isCurrentlyHovering) {
+          _isCurrentlyHovering = true;
+        }
+        widget.onHover(event.localPosition);
+      },
+      onExit: (_) {
+        _isCurrentlyHovering = false;
+        widget.onExit();
+      },
+      child: Listener(
+        onPointerMove: (event) {
+          // Handle touch move events
+          if (event.kind == PointerDeviceKind.touch) {
+            widget.onHover(event.localPosition);
+          }
+        },
+        onPointerUp: (_) {
+          // Reset on touch end
+          _isCurrentlyHovering = false;
+          widget.onExit();
+        },
+        onPointerCancel: (_) {
+          // Reset on touch cancel
+          _isCurrentlyHovering = false;
+          widget.onExit();
+        },
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 // Utility to parse hex color string to Color
@@ -163,9 +220,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final dy = pos.dy - center.dy;
     final distance = sqrt(dx * dx + dy * dy);
 
-    // Donut radius checks
     final radius = min(size.width / 2, size.height / 2) - 20;
-    final innerRadius = radius - 24; // Half stroke width approx
+    final innerRadius = radius - 24;
     final outerRadius = radius + 24;
 
     if (distance < innerRadius || distance > outerRadius) {
@@ -179,7 +235,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     }
 
     double angle = atan2(dy, dx);
-    // Convert angle to match our drawing logic starting from -pi/2
     angle += pi / 2;
     if (angle < 0) angle += 2 * pi;
 
@@ -201,7 +256,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     }
   }
 
-  // ── Empty State Widget ──
   Widget _buildEmptyState(String message) {
     return Center(
       child: Column(
@@ -229,588 +283,604 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── HEADER ──
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 700;
+        final padding = isCompact ? 16.0 : 32.0;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(padding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'System Overview',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF171717),
-                ),
-              ),
-              _buildDropdownActionPill(
-                label: _timeFilter,
-                options: _timeFilterOptions,
-                onSelected: (v) => setState(() {
-                  _timeFilter = v;
-                  _hoveredBarIndex = null;
-                  _hoveredLineIndex = null;
-                }),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // ── STATS GRID ──
-          ref
-              .watch(adminDashboardProvider(_timeFilter))
-              .when(
-                data: (stats) {
-                  final trendUp = '↑';
-                  final trendDown = '↓';
-                  final studentTrend = stats.totalStudents > 0
-                      ? '$trendUp ${(stats.totalStudents * 0.12).round()}'
-                      : '0';
-                  final supervisorTrend = stats.activeSupervisors > 0
-                      ? '$trendUp ${(stats.activeSupervisors * 0.05).round()}'
-                      : '0';
-
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isNarrow = constraints.maxWidth < 900;
-                      return Wrap(
-                        spacing: 24,
-                        runSpacing: 24,
-                        children: [
-                          SizedBox(
-                            width: isNarrow
-                                ? (constraints.maxWidth - 24) / 2
-                                : (constraints.maxWidth - 48) / 3,
-                            child: _buildStatCard(
-                              title: 'Total Students',
-                              value: formatNumber(stats.totalStudents),
-                              trend: studentTrend,
-                              icon: PhosphorIconsRegular.student,
-                            ),
-                          ),
-                          SizedBox(
-                            width: isNarrow
-                                ? (constraints.maxWidth - 24) / 2
-                                : (constraints.maxWidth - 48) / 3,
-                            child: _buildStatCard(
-                              title: 'Active Supervisors',
-                              value: stats.activeSupervisors.toString(),
-                              trend: supervisorTrend,
-                              icon: PhosphorIconsRegular.chalkboardTeacher,
-                            ),
-                          ),
-                          SizedBox(
-                            width: isNarrow
-                                ? (constraints.maxWidth - 24) / 2
-                                : (constraints.maxWidth - 48) / 3,
-                            child: _buildStatCard(
-                              title: 'Students in Field',
-                              value: stats.studentsInField.toString(),
-                              trend: stats.studentsInField > 0
-                                  ? 'Live'
-                                  : 'None',
-                              icon: PhosphorIconsRegular.mapPin,
-                              isAccent: true,
-                              accentColor: const Color(0xFF3B82F6),
-                            ),
-                          ),
-                          SizedBox(
-                            width: isNarrow
-                                ? (constraints.maxWidth - 24) / 2
-                                : (constraints.maxWidth - 48) / 3,
-                            child: _buildStatCard(
-                              title: 'Submitted Today',
-                              value: stats.submittedToday.toString(),
-                              trend: stats.submittedToday > 0
-                                  ? '$trendUp ${stats.submittedToday}'
-                                  : '0',
-                              icon: PhosphorIconsRegular.fileArrowUp,
-                            ),
-                          ),
-                          SizedBox(
-                            width: isNarrow
-                                ? (constraints.maxWidth - 24) / 2
-                                : (constraints.maxWidth - 48) / 3,
-                            child: _buildStatCard(
-                              title: 'Pending Reviews',
-                              value: stats.pendingReviews.toString(),
-                              trend: stats.pendingReviews > 0
-                                  ? '$trendDown ${stats.pendingReviews}'
-                                  : '0',
-                              icon: PhosphorIconsRegular.clockCountdown,
-                              isAccent: true,
-                              accentColor: const Color(0xFFFF7A00),
-                            ),
-                          ),
-                          SizedBox(
-                            width: isNarrow
-                                ? (constraints.maxWidth - 24) / 2
-                                : (constraints.maxWidth - 48) / 3,
-                            child: _buildStatCard(
-                              title: 'Research Projects',
-                              value: stats.activeProjects.toString(),
-                              trend: stats.activeProjects > 0
-                                  ? '+$trendUp'
-                                  : '0',
-                              icon: PhosphorIconsRegular.folders,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 32),
-                  child: Center(
-                    child: Text(
-                      ErrorHandler.getFriendlyErrorMessage(err),
-                      style: const TextStyle(color: Color(0xFFEF4444)),
+              Wrap(
+                spacing: 16,
+                runSpacing: 12,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  const Text(
+                    'System Overview',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF171717),
                     ),
                   ),
-                ),
+                  _buildDropdownActionPill(
+                    label: _timeFilter,
+                    options: _timeFilterOptions,
+                    onSelected: (v) => setState(() {
+                      _timeFilter = v;
+                      _hoveredBarIndex = null;
+                      _hoveredLineIndex = null;
+                    }),
+                  ),
+                ],
               ),
-          const SizedBox(height: 32),
+              const SizedBox(height: 24),
+              ref
+                  .watch(adminDashboardProvider(_timeFilter))
+                  .when(
+                    data: (stats) {
+                      final trendUp = '↑';
+                      final trendDown = '↓';
+                      final studentTrend = stats.totalStudents > 0
+                          ? '$trendUp ${(stats.totalStudents * 0.12).round()}'
+                          : '0';
+                      final supervisorTrend = stats.activeSupervisors > 0
+                          ? '$trendUp ${(stats.activeSupervisors * 0.05).round()}'
+                          : '0';
 
-          // ── MAIN LAYOUT (CHARTS + SIDE PANEL) ──
-          ref
-              .watch(adminDashboardProvider(_timeFilter))
-              .when(
-                data: (stats) {
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isNarrow = constraints.maxWidth < 1100;
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final width = constraints.maxWidth;
+                          final isOneColumn = width < 560;
+                          final isTwoColumns = width >= 560 && width < 1100;
 
-                      // Convert provider models to screen models where needed
-                      final List<DonutSegment> donutSegments = stats
-                          .submissionStatus
-                          .map(
-                            (s) => DonutSegment(
-                              label: s.label,
-                              value: s.value,
-                              color: _parseColor(s.color),
-                            ),
-                          )
-                          .toList();
+                          final cardWidth = isOneColumn
+                              ? width
+                              : isTwoColumns
+                              ? (width - 24) / 2
+                              : (width - 48) / 3;
 
-                      final List<DeptStat> deptStats = stats.departmentStats
-                          .map(
-                            (d) => DeptStat(
-                              name: d.name,
-                              count: d.count,
-                              percentage: d.percentage,
-                              color: _parseColor(d.color),
-                            ),
-                          )
-                          .toList();
-
-                      final List<SysActivity> sysActivities = stats
-                          .systemActivities
-                          .map(
-                            (a) => SysActivity(
-                              title: a.title,
-                              desc: a.desc,
-                              time: a.time,
-                              icon: _mapIcon(a.icon),
-                              color: _parseColor(a.color),
-                            ),
-                          )
-                          .toList();
-
-                      final chartsContent = Column(
-                        children: [
-                          // Activity Trend (Full Width of left section)
-                          _buildChartCard(
-                            title: 'Student Activity Trend',
-                            height: 380,
-                            child: stats.activityTrend.isEmpty
-                                ? _buildEmptyState(
-                                    'No activity data available yet',
-                                  )
-                                : MouseRegion(
-                                    onHover: (e) => _updateBarHover(
-                                      e.localPosition,
-                                      isNarrow
-                                          ? constraints.maxWidth
-                                          : (constraints.maxWidth - 32) * 0.7 -
-                                                64,
-                                      stats.activityTrend,
-                                    ),
-                                    onExit: (_) =>
-                                        setState(() => _hoveredBarIndex = null),
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      child: CustomPaint(
-                                        painter: _BarChartPainter(
-                                          dataPoints: stats.activityTrend,
-                                          activeIndex: _hoveredBarIndex,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Field Attendance + Submission Status
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          return Wrap(
+                            spacing: 24,
+                            runSpacing: 24,
                             children: [
-                              Expanded(
-                                flex: 6,
-                                child: _buildChartCard(
-                                  title: 'Field Attendance Trend (%)',
-                                  height: 320,
-                                  child: stats.attendanceTrend.isEmpty
-                                      ? _buildEmptyState(
-                                          'No attendance data available yet',
-                                        )
-                                      : MouseRegion(
-                                          onHover: (e) => _updateLineHover(
-                                            e.localPosition,
-                                            isNarrow
-                                                ? (constraints.maxWidth - 24) /
-                                                      2
-                                                : ((constraints.maxWidth - 32) *
-                                                                  0.7 -
-                                                              24) *
-                                                          0.6 -
-                                                      64,
-                                            stats.attendanceTrend,
-                                          ),
-                                          onExit: (_) => setState(
-                                            () => _hoveredLineIndex = null,
-                                          ),
-                                          child: SizedBox(
-                                            width: double.infinity,
-                                            child: CustomPaint(
-                                              painter: _SmoothLineChartPainter(
-                                                dataPoints:
-                                                    stats.attendanceTrend,
-                                                activeIndex: _hoveredLineIndex,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
+                              SizedBox(
+                                width: cardWidth,
+                                child: _buildStatCard(
+                                  title: 'Total Students',
+                                  value: formatNumber(stats.totalStudents),
+                                  trend: studentTrend,
+                                  icon: PhosphorIconsRegular.student,
                                 ),
                               ),
-                              const SizedBox(width: 24),
-                              Expanded(
-                                flex: 4,
-                                child: _buildChartCard(
-                                  title: 'Submission Status',
-                                  height: 320,
-                                  child:
-                                      stats.submissionStatus.isEmpty ||
-                                          stats.submissionStatus.every(
-                                            (s) => s.value == 0,
-                                          )
-                                      ? _buildEmptyState('No submissions yet')
-                                      : MouseRegion(
-                                          onHover: (e) => _updateDonutHover(
-                                            e.localPosition,
-                                            Size(
-                                              (isNarrow
-                                                          ? constraints.maxWidth
-                                                          : (constraints.maxWidth -
-                                                                        32) *
-                                                                    0.7 -
-                                                                24) *
-                                                      0.4 -
-                                                  48,
-                                              320 - 96,
-                                            ), // Approximate size based on flex/padding, better to use LayoutBuilder but we can just use the provided Size in CustomPainter. Wait, CustomPainter passes the exact size, so I'll wrap in LayoutBuilder.
-                                            donutSegments,
-                                          ),
-                                          onExit: (_) => setState(() {
-                                            _hoveredDonutIndex = null;
-                                            _donutHoverPos = null;
-                                          }),
-                                          child: LayoutBuilder(
-                                            builder:
-                                                (
-                                                  context,
-                                                  donutConstraints,
-                                                ) => SizedBox(
-                                                  width: double.infinity,
-                                                  child: CustomPaint(
-                                                    painter: _DonutChartPainter(
-                                                      segments: donutSegments,
-                                                      activeIndex:
-                                                          _hoveredDonutIndex,
-                                                      hoverPos: _donutHoverPos,
-                                                    ),
-                                                  ),
-                                                ),
-                                          ),
-                                        ),
+                              SizedBox(
+                                width: cardWidth,
+                                child: _buildStatCard(
+                                  title: 'Active Supervisors',
+                                  value: stats.activeSupervisors.toString(),
+                                  trend: supervisorTrend,
+                                  icon: PhosphorIconsRegular.chalkboardTeacher,
+                                ),
+                              ),
+                              SizedBox(
+                                width: cardWidth,
+                                child: _buildStatCard(
+                                  title: 'Students in Field',
+                                  value: stats.studentsInField.toString(),
+                                  trend: stats.studentsInField > 0
+                                      ? 'Live'
+                                      : 'None',
+                                  icon: PhosphorIconsRegular.mapPin,
+                                  isAccent: true,
+                                  accentColor: const Color(0xFF3B82F6),
+                                ),
+                              ),
+                              SizedBox(
+                                width: cardWidth,
+                                child: _buildStatCard(
+                                  title: 'Submitted Today',
+                                  value: stats.submittedToday.toString(),
+                                  trend: stats.submittedToday > 0
+                                      ? '$trendUp ${stats.submittedToday}'
+                                      : '0',
+                                  icon: PhosphorIconsRegular.fileArrowUp,
+                                ),
+                              ),
+                              SizedBox(
+                                width: cardWidth,
+                                child: _buildStatCard(
+                                  title: 'Pending Reviews',
+                                  value: stats.pendingReviews.toString(),
+                                  trend: stats.pendingReviews > 0
+                                      ? '$trendDown ${stats.pendingReviews}'
+                                      : '0',
+                                  icon: PhosphorIconsRegular.clockCountdown,
+                                  isAccent: true,
+                                  accentColor: const Color(0xFFFF7A00),
+                                ),
+                              ),
+                              SizedBox(
+                                width: cardWidth,
+                                child: _buildStatCard(
+                                  title: 'Research Projects',
+                                  value: stats.activeProjects.toString(),
+                                  trend: stats.activeProjects > 0
+                                      ? '+$trendUp'
+                                      : '0',
+                                  icon: PhosphorIconsRegular.folders,
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Students per Department (Horizontal Bars)
-                          _buildChartCard(
-                            title: 'Students per Department',
-                            height: deptStats.isEmpty ? 160 : 320,
-                            child: deptStats.isEmpty
-                                ? _buildEmptyState(
-                                    'No department data available',
-                                  )
-                                : _buildDepartmentList(deptStats),
-                          ),
-                        ],
-                      );
-
-                      final sidePanel = Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(40),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 20,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Recent Registrations',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF171717),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            if (stats.recentUsers.isEmpty)
-                              _buildEmptyState('No recent registrations')
-                            else
-                              ListView.separated(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: stats.recentUsers.length,
-                                separatorBuilder: (_, __) => const Divider(
-                                  height: 32,
-                                  color: Color(0xFFF3F4F6),
-                                ),
-                                itemBuilder: (context, i) {
-                                  final u = stats.recentUsers[i];
-                                  return Row(
-                                    children: [
-                                      SizedBox(
-                                        width: 44,
-                                        height: 44,
-                                        child: AppAvatar(
-                                          imagePath: u.avatarUrl,
-                                          size: 44,
-                                          shape: AvatarShape.circle,
-                                          initials: u.name.isNotEmpty
-                                              ? u.name
-                                                    .split(' ')
-                                                    .map(
-                                                      (s) => s.isNotEmpty
-                                                          ? s[0]
-                                                          : '',
-                                                    )
-                                                    .take(2)
-                                                    .join()
-                                              : null,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              u.name,
-                                              style: const TextStyle(
-                                                fontFamily: 'Inter',
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 14,
-                                                color: Color(0xFF171717),
-                                              ),
-                                            ),
-                                            Text(
-                                              u.role,
-                                              style: const TextStyle(
-                                                fontFamily: 'Inter',
-                                                fontSize: 12,
-                                                color: Color(0xFF6B7280),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Text(
-                                        u.time,
-                                        style: const TextStyle(
-                                          fontFamily: 'Inter',
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          color: Color(0xFF9CA3AF),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-
-                            const SizedBox(height: 48),
-                            const Text(
-                              'System Activity',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF171717),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            if (sysActivities.isEmpty)
-                              _buildEmptyState('No system activities recorded')
-                            else
-                              ListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: sysActivities.length,
-                                itemBuilder: (context, i) {
-                                  final a = sysActivities[i];
-                                  return Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Column(
-                                        children: [
-                                          Container(
-                                            width: 36,
-                                            height: 36,
-                                            decoration: BoxDecoration(
-                                              color: a.color.withOpacity(0.1),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                              a.icon,
-                                              color: a.color,
-                                              size: 18,
-                                            ),
-                                          ),
-                                          if (i != sysActivities.length - 1)
-                                            Container(
-                                              width: 2,
-                                              height: 40,
-                                              color: const Color(0xFFF3F4F6),
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(
-                                            bottom: 24,
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                a.title,
-                                                style: const TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 14,
-                                                  color: Color(0xFF171717),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                a.desc,
-                                                style: const TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontSize: 13,
-                                                  color: Color(0xFF6B7280),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                a.time,
-                                                style: const TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Color(0xFF9CA3AF),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                          ],
-                        ),
-                      );
-
-                      if (isNarrow) {
-                        return Column(
-                          children: [
-                            chartsContent,
-                            const SizedBox(height: 32),
-                            sidePanel,
-                          ],
-                        );
-                      }
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 70, child: chartsContent),
-                          const SizedBox(width: 32),
-                          Expanded(flex: 30, child: sidePanel),
-                        ],
+                          );
+                        },
                       );
                     },
-                  );
-                },
-                loading: () => const SizedBox.shrink(),
-                error: (err, stack) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 32),
-                  child: Center(
-                    child: Text(
-                      ErrorHandler.getFriendlyErrorMessage(err),
-                      style: const TextStyle(color: Color(0xFFEF4444)),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (err, stack) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Text(
+                          ErrorHandler.getFriendlyErrorMessage(err),
+                          style: const TextStyle(color: Color(0xFFEF4444)),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-        ],
-      ),
+              const SizedBox(height: 32),
+              ref
+                  .watch(adminDashboardProvider(_timeFilter))
+                  .when(
+                    data: (stats) {
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isNarrow = constraints.maxWidth < 900;
+
+                          final List<DonutSegment> donutSegments = stats
+                              .submissionStatus
+                              .map(
+                                (s) => DonutSegment(
+                                  label: s.label,
+                                  value: s.value,
+                                  color: _parseColor(s.color),
+                                ),
+                              )
+                              .toList();
+
+                          final List<DashboardDepartmentStat> deptStats = stats
+                              .departmentStats
+                              .map(
+                                (d) => DashboardDepartmentStat(
+                                  name: d.name,
+                                  count: d.count,
+                                  percentage: d.percentage,
+                                  color: _parseColor(d.color),
+                                ),
+                              )
+                              .toList();
+
+                          final List<DashboardSystemActivity> sysActivities =
+                              stats.systemActivities
+                                  .map(
+                                    (a) => DashboardSystemActivity(
+                                      title: a.title,
+                                      desc: a.desc,
+                                      time: a.time,
+                                      icon: _mapIcon(a.icon),
+                                      color: _parseColor(a.color),
+                                    ),
+                                  )
+                                  .toList();
+
+                          final chartsContent = Column(
+                            children: [
+                              _buildChartCard(
+                                title: 'Student Activity Trend',
+                                height: 380,
+                                child: stats.activityTrend.isEmpty
+                                    ? _buildEmptyState(
+                                        'No activity data available yet',
+                                      )
+                                    : _TouchFriendlyHoverRegion(
+                                        onHover: (pos) => _updateBarHover(
+                                          pos,
+                                          isNarrow
+                                              ? constraints.maxWidth
+                                              : (constraints.maxWidth - 32) *
+                                                        0.7 -
+                                                    64,
+                                          stats.activityTrend,
+                                        ),
+                                        onExit: () => setState(
+                                          () => _hoveredBarIndex = null,
+                                        ),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          child: CustomPaint(
+                                            painter: _BarChartPainter(
+                                              dataPoints: stats.activityTrend,
+                                              activeIndex: _hoveredBarIndex,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: 6,
+                                    child: _buildChartCard(
+                                      title: 'Field Attendance Trend (%)',
+                                      height: 320,
+                                      child: stats.attendanceTrend.isEmpty
+                                          ? _buildEmptyState(
+                                              'No attendance data available yet',
+                                            )
+                                          : _TouchFriendlyHoverRegion(
+                                              onHover: (pos) => _updateLineHover(
+                                                pos,
+                                                isNarrow
+                                                    ? (constraints.maxWidth -
+                                                              24) /
+                                                          2
+                                                    : ((constraints.maxWidth -
+                                                                          32) *
+                                                                      0.7 -
+                                                                  24) *
+                                                              0.6 -
+                                                          64,
+                                                stats.attendanceTrend,
+                                              ),
+                                              onExit: () => setState(
+                                                () => _hoveredLineIndex = null,
+                                              ),
+                                              child: SizedBox(
+                                                width: double.infinity,
+                                                child: CustomPaint(
+                                                  painter:
+                                                      _SmoothLineChartPainter(
+                                                        dataPoints: stats
+                                                            .attendanceTrend,
+                                                        activeIndex:
+                                                            _hoveredLineIndex,
+                                                      ),
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  Expanded(
+                                    flex: 4,
+                                    child: _buildChartCard(
+                                      title: 'Submission Status',
+                                      height: 320,
+                                      child:
+                                          stats.submissionStatus.isEmpty ||
+                                              stats.submissionStatus.every(
+                                                (s) => s.value == 0,
+                                              )
+                                          ? _buildEmptyState(
+                                              'No submissions yet',
+                                            )
+                                          : _TouchFriendlyHoverRegion(
+                                              onHover: (pos) => _updateDonutHover(
+                                                pos,
+                                                Size(
+                                                  (isNarrow
+                                                              ? constraints
+                                                                    .maxWidth
+                                                              : (constraints.maxWidth -
+                                                                            32) *
+                                                                        0.7 -
+                                                                    24) *
+                                                          0.4 -
+                                                      48,
+                                                  320 - 96,
+                                                ),
+                                                donutSegments,
+                                              ),
+                                              onExit: () => setState(() {
+                                                _hoveredDonutIndex = null;
+                                                _donutHoverPos = null;
+                                              }),
+                                              child: LayoutBuilder(
+                                                builder:
+                                                    (
+                                                      context,
+                                                      donutConstraints,
+                                                    ) => SizedBox(
+                                                      width: double.infinity,
+                                                      child: CustomPaint(
+                                                        painter: _DonutChartPainter(
+                                                          segments:
+                                                              donutSegments,
+                                                          activeIndex:
+                                                              _hoveredDonutIndex,
+                                                          hoverPos:
+                                                              _donutHoverPos,
+                                                        ),
+                                                      ),
+                                                    ),
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              _buildChartCard(
+                                title: 'Students per Department',
+                                height: deptStats.isEmpty ? 160 : 320,
+                                child: deptStats.isEmpty
+                                    ? _buildEmptyState(
+                                        'No department data available',
+                                      )
+                                    : _buildDepartmentList(deptStats),
+                              ),
+                            ],
+                          );
+
+                          final sidePanel = Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(40),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Recent Registrations',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF171717),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                if (stats.recentUsers.isEmpty)
+                                  _buildEmptyState('No recent registrations')
+                                else
+                                  ListView.separated(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: stats.recentUsers.length,
+                                    separatorBuilder: (context, index) =>
+                                        const Divider(
+                                          height: 32,
+                                          color: Color(0xFFF3F4F6),
+                                        ),
+                                    itemBuilder: (context, i) {
+                                      final u = stats.recentUsers[i];
+                                      return Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 44,
+                                            height: 44,
+                                            child: AppAvatar(
+                                              imagePath: u.avatarUrl,
+                                              size: 44,
+                                              shape: AvatarShape.circle,
+                                              initials: u.name.isNotEmpty
+                                                  ? u.name
+                                                        .split(' ')
+                                                        .map(
+                                                          (s) => s.isNotEmpty
+                                                              ? s[0]
+                                                              : '',
+                                                        )
+                                                        .take(2)
+                                                        .join()
+                                                  : null,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  u.name,
+                                                  style: const TextStyle(
+                                                    fontFamily: 'Inter',
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 14,
+                                                    color: Color(0xFF171717),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  u.role,
+                                                  style: const TextStyle(
+                                                    fontFamily: 'Inter',
+                                                    fontSize: 12,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Text(
+                                            u.time,
+                                            style: const TextStyle(
+                                              fontFamily: 'Inter',
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: Color(0xFF9CA3AF),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                const SizedBox(height: 48),
+                                const Text(
+                                  'System Activity',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF171717),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                if (sysActivities.isEmpty)
+                                  _buildEmptyState(
+                                    'No system activities recorded',
+                                  )
+                                else
+                                  ListView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: sysActivities.length,
+                                    itemBuilder: (context, i) {
+                                      final a = sysActivities[i];
+                                      return Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Column(
+                                            children: [
+                                              Container(
+                                                width: 36,
+                                                height: 36,
+                                                decoration: BoxDecoration(
+                                                  color: a.color.withValues(
+                                                    alpha: 0.1,
+                                                  ),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(
+                                                  a.icon,
+                                                  color: a.color,
+                                                  size: 18,
+                                                ),
+                                              ),
+                                              if (i != sysActivities.length - 1)
+                                                Container(
+                                                  width: 2,
+                                                  height: 40,
+                                                  color: const Color(
+                                                    0xFFF3F4F6,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 24,
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    a.title,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Inter',
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 14,
+                                                      color: Color(0xFF171717),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    a.desc,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Inter',
+                                                      fontSize: 13,
+                                                      color: Color(0xFF6B7280),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    a.time,
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Inter',
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: Color(0xFF9CA3AF),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                              ],
+                            ),
+                          );
+
+                          if (isNarrow) {
+                            return Column(
+                              children: [
+                                chartsContent,
+                                const SizedBox(height: 32),
+                                sidePanel,
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 7, child: chartsContent),
+                              const SizedBox(width: 32),
+                              Expanded(flex: 3, child: sidePanel),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const SizedBox.shrink(),
+                    error: (err, stack) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Text(
+                          ErrorHandler.getFriendlyErrorMessage(err),
+                          style: const TextStyle(color: Color(0xFFEF4444)),
+                        ),
+                      ),
+                    ),
+                  ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  // ── Utility to format large numbers ──
   String formatNumber(int num) {
     if (num >= 1000) {
       return '${(num / 1000).toStringAsFixed(1)}k';
     }
     return num.toString();
   }
-
-  // ── WIDGET BUILDERS ──
 
   Widget _buildDropdownActionPill({
     required String label,
@@ -889,7 +959,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     bool isAccent = false,
     Color? accentColor,
   }) {
-    final bgColor = isAccent ? accentColor!.withOpacity(0.1) : Colors.white;
+    final bgColor = isAccent
+        ? accentColor!.withValues(alpha: 0.1)
+        : Colors.white;
     final iconBgColor = isAccent ? accentColor! : const Color(0xFF169B45);
     final iconColor = Colors.white;
 
@@ -902,7 +974,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             ? []
             : [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 20,
                   offset: const Offset(0, 4),
                 ),
@@ -931,7 +1003,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: isAccent
-                        ? iconBgColor.withOpacity(0.8)
+                        ? iconBgColor.withValues(alpha: 0.8)
                         : const Color(0xFF6B7280),
                   ),
                   maxLines: 1,
@@ -959,8 +1031,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: trend.startsWith('-') || trend == 'None'
-                      ? const Color(0xFFEF4444).withOpacity(0.1)
-                      : const Color(0xFF169B45).withOpacity(0.1),
+                      ? const Color(0xFFEF4444).withValues(alpha: 0.1)
+                      : const Color(0xFF169B45).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -995,7 +1067,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         borderRadius: BorderRadius.circular(40),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -1020,11 +1092,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildDepartmentList(List<DeptStat> deptStats) {
+  Widget _buildDepartmentList(List<DashboardDepartmentStat> deptStats) {
     return ListView.separated(
       physics: const NeverScrollableScrollPhysics(),
       itemCount: deptStats.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 20),
+      separatorBuilder: (context, index) => const SizedBox(height: 20),
       itemBuilder: (context, index) {
         final d = deptStats[index];
         return Column(
@@ -1195,7 +1267,7 @@ class _BarChartPainter extends CustomPainter {
         canvas.drawRRect(
           tooltipRect.shift(const Offset(0, 4)),
           Paint()
-            ..color = Colors.black.withOpacity(0.05)
+            ..color = Colors.black.withValues(alpha: 0.05)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
         );
         canvas.drawRRect(tooltipRect, Paint()..color = Colors.white);
@@ -1330,8 +1402,8 @@ class _SmoothLineChartPainter extends CustomPainter {
 
     final fillPaint = Paint()
       ..shader = ui.Gradient.linear(Offset(0, 0), Offset(0, chartHeight), [
-        const Color(0xFF10B981).withOpacity(0.3),
-        const Color(0xFF10B981).withOpacity(0.0),
+        const Color(0xFF10B981).withValues(alpha: 0.3),
+        const Color(0xFF10B981).withValues(alpha: 0.0),
       ]);
     canvas.drawPath(fillPath, fillPaint);
 
@@ -1353,7 +1425,7 @@ class _SmoothLineChartPainter extends CustomPainter {
         Offset(pt.dx, pt.dy),
         Offset(pt.dx, chartHeight),
         Paint()
-          ..color = const Color(0xFF10B981).withOpacity(0.3)
+          ..color = const Color(0xFF10B981).withValues(alpha: 0.3)
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke,
       );
@@ -1370,7 +1442,7 @@ class _SmoothLineChartPainter extends CustomPainter {
       canvas.drawRRect(
         tooltipRect.shift(const Offset(0, 4)),
         Paint()
-          ..color = Colors.black.withOpacity(0.05)
+          ..color = Colors.black.withValues(alpha: 0.05)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
       canvas.drawRRect(tooltipRect, Paint()..color = Colors.white);
@@ -1493,7 +1565,7 @@ class _DonutChartPainter extends CustomPainter {
       canvas.drawRRect(
         tooltipRect.shift(const Offset(0, 4)),
         Paint()
-          ..color = Colors.black.withOpacity(0.05)
+          ..color = Colors.black.withValues(alpha: 0.05)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
       canvas.drawRRect(tooltipRect, Paint()..color = Colors.white);

@@ -23,7 +23,26 @@ import 'package:fieldtrack/features/admin/profile/admin_profile_screen.dart';
 import 'package:fieldtrack/core/utils/toast_service.dart';
 import 'package:fieldtrack/features/admin/users/user_profile_screen.dart';
 import 'package:fieldtrack/features/admin/users/edit_user_screen.dart';
+import 'package:fieldtrack/features/admin/users/add_user_screen.dart';
 import 'package:fieldtrack/shared/screens/not_found_screen.dart';
+
+CustomTransitionPage<T> _buildPageWithFadeTransition<T>({
+  required BuildContext context,
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<T>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurveTween(curve: Curves.easeOutCubic).animate(animation),
+        child: child,
+      );
+    },
+  );
+}
+
 
 class _AdminRouterNotifier extends ChangeNotifier {
   _AdminRouterNotifier(this._ref) {
@@ -91,134 +110,144 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
         path: '/admin/reset-password',
         builder: (context, state) => const AdminResetPasswordScreen(),
       ),
-      GoRoute(
-        path: '/admin/dashboard',
-        builder: (context, state) {
-          return const AdminScaffold(
-            currentLocation: '/admin/dashboard',
-            child: AdminDashboardScreen(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/admin/users',
-        builder: (context, state) {
-          return const AdminScaffold(
-            currentLocation: '/admin/users',
-            child: AdminUsersScreen(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/admin/users/profile/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
+      ShellRoute(
+        builder: (context, state, child) {
           return AdminScaffold(
-            currentLocation: '/admin/users',
-            child: UserProfileScreen(userId: id),
+            currentLocation: state.uri.path,
+            child: child,
           );
         },
-      ),
-      GoRoute(
-        path: '/admin/users/edit/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return AdminScaffold(
-            currentLocation: '/admin/users',
-            child: EditUserScreen(userId: id),
-          );
-        },
-      ),
-        GoRoute(
-          path: '/admin/departments',
-          builder: (context, state) {
-            return const AdminScaffold(
-              currentLocation: '/admin/departments',
-              child: AdminDepartmentsScreen(),
-            );
-          },
-        ),
-        GoRoute(
-          path: '/admin/departments/add',
-          builder: (context, state) {
-            return const AdminScaffold(
-              currentLocation: '/admin/departments',
-              child: AdminAddDepartmentScreen(),
-            );
-          },
-        ),
-        GoRoute(
-          path: '/admin/departments/:id',
-          builder: (context, state) {
-            final id = state.pathParameters['id']!;
-            return AdminScaffold(
-              currentLocation: '/admin/departments',
-              child: AdminDepartmentDetailScreen(departmentId: id),
-            );
-          },
-        ),
-      GoRoute(
-        path: '/admin/projects',
-        builder: (context, state) {
-          return const AdminScaffold(
-            currentLocation: '/admin/projects',
-            child: AdminProjectsScreen(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/admin/reports',
-        builder: (context, state) {
-          return const AdminScaffold(
-            currentLocation: '/admin/reports',
-            child: AdminReportsScreen(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/admin/map',
-        builder: (context, state) {
-          return const AdminScaffold(
-            currentLocation: '/admin/map',
-            child: AdminMapScreen(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/admin/notifications',
-        builder: (context, state) {
-          return const AdminScaffold(
-            currentLocation: '/admin/notifications',
-            child: AdminNotificationsScreen(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/admin/audit',
-        builder: (context, state) {
-          return const AdminScaffold(
-            currentLocation: '/admin/audit',
-            child: AdminAuditScreen(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/admin/settings',
-        builder: (context, state) {
-          return const AdminScaffold(
-            currentLocation: '/admin/settings',
-            child: AdminSettingsScreen(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/admin/profile',
-        builder: (context, state) {
-          return const AdminScaffold(
-            currentLocation: '/admin/profile',
-            child: AdminProfileScreen(),
-          );
-        },
+        routes: [
+          GoRoute(
+            path: '/admin/dashboard',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminDashboardScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/users',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminUsersScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/users/add',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AddUserScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/users/profile/:id',
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return _buildPageWithFadeTransition<void>(
+                context: context,
+                state: state,
+                child: UserProfileScreen(userId: id),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/admin/users/edit/:id',
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return _buildPageWithFadeTransition<void>(
+                context: context,
+                state: state,
+                child: EditUserScreen(userId: id),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/admin/departments',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminDepartmentsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/departments/add',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminAddDepartmentScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/departments/:id',
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return _buildPageWithFadeTransition<void>(
+                context: context,
+                state: state,
+                child: AdminDepartmentDetailScreen(departmentId: id),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/admin/projects',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminProjectsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/reports',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminReportsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/map',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminMapScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/notifications',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminNotificationsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/audit',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminAuditScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/settings',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminSettingsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/profile',
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const AdminProfileScreen(),
+            ),
+          ),
+        ],
       ),
     ],
   );

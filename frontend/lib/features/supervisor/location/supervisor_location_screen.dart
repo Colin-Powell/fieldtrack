@@ -208,56 +208,64 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SupervisorTopHeader(
-                title: 'Live Location Tracking',
-                subtitle: 'View real-time student location and activity',
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isMobile = constraints.maxWidth < 800;
+        return Container(
+          color: const Color(0xFFF3F4F6),
+          child: SafeArea(
+            child: Padding(
+              padding: EdgeInsets.all(isMobile ? 16 : 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SupervisorTopHeader(
+                    title: 'Live Location Tracking',
+                    subtitle: 'View real-time student location and activity',
+                  ),
+                  const SizedBox(height: 24),
+                  // ── TOP ROW: STATS & DETAILS ─────────────────────────────────────
+                  _buildTopStatsRow(isMobile: isMobile),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // ── BOTTOM ROW: MAP & TIMELINE ───────────────────────────────────
+                  Expanded(
+                    child: isMobile
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(flex: 1, child: _buildMapCard()),
+                              const SizedBox(height: 24),
+                              Expanded(flex: 1, child: _buildActivityTimeline()),
+                            ],
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 70, child: _buildMapCard()),
+                              const SizedBox(width: 24),
+                              Expanded(flex: 30, child: _buildActivityTimeline()),
+                            ],
+                          ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
-              // ── TOP ROW: STATS & DETAILS ─────────────────────────────────────
-              _buildTopStatsRow(),
-              
-              const SizedBox(height: 32),
-              
-              // ── BOTTOM ROW: MAP & TIMELINE ───────────────────────────────────
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 70, child: _buildMapCard()),
-                    const SizedBox(width: 24),
-                    Expanded(flex: 30, child: _buildActivityTimeline()),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
   
-  Widget _buildTopStatsRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Left Card: Main Statistics
-        Expanded(
-          flex: 6,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(_C.cardRadius),
-            ),
-            child: Consumer(
+  Widget _buildTopStatsRow({required bool isMobile}) {
+    final leftCard = Container(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 32, vertical: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_C.cardRadius),
+      ),
+      child: Consumer(
               builder: (context, ref, _) {
                 final gpsAsync = ref.watch(supervisorStudentGpsProvider(widget.studentId));
                 final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider(widget.studentId));
@@ -300,6 +308,21 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
                   accuracyStr = '${(totalAcc / gpsHistory.length).toStringAsFixed(1)} m';
                 }
 
+                if (isMobile) {
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    alignment: WrapAlignment.spaceBetween,
+                    children: [
+                      _buildStatCol('Field Session', fieldSession, ''),
+                      _buildStatCol('Time in Field', timeInField, 'Total Duration'),
+                      _buildStatCol('Distance Traveled', distanceStr, 'Total Distance'),
+                      _buildStatCol('Avg. Accuracy', accuracyStr, 'GPS Accuracy'),
+                      _buildStatCol('Activities', '$activitiesCount', 'Total Logged'),
+                    ],
+                  );
+                }
+
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -312,14 +335,9 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
                 );
               }
             ),
-          ),
-        ),
-        const SizedBox(width: 24),
-        
-        // Right Card: Location Details
-        Expanded(
-          flex: 3,
-          child: Container(
+          );
+
+        final rightCard = Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -355,8 +373,25 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
                 ),
               ],
             ),
-          ),
-        ),
+          );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          leftCard,
+          const SizedBox(height: 24),
+          rightCard,
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(flex: 6, child: leftCard),
+        const SizedBox(width: 24),
+        Expanded(flex: 3, child: rightCard),
       ],
     );
   }

@@ -7,8 +7,10 @@ export class NotificationController {
             if (!user) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
-            const notifications = await notificationService.getUserNotifications(user.userId);
-            res.status(200).json(notifications);
+            const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+            const offset = parseInt(req.query.offset) || 0;
+            const result = await notificationService.getUserNotifications(user.userId, limit, offset);
+            res.status(200).json(result);
         }
         catch (error) {
             console.error('[getUserNotifications]', error);

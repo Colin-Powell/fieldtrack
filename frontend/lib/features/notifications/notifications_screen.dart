@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fieldtrack/core/providers/navigation_provider.dart';
 import 'package:fieldtrack/features/notifications/providers/notifications_provider.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 
@@ -9,7 +10,8 @@ class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
@@ -17,7 +19,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   final List<String> _filters = ['All', 'Unread', 'Mentions'];
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  
+
   bool _isSelectionMode = false;
   Set<String> _selectedIds = {};
 
@@ -40,7 +42,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   void _showSnackbar(String message, Color backgroundColor) {
     final textWidth = message.length * 10.0 + 60.0;
     final screenWidth = MediaQuery.of(context).size.width;
-    final horizontalMargin = ((screenWidth - textWidth) / 2).clamp(24.0, screenWidth).toDouble();
+    final horizontalMargin = ((screenWidth - textWidth) / 2)
+        .clamp(24.0, screenWidth)
+        .toDouble();
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -56,17 +60,33 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
-        margin: EdgeInsets.only(bottom: 40, left: horizontalMargin, right: horizontalMargin),
+        margin: EdgeInsets.only(
+          bottom: 40,
+          left: horizontalMargin,
+          right: horizontalMargin,
+        ),
         duration: const Duration(seconds: 2),
         elevation: 4,
       ),
     );
   }
 
+  void _setSelectionMode(bool value) {
+    if (_isSelectionMode == value) {
+      ref.read(notificationSelectionModeProvider.notifier).state = value;
+      return;
+    }
+
+    setState(() {
+      _isSelectionMode = value;
+    });
+    ref.read(notificationSelectionModeProvider.notifier).state = value;
+  }
+
   @override
   Widget build(BuildContext context) {
     final notificationsState = ref.watch(notificationsProvider);
-    
+
     List<NotificationModel> filtered = [];
     if (notificationsState.hasValue) {
       filtered = notificationsState.value!.where((n) {
@@ -74,7 +94,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         if (_selectedFilterIndex == 2) return false;
         if (_searchQuery.isNotEmpty) {
           return n.title.toLowerCase().contains(_searchQuery) ||
-                 n.message.toLowerCase().contains(_searchQuery);
+              n.message.toLowerCase().contains(_searchQuery);
         }
         return true;
       }).toList();
@@ -85,7 +105,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       bottomNavigationBar: _isSelectionMode ? _buildSelectionBottomBar() : null,
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () => ref.read(notificationsProvider.notifier).fetchNotifications(),
+          onRefresh: () =>
+              ref.read(notificationsProvider.notifier).fetchNotifications(),
           color: const Color(0xFF1BA654),
           backgroundColor: Colors.white,
           child: SingleChildScrollView(
@@ -97,10 +118,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   _buildSelectionHeader(filtered)
                 else
                   _buildHeaderTitle(filtered),
-                  
+
                 _buildSearchBar(),
                 _buildFilters(),
-                
+
                 notificationsState.when(
                   loading: () => const Padding(
                     padding: EdgeInsets.only(top: 16),
@@ -108,7 +129,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   ),
                   error: (error, stack) => const Padding(
                     padding: EdgeInsets.only(top: 64),
-                    child: Text('Error loading notifications', style: TextStyle(color: Colors.red)),
+                    child: Text(
+                      'Error loading notifications',
+                      style: TextStyle(color: Colors.red),
+                    ),
                   ),
                   data: (notifications) {
                     if (filtered.isEmpty) {
@@ -122,11 +146,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       itemBuilder: (context, index) {
                         final n = filtered[index];
                         final timeString = _formatTime(n.createdAt);
-                        
+
                         return GestureDetector(
                           onLongPress: () {
+                            _setSelectionMode(true);
                             setState(() {
-                              _isSelectionMode = true;
                               if (_selectedIds.contains(n.id)) {
                                 _selectedIds.remove(n.id);
                               } else {
@@ -145,15 +169,23 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                               });
                               return;
                             }
-                            
+
                             if (!n.isRead) {
-                              ref.read(notificationsProvider.notifier).markAsRead(n.id);
-                              _showSnackbar('Marked as read', const Color(0xFF1BA654));
+                              ref
+                                  .read(notificationsProvider.notifier)
+                                  .markAsRead(n.id);
+                              _showSnackbar(
+                                'Marked as read',
+                                const Color(0xFF1BA654),
+                              );
                             }
-                            
-                            if (n.type == 'CHECKED_IN' || n.type == 'CHECKED_OUT') {
+
+                            if (n.type == 'CHECKED_IN' ||
+                                n.type == 'CHECKED_OUT') {
                               context.push('/checkin');
-                            } else if ((n.type == 'REVIEW_RECEIVED' || n.type == 'ACTIVITY_APPROVED') && n.entityId != null) {
+                            } else if ((n.type == 'REVIEW_RECEIVED' ||
+                                    n.type == 'ACTIVITY_APPROVED') &&
+                                n.entityId != null) {
                               context.push('/activity-detail/${n.entityId}');
                             } else if (n.type == 'NEW_SUBMISSION') {
                               context.push('/activities');
@@ -184,19 +216,22 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   // --- WIDGET COMPONENTS ---
 
   Widget _buildSelectionHeader(List<NotificationModel> filtered) {
-    final bool isAllSelected = filtered.isNotEmpty && _selectedIds.length == filtered.length;
+    final bool isAllSelected =
+        filtered.isNotEmpty && _selectedIds.length == filtered.length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(PhosphorIconsRegular.x, color: Colors.black, size: 28),
+            icon: const Icon(
+              PhosphorIconsRegular.x,
+              color: Colors.black,
+              size: 28,
+            ),
             onPressed: () {
-              setState(() {
-                _isSelectionMode = false;
-                _selectedIds.clear();
-              });
+              _selectedIds.clear();
+              _setSelectionMode(false);
             },
           ),
           const SizedBox(width: 8),
@@ -210,6 +245,26 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             ),
           ),
           const Spacer(),
+          if (_selectedIds.isNotEmpty)
+            IconButton(
+              tooltip: 'Delete selected',
+              icon: const Icon(
+                PhosphorIconsRegular.trash,
+                color: Colors.red,
+                size: 24,
+              ),
+              onPressed: () {
+                ref
+                    .read(notificationsProvider.notifier)
+                    .deleteBulkNotifications(_selectedIds.toList());
+                _showSnackbar(
+                  '${_selectedIds.length} deleted',
+                  Colors.redAccent,
+                );
+                _selectedIds.clear();
+                _setSelectionMode(false);
+              },
+            ),
           InkWell(
             onTap: () {
               setState(() {
@@ -231,13 +286,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       fontFamily: 'Roboto',
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: isAllSelected ? const Color(0xFF1BA654) : Colors.black,
+                      color: isAllSelected
+                          ? const Color(0xFF1BA654)
+                          : Colors.black,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Icon(
-                    isAllSelected ? PhosphorIconsFill.checkCircle : PhosphorIconsRegular.checkCircle,
-                    color: isAllSelected ? const Color(0xFF1BA654) : Colors.black,
+                    isAllSelected
+                        ? PhosphorIconsFill.checkCircle
+                        : PhosphorIconsRegular.checkCircle,
+                    color: isAllSelected
+                        ? const Color(0xFF1BA654)
+                        : Colors.black,
                     size: 24,
                   ),
                 ],
@@ -257,7 +318,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 15,
               offset: const Offset(0, -5),
             ),
@@ -270,27 +331,37 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               icon: PhosphorIconsRegular.envelopeOpen,
               label: 'Read',
               color: const Color(0xFF1BA654),
-              onTap: _selectedIds.isEmpty ? null : () {
-                ref.read(notificationsProvider.notifier).markBulkAsRead(_selectedIds.toList());
-                _showSnackbar('${_selectedIds.length} marked as read', const Color(0xFF1BA654));
-                setState(() {
-                  _isSelectionMode = false;
-                  _selectedIds.clear();
-                });
-              },
+              onTap: _selectedIds.isEmpty
+                  ? null
+                  : () {
+                      ref
+                          .read(notificationsProvider.notifier)
+                          .markBulkAsRead(_selectedIds.toList());
+                      _showSnackbar(
+                        '${_selectedIds.length} marked as read',
+                        const Color(0xFF1BA654),
+                      );
+                      _selectedIds.clear();
+                      _setSelectionMode(false);
+                    },
             ),
             _buildBottomBarAction(
               icon: PhosphorIconsRegular.trash,
               label: 'Delete',
               color: Colors.red,
-              onTap: _selectedIds.isEmpty ? null : () {
-                ref.read(notificationsProvider.notifier).deleteBulkNotifications(_selectedIds.toList());
-                _showSnackbar('${_selectedIds.length} deleted', Colors.redAccent);
-                setState(() {
-                  _isSelectionMode = false;
-                  _selectedIds.clear();
-                });
-              },
+              onTap: _selectedIds.isEmpty
+                  ? null
+                  : () {
+                      ref
+                          .read(notificationsProvider.notifier)
+                          .deleteBulkNotifications(_selectedIds.toList());
+                      _showSnackbar(
+                        '${_selectedIds.length} deleted',
+                        Colors.redAccent,
+                      );
+                      _selectedIds.clear();
+                      _setSelectionMode(false);
+                    },
             ),
           ],
         ),
@@ -298,7 +369,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  Widget _buildBottomBarAction({required IconData icon, required String label, required Color color, VoidCallback? onTap}) {
+  Widget _buildBottomBarAction({
+    required IconData icon,
+    required String label,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
     final bool isEnabled = onTap != null;
     return InkWell(
       onTap: onTap,
@@ -308,7 +384,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isEnabled ? color : const Color(0xFFD1D5DB), size: 28),
+            Icon(
+              icon,
+              color: isEnabled ? color : const Color(0xFFD1D5DB),
+              size: 28,
+            ),
             const SizedBox(height: 6),
             Text(
               label,
@@ -359,7 +439,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 color: Color(0xFFCBE5D2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(PhosphorIconsRegular.dotsThreeVertical, color: Colors.black),
+              child: const Icon(
+                PhosphorIconsRegular.dotsThreeVertical,
+                color: Colors.black,
+              ),
             ),
           ),
         ],
@@ -377,7 +460,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
-          padding: const EdgeInsets.only(top: 12, bottom: 32, left: 24, right: 24),
+          padding: const EdgeInsets.only(
+            top: 12,
+            bottom: 32,
+            left: 24,
+            right: 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -395,7 +483,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 title: 'Select items',
                 onTap: () {
                   Navigator.pop(context);
-                  setState(() => _isSelectionMode = true);
+                  _setSelectionMode(true);
                 },
               ),
               const SizedBox(height: 12),
@@ -416,7 +504,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  Widget _buildMenuOption({required IconData icon, required String title, required VoidCallback onTap, Color? iconColor}) {
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? iconColor,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -433,7 +526,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             const SizedBox(width: 16),
             Text(
               title,
-              style: const TextStyle(fontFamily: 'Roboto', fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+              style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
             ),
           ],
         ),
@@ -451,7 +549,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           fillColor: Colors.white,
           prefixIcon: const Padding(
             padding: EdgeInsets.only(left: 20, right: 12),
-            child: Icon(PhosphorIconsRegular.magnifyingGlass, color: Colors.black, size: 24),
+            child: Icon(
+              PhosphorIconsRegular.magnifyingGlass,
+              color: Colors.black,
+              size: 24,
+            ),
           ),
           prefixIconConstraints: const BoxConstraints(minWidth: 40),
           hintText: 'Search Notifications',
@@ -533,14 +635,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       margin: const EdgeInsets.only(bottom: 16, left: 24, right: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isSelected 
-            ? const Color(0xFFE8F5E9) 
+        color: isSelected
+            ? const Color(0xFFE8F5E9)
             : (isRead ? Colors.white : const Color(0xFFF4FDF7)),
         borderRadius: BorderRadius.circular(32),
         border: Border.all(
-          color: isSelected 
-              ? const Color(0xFF1BA654) 
-              : (isRead ? const Color(0xFFE5E7EB) : const Color(0xFF1BA654).withOpacity(0.3)),
+          color: isSelected
+              ? const Color(0xFF1BA654)
+              : (isRead
+                    ? const Color(0xFFE5E7EB)
+                    : const Color(0xFF1BA654).withValues(alpha: 0.3)),
           width: isSelected ? 2.0 : 1.0,
         ),
       ),
@@ -552,12 +656,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Icon(
-                isSelected ? PhosphorIconsFill.checkCircle : PhosphorIconsRegular.circle,
-                color: isSelected ? const Color(0xFF1BA654) : const Color(0xFFD1D5DB),
+                isSelected
+                    ? PhosphorIconsFill.checkCircle
+                    : PhosphorIconsRegular.circle,
+                color: isSelected
+                    ? const Color(0xFF1BA654)
+                    : const Color(0xFFD1D5DB),
                 size: 26,
               ),
             ),
-            
+
           if (imageUrl != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(32),
@@ -578,16 +686,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: (iconColor ?? const Color(0xFF1BA654)).withOpacity(0.1),
+                color: (iconColor ?? const Color(0xFF1BA654)).withValues(
+                  alpha: 0.1,
+                ),
                 shape: BoxShape.circle,
               ),
-              child: Center(
-                child: Icon(icon, color: iconColor, size: 28),
-              ),
+              child: Center(child: Icon(icon, color: iconColor, size: 28)),
             ),
-            
+
           const SizedBox(width: 16),
-          
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,7 +710,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         style: TextStyle(
                           fontFamily: 'Roboto',
                           fontSize: 15,
-                          fontWeight: isRead ? FontWeight.w600 : FontWeight.w700,
+                          fontWeight: isRead
+                              ? FontWeight.w600
+                              : FontWeight.w700,
                           color: Colors.black,
                           height: 1.3,
                         ),
@@ -625,7 +735,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         fontFamily: 'Roboto',
                         fontSize: 12,
                         fontWeight: isRead ? FontWeight.w500 : FontWeight.w600,
-                        color: isRead ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                        color: isRead
+                            ? const Color(0xFF9CA3AF)
+                            : const Color(0xFF6B7280),
                       ),
                     ),
                   ],
@@ -641,7 +753,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       color: Color(0xFF4B5563),
                     ),
                   ),
-                ]
+                ],
               ],
             ),
           ),
@@ -655,7 +767,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       width: 56,
       height: 56,
       color: const Color(0xFFF3F4F6),
-      child: const Icon(PhosphorIconsRegular.image, color: Color(0xFF9CA3AF), size: 28),
+      child: const Icon(
+        PhosphorIconsRegular.image,
+        color: Color(0xFF9CA3AF),
+        size: 28,
+      ),
     );
   }
 
@@ -712,19 +828,27 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   IconData _getIconForType(String type) {
     switch (type) {
-      case 'CHECKED_IN': return PhosphorIconsFill.mapPin;
-      case 'REVIEW_RECEIVED': return PhosphorIconsFill.star;
-      case 'SYSTEM_ALERT': return PhosphorIconsFill.warningCircle;
-      default: return PhosphorIconsFill.bellRinging;
+      case 'CHECKED_IN':
+        return PhosphorIconsFill.mapPin;
+      case 'REVIEW_RECEIVED':
+        return PhosphorIconsFill.star;
+      case 'SYSTEM_ALERT':
+        return PhosphorIconsFill.warningCircle;
+      default:
+        return PhosphorIconsFill.bellRinging;
     }
   }
-  
+
   Color _getColorForType(String type) {
     switch (type) {
-      case 'CHECKED_IN': return const Color(0xFF1BA654);
-      case 'REVIEW_RECEIVED': return const Color(0xFFF59E0B);
-      case 'SYSTEM_ALERT': return const Color(0xFFE53935);
-      default: return const Color(0xFFF97316);
+      case 'CHECKED_IN':
+        return const Color(0xFF1BA654);
+      case 'REVIEW_RECEIVED':
+        return const Color(0xFFF59E0B);
+      case 'SYSTEM_ALERT':
+        return const Color(0xFFE53935);
+      default:
+        return const Color(0xFFF97316);
     }
   }
 }
@@ -735,10 +859,12 @@ class NotificationSkeletonList extends StatefulWidget {
   const NotificationSkeletonList({super.key});
 
   @override
-  State<NotificationSkeletonList> createState() => _NotificationSkeletonListState();
+  State<NotificationSkeletonList> createState() =>
+      _NotificationSkeletonListState();
 }
 
-class _NotificationSkeletonListState extends State<NotificationSkeletonList> with SingleTickerProviderStateMixin {
+class _NotificationSkeletonListState extends State<NotificationSkeletonList>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -749,11 +875,11 @@ class _NotificationSkeletonListState extends State<NotificationSkeletonList> wit
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
-    
-    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
+
+    _animation = Tween<double>(
+      begin: 0.4,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override

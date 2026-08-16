@@ -78,9 +78,9 @@ class _SupervisorEvidenceScreenState
     return ApiResultBuilder<Map<String, dynamic>>(
       asyncValue: activityAsync,
       onRetry: () => ref.refresh(activityDetailsProvider(widget.activityId)),
-      customLoading: const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(child: CircularProgressIndicator(color: _C.green)),
+      customLoading: Container(
+        color: Colors.white,
+        child: const Center(child: CircularProgressIndicator(color: _C.green)),
       ),
       onData: (activity) {
         final evidenceList = activity['evidence'] as List<dynamic>? ?? [];
@@ -114,30 +114,22 @@ class _SupervisorEvidenceScreenState
 
         String accuracy = 'N/A';
 
-        return Stack(
-          children: [
-            // ── MAIN SCROLLABLE CONTENT ─────────────────────────────────────
-            SingleChildScrollView(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(24.0),
-              child: Row(
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 800;
+            
+            final leftColumn = Container(
+              padding: EdgeInsets.all(isMobile ? 16 : 32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(_C.cardRadius),
+                border: Border.all(color: _C.border),
+              ),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── LEFT COLUMN: Media (Images, Videos, Voice Notes) ────────
-                  Expanded(
-                    flex: 11,
-                    child: Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(_C.cardRadius),
-                        border: Border.all(color: _C.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // --- IMAGES ---
-                          if (images.isNotEmpty) ...[
+                  // --- IMAGES ---
+                  if (images.isNotEmpty) ...[
                             Padding(
                               padding: const EdgeInsets.only(left: 8.0),
                               child: Text(
@@ -157,8 +149,8 @@ class _SupervisorEvidenceScreenState
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 6,
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: isMobile ? 3 : 6,
                                     crossAxisSpacing: 16,
                                     mainAxisSpacing: 16,
                                     childAspectRatio: 0.75,
@@ -202,8 +194,8 @@ class _SupervisorEvidenceScreenState
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: isMobile ? 1 : 3,
                                     crossAxisSpacing: 16,
                                     mainAxisSpacing: 16,
                                     childAspectRatio: 1.2,
@@ -274,21 +266,15 @@ class _SupervisorEvidenceScreenState
                               },
                             ),
                           ],
-                        ],
-                      ),
-                    ),
-                  ),
+                ],
+              ),
+            );
 
-                  const SizedBox(width: 24),
-
-                  // ── RIGHT COLUMN: Documents, Summary & Info ───────────────────
-                  Expanded(
-                    flex: 6,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Documents Section
-                        if (docs.isNotEmpty) ...[
+            final rightColumn = Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Documents Section
+                if (docs.isNotEmpty) ...[
                           Container(
                             padding: const EdgeInsets.all(32),
                             decoration: BoxDecoration(
@@ -351,30 +337,53 @@ class _SupervisorEvidenceScreenState
                         ),
                         const SizedBox(height: 24),
                         _buildSubmissionInfoCard(submittedDateStr, accuracy),
-                      ],
+              ],
+            );
+
+            return Stack(
+              children: [
+                // ── MAIN SCROLLABLE CONTENT ─────────────────────────────────────
+                SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+                  child: isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            leftColumn,
+                            const SizedBox(height: 24),
+                            rightColumn,
+                          ],
+                        )
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 11, child: leftColumn),
+                            const SizedBox(width: 24),
+                            Expanded(flex: 6, child: rightColumn),
+                          ],
+                        ),
+                ),
+
+                // ── FLOATING SCROLL DOWN BUTTON ─────────────────────────────────
+                Positioned(
+                  bottom: 40,
+                  right: 40,
+                  child: FloatingActionButton(
+                    backgroundColor: _C.green,
+                    elevation: 8,
+                    shape: const CircleBorder(),
+                    onPressed: _scrollToBottom,
+                    child: const Icon(
+                      PhosphorIconsRegular.caretDown,
+                      color: Colors.white,
+                      size: 24,
                     ),
                   ),
-                ],
-              ),
-            ),
-
-            // ── FLOATING SCROLL DOWN BUTTON ─────────────────────────────────
-            Positioned(
-              bottom: 40,
-              right: 40,
-              child: FloatingActionButton(
-                backgroundColor: _C.green,
-                elevation: 8,
-                shape: const CircleBorder(),
-                onPressed: _scrollToBottom,
-                child: const Icon(
-                  PhosphorIconsRegular.caretDown,
-                  color: Colors.white,
-                  size: 24,
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );

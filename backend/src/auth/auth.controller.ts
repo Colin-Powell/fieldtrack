@@ -10,6 +10,10 @@ export async function login(req: Request, res: Response) {
     const { email, registrationNo, password } = req.body;
     const ipAddress = req.ip;
     const userAgent = req.headers['user-agent'];
+    const deviceId = req.headers['x-device-id'] as string | undefined;
+    const deviceName = req.headers['x-device-model'] as string | undefined;
+    const platform = req.headers['x-platform'] as string | undefined;
+    const osVersion = req.headers['x-os-version'] as string | undefined;
     
     authLogger.info('Login attempt received', {
       ipAddress,
@@ -106,6 +110,51 @@ export async function login(req: Request, res: Response) {
         lastLogin: new Date(),
       },
     });
+
+    // Enforce device limits if device telemetry provided
+    if (deviceId) {
+      const activeDevices = await prisma.deviceSession.findMany({
+        where: { userId: user.id, isActive: true },
+        orderBy: { lastActiveAt: 'asc' },
+      });
+
+      const isExistingDevice = activeDevices.some((d) => d.deviceId === deviceId);
+      
+      if (!isExistingDevice && activeDevices.length >= user.maxActiveDevices) {
+        // Enforce limit: reject login
+        return res.status(403).json({ error: `Device limit reached (max ${user.maxActiveDevices}). Please log out from another device.` });
+      }
+
+      // Upsert device session
+      const existingSession = await prisma.deviceSession.findFirst({
+        where: { userId: user.id, deviceId },
+      });
+
+      if (existingSession) {
+        await prisma.deviceSession.update({
+          where: { id: existingSession.id },
+          data: {
+            isActive: true,
+            lastActiveAt: new Date(),
+            deviceName,
+            platform,
+            osVersion,
+          },
+        });
+      } else {
+        await prisma.deviceSession.create({
+          data: {
+            userId: user.id,
+            deviceId,
+            deviceName,
+            platform,
+            osVersion,
+            isActive: true,
+            lastActiveAt: new Date(),
+          },
+        });
+      }
+    }
 
     const token = generateToken({
       userId: user.id,
@@ -215,6 +264,8 @@ export async function refresh(req: Request, res: Response) {
 export async function logout(req: Request, res: Response) {
   try {
     const { refreshToken } = req.body;
+    const deviceId = req.headers['x-device-id'] as string | undefined;
+
     if (refreshToken) {
       await prisma.refreshToken.updateMany({
         where: { token: refreshToken },
@@ -223,6 +274,13 @@ export async function logout(req: Request, res: Response) {
     }
     
     if (req.user) {
+      if (deviceId) {
+        await prisma.deviceSession.updateMany({
+          where: { userId: req.user.userId, deviceId },
+          data: { isActive: false },
+        });
+      }
+
       await AuditLogService.log({
         userId: req.user.userId,
         action: 'LOGOUT',

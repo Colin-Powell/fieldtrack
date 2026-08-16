@@ -3,6 +3,8 @@ import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { RedisStore } from 'rate-limit-redis';
+import { redis } from './utils/redis.js';
 import morgan from 'morgan';
 import { appLogger } from './utils/logger.js';
 import { prisma } from './db.js';
@@ -113,13 +115,20 @@ app.use((req: Request, res: Response, next: express.NextFunction) => {
 // Log HTTP requests using Morgan and Winston
 app.use(morgan('combined', { stream: { write: (msg) => appLogger.info(msg.trim()) } }));
 
-// Global Rate Limiter
+// Global Rate Limiter backed by Redis
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // Limit each user/IP to 100 requests per minute
   standardHeaders: true,
   legacyHeaders: false,
-  message: 'Too many requests from this IP, please try again after 15 minutes',
+  message: 'Too many requests, please try again later',
+  store: new RedisStore({
+    sendCommand: (...args: string[]) => redis.call(args[0], ...args.slice(1)) as any,
+  }),
+  keyGenerator: (req) => {
+    // If authenticated, use userId, otherwise fallback to IP
+    return (req as any).user?.userId || req.ip;
+  }
 });
 app.use('/api', globalLimiter);
 

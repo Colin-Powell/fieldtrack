@@ -4,6 +4,7 @@ import { StorageService } from './storage.service.js';
 import { uploadsLogger } from '../utils/logger.js';
 import { authenticate } from '../auth/auth.middleware.js';
 import { prisma } from '../db.js';
+import { mediaQueue } from '../utils/queue.js';
 
 const router = Router();
 const storageService = new StorageService();
@@ -59,7 +60,8 @@ router.post('/upload', authenticate, upload.single('file'), async (req: Request,
       return res.status(403).json({ error: 'You can only upload evidence to your own activities' });
     }
 
-    const evidence = await storageService.processUpload(
+    // Create a placeholder evidence record immediately so the client has an ID to track
+    const evidence = await storageService.createPendingEvidence(
       file,
       activity.id,
       userId,
@@ -70,7 +72,30 @@ router.post('/upload', authenticate, upload.single('file'), async (req: Request,
       evidenceType
     );
 
-    res.status(201).json(evidence);
+    // Enqueue the heavy processing job (FFmpeg, Sharp, Firebase upload) 
+    const job = await mediaQueue.add('processUpload', {
+      evidenceId: evidence.id,
+      filePath: file.path,
+      activityId: activity.id,
+      userId,
+      mimetype: file.mimetype,
+      originalname: file.originalname,
+      size: file.size,
+    }, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2000 },
+      removeOnComplete: true,
+      removeOnFail: false,
+    });
+
+    // Return 202 Accepted immediately — processing happens in the background
+    return res.status(202).json({
+      success: true,
+      jobId: job.id,
+      evidenceId: evidence.id,
+      status: 'processing',
+      message: 'File uploaded successfully. Media processing has started in the background.',
+    });
   } catch (error) {
     uploadsLogger.error('Upload media failed:', { error, activityId: req.body?.activityId });
     res.status(500).json({ error: 'Internal Server Error' });
@@ -78,3 +103,4 @@ router.post('/upload', authenticate, upload.single('file'), async (req: Request,
 });
 
 export default router;
+

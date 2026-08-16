@@ -138,15 +138,17 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   void _handleDeleteAccount() {
     final user = ref.read(authProvider).user;
     if (user == null) return;
-    
+
     final TextEditingController emailController = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
-          final bool isEmailMatch = emailController.text.trim().toLowerCase() == user.email.toLowerCase();
-          
+          final bool isEmailMatch =
+              emailController.text.trim().toLowerCase() ==
+              user.email.toLowerCase();
+
           return AlertDialog(
             title: const Text(
               'Delete Account',
@@ -167,7 +169,10 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                 const SizedBox(height: 16),
                 Text(
                   'Type ${user.email} to confirm:',
-                  style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -180,32 +185,45 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                 ),
               ],
             ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text(
                   'Cancel',
-                  style: TextStyle(color: Color(0xFF6B7280), fontFamily: 'Inter'),
+                  style: TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontFamily: 'Inter',
+                  ),
                 ),
               ),
               ElevatedButton(
-                onPressed: isEmailMatch ? () async {
-                  try {
-                    await ApiClient().dio.delete('/settings/deactivate');
-                    ref.read(authProvider.notifier).logout();
-                  } catch (e) {
-                    if (mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to delete account: ${ErrorHandler.getFriendlyErrorMessage(e)}')),
-                      );
-                    }
-                  }
-                } : null,
+                onPressed: isEmailMatch
+                    ? () async {
+                        try {
+                          await ApiClient().dio.delete('/settings/deactivate');
+                          ref.read(authProvider.notifier).logout();
+                        } catch (e) {
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Failed to delete account: ${ErrorHandler.getFriendlyErrorMessage(e)}',
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFEF4444),
-                  disabledBackgroundColor: const Color(0xFFEF4444).withOpacity(0.5),
+                  disabledBackgroundColor: const Color(
+                    0xFFEF4444,
+                  ).withOpacity(0.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -221,7 +239,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
               ),
             ],
           );
-        }
+        },
       ),
     );
   }
@@ -336,7 +354,171 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
     );
   }
 
+  // Validate settings before saving
+  bool _validateSettings() {
+    final errors = <String>[];
+
+    // Contact email validation
+    if (_contactEmailCtrl.text.trim().isEmpty) {
+      errors.add('Contact email is required');
+    } else if (!RegExp(
+      r'^[^@]+@[^@]+\.[^@]+$',
+    ).hasMatch(_contactEmailCtrl.text.trim())) {
+      errors.add('Contact email is invalid');
+    }
+
+    // Session timeout validation
+    if (_sessionTimeoutCtrl.text.trim().isEmpty) {
+      errors.add('Session timeout is required');
+    } else if (int.tryParse(_sessionTimeoutCtrl.text) == null) {
+      errors.add('Session timeout must be a number');
+    } else if (int.parse(_sessionTimeoutCtrl.text) < 1 ||
+        int.parse(_sessionTimeoutCtrl.text) > 1440) {
+      errors.add('Session timeout must be between 1 and 1440 minutes');
+    }
+
+    // GPS deviation radius validation
+    if (_gpsDeviationRadiusCtrl.text.trim().isEmpty) {
+      errors.add('GPS deviation radius is required');
+    } else if (int.tryParse(_gpsDeviationRadiusCtrl.text) == null) {
+      errors.add('GPS deviation radius must be a number');
+    } else if (int.parse(_gpsDeviationRadiusCtrl.text) < 1) {
+      errors.add('GPS deviation radius must be greater than 0');
+    }
+
+    // GPS sync interval validation
+    if (_gpsSyncIntervalCtrl.text.trim().isEmpty) {
+      errors.add('GPS sync interval is required');
+    } else if (int.tryParse(_gpsSyncIntervalCtrl.text) == null) {
+      errors.add('GPS sync interval must be a number');
+    } else if (int.parse(_gpsSyncIntervalCtrl.text) < 1) {
+      errors.add('GPS sync interval must be greater than 0');
+    }
+
+    // SMTP validation (if SMTP is being configured)
+    if (_smtpHostCtrl.text.trim().isNotEmpty) {
+      if (_smtpPortCtrl.text.trim().isEmpty) {
+        errors.add('SMTP port is required if SMTP host is provided');
+      } else if (int.tryParse(_smtpPortCtrl.text) == null) {
+        errors.add('SMTP port must be a number');
+      }
+
+      if (_senderEmailCtrl.text.trim().isEmpty) {
+        errors.add('Sender email is required if SMTP is configured');
+      } else if (!RegExp(
+        r'^[^@]+@[^@]+\.[^@]+$',
+      ).hasMatch(_senderEmailCtrl.text.trim())) {
+        errors.add('Sender email is invalid');
+      }
+    }
+
+    // Min password length validation
+    if (_minPasswordLengthCtrl.text.trim().isEmpty) {
+      errors.add('Minimum password length is required');
+    } else if (int.tryParse(_minPasswordLengthCtrl.text) == null) {
+      errors.add('Minimum password length must be a number');
+    } else if (int.parse(_minPasswordLengthCtrl.text) < 6 ||
+        int.parse(_minPasswordLengthCtrl.text) > 128) {
+      errors.add('Minimum password length must be between 6 and 128');
+    }
+
+    // Backup frequency validation
+    if (_backupFrequencyCtrl.text.trim().isEmpty) {
+      errors.add('Backup frequency is required');
+    } else if (int.tryParse(_backupFrequencyCtrl.text) == null) {
+      errors.add('Backup frequency must be a number');
+    } else if (int.parse(_backupFrequencyCtrl.text) < 1) {
+      errors.add('Backup frequency must be at least 1 hour');
+    }
+
+    if (errors.isNotEmpty) {
+      ToastService.showError(errors.join('\n'));
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _saveSettings() async {
+    if (!_validateSettings()) {
+      return;
+    }
+
+    // Check if sensitive settings are being changed
+    final settingsAsync = ref.watch(settingsProvider);
+    final isSensitiveChange =
+        settingsAsync
+            .whenData((currentSettings) {
+              final newSettings = _collectSettings();
+              return currentSettings.smtpHost != newSettings.smtpHost ||
+                  currentSettings.smtpPort != newSettings.smtpPort ||
+                  currentSettings.smtpPassword != newSettings.smtpPassword ||
+                  currentSettings.s3BucketUri != newSettings.s3BucketUri ||
+                  currentSettings.ssoEnabled != newSettings.ssoEnabled ||
+                  currentSettings.twoFAEnabled != newSettings.twoFAEnabled;
+            })
+            .asData
+            ?.value ??
+        false;
+
+    // If sensitive settings are being changed, require password confirmation
+    if (isSensitiveChange) {
+      final passwordCtrl = TextEditingController();
+      final confirmed =
+          await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Confirm Sensitive Changes'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'You are making changes to sensitive system settings. Please enter your admin password to confirm.',
+                    style: TextStyle(color: Color(0xFF6B7280)),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: passwordCtrl,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Admin Password',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1BA654),
+                  ),
+                  child: const Text(
+                    'Confirm',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (!confirmed || passwordCtrl.text.isEmpty) {
+        passwordCtrl.dispose();
+        return;
+      }
+      passwordCtrl.dispose();
+    }
+
     setState(() => _isSaving = true);
     try {
       final settings = _collectSettings();
@@ -795,7 +977,9 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
             backgroundColor: const Color(0xFFEF4444),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(40),
+            ),
           ),
         ),
       ],

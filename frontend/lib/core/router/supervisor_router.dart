@@ -25,6 +25,23 @@ import 'package:fieldtrack/features/supervisor/profile/supervisor_profile_screen
 import 'package:fieldtrack/shared/screens/not_found_screen.dart';
 import 'package:fieldtrack/core/utils/toast_service.dart';
 
+CustomTransitionPage<T> _buildPageWithFadeTransition<T>({
+  required BuildContext context,
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<T>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurveTween(curve: Curves.easeOutCubic).animate(animation),
+        child: child,
+      );
+    },
+  );
+}
+
 
 class _SupervisorRouterNotifier extends ChangeNotifier {
   _SupervisorRouterNotifier(this._ref) {
@@ -101,34 +118,36 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) {
           return pkg_provider.ChangeNotifierProvider<DashboardState>(
             create: (_) => DashboardState()..loadDashboard(),
-            builder: (context, _) => child,
+            builder: (context, _) => SupervisorScaffold(
+              currentLocation: state.uri.path,
+              child: child,
+            ),
           );
         },
         routes: [
           GoRoute(
             path: '/supervisor/dashboard',
-            builder: (context, state) {
-              return const SupervisorScaffold(
-                currentLocation: '/supervisor/dashboard',
-                child: SupervisorDashboardScreen(),
-              );
-            },
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const SupervisorDashboardScreen(),
+            ),
           ),
           GoRoute(
             path: '/supervisor/students',
-            builder: (context, state) {
-              return const SupervisorScaffold(
-                currentLocation: '/supervisor/students',
-                child: SupervisorStudentsScreen(),
-              );
-            },
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const SupervisorStudentsScreen(),
+            ),
           ),
           GoRoute(
             path: '/supervisor/student/:id',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final studentId = state.pathParameters['id'] ?? '';
-              return SupervisorScaffold(
-                currentLocation: '/supervisor/student/$studentId',
+              return _buildPageWithFadeTransition<void>(
+                context: context,
+                state: state,
                 child: SupervisorStudentProfileScreen(
                   studentId: studentId,
                 ),
@@ -137,13 +156,14 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/supervisor/student/:id/logs',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final studentId = state.pathParameters['id'] ?? '';
               final studentName = state.extra is String
                   ? (state.extra as String)
                   : '';
-              return SupervisorScaffold(
-                currentLocation: '/supervisor/student/$studentId/logs',
+              return _buildPageWithFadeTransition<void>(
+                context: context,
+                state: state,
                 child: SupervisorDailyFieldLogsScreen(
                   studentId: studentId,
                   studentName: studentName,
@@ -153,17 +173,18 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/supervisor/student/:id/location',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final studentId = state.pathParameters['id'] ?? '';
-              return SupervisorScaffold(
-                currentLocation: '/supervisor/student/$studentId/location',
+              return _buildPageWithFadeTransition<void>(
+                context: context,
+                state: state,
                 child: SupervisorLocationScreen(studentId: studentId),
               );
             },
           ),
           GoRoute(
             path: '/supervisor/student/:id/activity/:activityId',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final studentId = state.pathParameters['id'] ?? '';
               final activityId = state.pathParameters['activityId'] ?? '';
               final extraMap = state.extra is Map<String, String>
@@ -171,9 +192,9 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
                   : <String, String>{};
               final studentName = extraMap['studentName'] ?? '';
               final activityTitle = extraMap['activityTitle'] ?? 'Activity Details';
-              return SupervisorScaffold(
-                currentLocation:
-                    '/supervisor/student/$studentId/activity/$activityId',
+              return _buildPageWithFadeTransition<void>(
+                context: context,
+                state: state,
                 child: SupervisorActivityDetailsScreen(
                   studentId: studentId,
                   activityId: activityId,
@@ -185,12 +206,12 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/supervisor/student/:id/activity/:activityId/evidence',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final studentId = state.pathParameters['id'] ?? '';
               final activityId = state.pathParameters['activityId'] ?? '';
-              return SupervisorScaffold(
-                currentLocation:
-                    '/supervisor/student/$studentId/activity/$activityId/evidence',
+              return _buildPageWithFadeTransition<void>(
+                context: context,
+                state: state,
                 child: SupervisorEvidenceScreen(
                   studentId: studentId,
                   activityId: activityId,
@@ -200,42 +221,40 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/supervisor/reports',
-            builder: (context, state) {
-              return const SupervisorScaffold(
-                currentLocation: '/supervisor/reports',
-                child: SupervisorReportsScreen(),
-              );
-            },
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const SupervisorReportsScreen(),
+            ),
           ),
           GoRoute(
             path: '/supervisor/map',
-            builder: (context, state) {
-              return const SupervisorScaffold(
-                currentLocation: '/supervisor/map',
-                child: SupervisorMapScreen(),
-              );
-            },
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const SupervisorMapScreen(),
+            ),
           ),
           GoRoute(
             path: '/supervisor/settings',
-            builder: (context, state) {
+            pageBuilder: (context, state) {
               final initialTab = state.extra is String
                   ? (state.extra as String)
                   : 'Notifications';
-              return SupervisorScaffold(
-                currentLocation: '/supervisor/settings',
+              return _buildPageWithFadeTransition<void>(
+                context: context,
+                state: state,
                 child: SupervisorSettingsScreen(initialTab: initialTab),
               );
             },
           ),
           GoRoute(
             path: '/supervisor/profile',
-            builder: (context, state) {
-              return const SupervisorScaffold(
-                currentLocation: '/supervisor/profile',
-                child: SupervisorProfileScreen(),
-              );
-            },
+            pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
+              context: context,
+              state: state,
+              child: const SupervisorProfileScreen(),
+            ),
           ),
         ],
       ),

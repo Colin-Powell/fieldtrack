@@ -3,11 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'dart:ui' as ui;
 import 'dart:math' as math;
-import 'dart:async';
 import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
@@ -15,24 +14,23 @@ import 'package:intl/intl.dart';
 
 import 'package:fieldtrack/shared/models/student_data.dart';
 import 'dashboard_state.dart';
-import '../widgets/supervisor_top_header.dart';
 import 'package:fieldtrack/core/utils/time_utils.dart';
+import 'package:fieldtrack/features/supervisor/widgets/supervisor_top_header.dart';
 
 // ── Design tokens ────────────────────────────────────────────────────────
 class _C {
-  static const bg = Color(
-    0xFFF3F4F6,
-  ); // Adjusted to match light grey background
+  static const bg = Color(0xFFF5F6F8);
   static const green = Color(0xFF16A34A);
-  static const greenLight = Color(0xFFC5E8D2);
+  static const greenLight = Color(0xFFDDF5E6);
   static const greenDark = Color(0xFF115E2E);
   static const teal = Color(0xFF42B3B0);
   static const orange = Color(0xFFF97316);
-  static const orangeLight = Color(0xFFFDD3BF);
+  static const orangeLight = Color(0xFFFDE2D2);
+  static const peach = Color(0xFFFBE4D7);
   static const textDark = Color(0xFF111827);
   static const textMuted = Color(0xFF6B7280);
   static const textFaint = Color(0xFF9CA3AF);
-  static const cardRadius = 40.0;
+  static const cardRadius = 40.0; // Updated to 40px per request
   static const controlHeight = 52.0;
 }
 
@@ -48,111 +46,161 @@ class SupervisorDashboardScreen extends StatefulWidget {
 
 class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
   bool _isLoading = true;
+  Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) setState(() => _isLoading = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final state = context.read<DashboardState>();
+      state.loadDashboard().then((_) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      });
+
+      _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (mounted) {
+          context.read<DashboardState>().loadDashboard(isPolling: true);
+        }
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: _C.bg,
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final sideBySide =
-                constraints.maxWidth >=
-                SupervisorDashboardScreen._stackBreakpoint;
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final horizontalPadding = constraints.maxWidth < 700 ? 16.0 : 24.0;
 
-            final mainColumnBody = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Consumer<DashboardState>(
+          return Padding(
+            padding: EdgeInsets.all(horizontalPadding),
+            child: LayoutBuilder(
+              builder: (context, inner) {
+                final sideBySide =
+                    inner.maxWidth >=
+                    SupervisorDashboardScreen._stackBreakpoint;
+
+                final headerSection = Consumer<DashboardState>(
                   builder: (context, state, _) {
                     final supName = state.supervisor?['name'] ?? 'Supervisor';
-                    final title = '${getGreeting()} $supName';
+                    final title = '${getGreeting()}, $supName';
                     return SupervisorTopHeader(
                       title: title,
                       subtitle: "Here's what's happening today",
                       onSearchChanged: state.setSearchQuery,
                       trailingWidget: sideBySide
-                          ? IconButton(
-                              icon: const Icon(
-                                PhosphorIconsRegular.arrowsClockwise,
+                          ? Container(
+                              width: _C.controlHeight,
+                              height: _C.controlHeight,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
                               ),
-                              onPressed: () => context
-                                  .read<DashboardState>()
-                                  .loadDashboard(isPolling: false),
-                              tooltip: 'Refresh Dashboard',
+                              child: IconButton(
+                                icon: const Icon(
+                                  PhosphorIconsRegular.arrowsClockwise,
+                                  color: _C.textDark,
+                                  size: 24,
+                                ),
+                                onPressed: () => context
+                                    .read<DashboardState>()
+                                    .loadDashboard(isPolling: false),
+                                tooltip: 'Refresh Dashboard',
+                              ),
                             )
                           : null,
                     );
                   },
-                ),
-                const SizedBox(height: 32),
-                _StatCardsRow(isLoading: _isLoading),
-                const SizedBox(height: 28),
-                _MiddleSection(isLoading: _isLoading),
-              ],
-            );
+                );
 
-            if (sideBySide) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 7,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        mainColumnBody,
-                        const SizedBox(height: 28),
-                        Expanded(child: _BottomSection(isLoading: _isLoading)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    flex: 3,
-                    child: _RightSidebar(
-                      scrollableInternally: true,
-                      isLoading: _isLoading,
-                    ),
-                  ),
-                ],
-              );
-            }
+                final contentSection = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _StatCardsRow(isLoading: _isLoading),
+                    const SizedBox(height: 32),
+                    _MiddleSection(isLoading: _isLoading),
+                  ],
+                );
 
-            return RefreshIndicator(
-              onRefresh: () => context.read<DashboardState>().loadDashboard(
-                isPolling: false,
-              ),
-              color: _C.green,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
+                if (sideBySide) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 7,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            headerSection,
+                            const SizedBox(height: 32),
+                            contentSection,
+                            const SizedBox(height: 24),
+                            Expanded(
+                              child: _BottomSection(isLoading: _isLoading),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 3,
+                        child: _RightSidebar(
+                          scrollableInternally: true,
+                          isLoading: _isLoading,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    mainColumnBody,
-                    const SizedBox(height: 24),
-                    _BottomSectionStacked(isLoading: _isLoading),
-                    const SizedBox(height: 24),
-                    _RightSidebar(
-                      scrollableInternally: false,
-                      isLoading: _isLoading,
+                    headerSection,
+                    const SizedBox(height: 32),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: () => context
+                            .read<DashboardState>()
+                            .loadDashboard(isPolling: false),
+                        color: _C.green,
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              contentSection,
+                              const SizedBox(height: 24),
+                              _BottomSectionStacked(isLoading: _isLoading),
+                              const SizedBox(height: 24),
+                              _RightSidebar(
+                                scrollableInternally: false,
+                                isLoading: _isLoading,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ],
-                ),
-              ),
-            );
-          },
-        ),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -227,36 +275,51 @@ class _StatCardsRow extends StatelessWidget {
     final activitiesSubmitted = context.select<DashboardState, int>(
       (s) => s.activitiesSubmitted,
     );
+
     final cards = [
       _StatCard(
         title: 'Students Checked\nIn Today',
         value: '$studentsCheckedInToday',
-        subtitle: '${trend?['checkIns'] ?? ''} from yesterday',
+        subtitleHighlight: trend?['checkIns'] ?? '+12%',
+        subtitleSuffix: ' from yesterday',
         isPositive: true,
-        bgColor: _C.greenLight,
-        iconColor: _C.green,
-        icon: PhosphorIconsRegular.graduationCap,
+        bgColor: const Color(0xFFDAF0E1),
+        iconGradient: const LinearGradient(
+          colors: [Color(0xFF16A34A), Color(0xFF86EBA4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        iconColor: Colors.white,
+        icon: PhosphorIconsFill.graduationCap, // Filled Icon
         isLoading: isLoading,
       ),
       _StatCard(
         title: 'Students in\nField',
         value: '$studentsInField',
-        subtitle: 'Live Now',
+        subtitleHighlight: 'Live Now',
+        subtitleSuffix: null,
         isPositive: true,
         showArrow: false,
-        bgColor: _C.greenLight,
-        iconColor: _C.green,
-        icon: PhosphorIconsRegular.graduationCap,
+        bgColor: const Color(0xFFE2F4E8),
+        iconGradient: const LinearGradient(
+          colors: [Color(0xFF16A34A), Color(0xFF86EBA4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        iconColor: Colors.white,
+        icon: PhosphorIconsFill.graduationCap, // Filled Icon
         isLoading: isLoading,
       ),
       _StatCard(
         title: 'Activities\nSubmitted',
         value: '$activitiesSubmitted',
-        subtitle: '${trend?['activities'] ?? ''} from yesterday',
+        subtitleHighlight: trend?['activities'] ?? '+18%',
+        subtitleSuffix: ' from yesterday',
         isPositive: true,
-        bgColor: const Color(0xFFD1F0E0),
-        iconColor: Colors.black,
-        icon: PhosphorIconsFill.fileText,
+        bgColor: const Color(0xFFE8ECE9),
+        iconBgColor: Colors.black,
+        iconColor: Colors.white,
+        icon: PhosphorIconsFill.fileText, // Filled Icon
         isLoading: isLoading,
       ),
     ];
@@ -264,26 +327,30 @@ class _StatCardsRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
-        if (w >= 700) {
+
+        if (w >= 900) {
           return Row(
             children: [
               Expanded(child: cards[0]),
-              const SizedBox(width: 24),
+              const SizedBox(width: 20),
               Expanded(child: cards[1]),
-              const SizedBox(width: 24),
+              const SizedBox(width: 20),
               Expanded(child: cards[2]),
             ],
           );
-        } else if (w >= 450) {
-          final cardWidth = (w - 24) / 2;
+        }
+
+        if (w >= 560) {
+          final cardWidth = (w - 20) / 2;
           return Wrap(
-            spacing: 24,
-            runSpacing: 24,
+            spacing: 20,
+            runSpacing: 20,
             children: cards
                 .map((c) => SizedBox(width: cardWidth, child: c))
                 .toList(),
           );
         }
+
         return Column(
           children: [
             cards[0],
@@ -301,10 +368,13 @@ class _StatCardsRow extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;
-  final String subtitle;
+  final String? subtitleHighlight;
+  final String? subtitleSuffix;
   final bool isPositive;
   final bool showArrow;
   final Color bgColor;
+  final Color? iconBgColor;
+  final Gradient? iconGradient;
   final Color iconColor;
   final IconData icon;
   final bool isLoading;
@@ -312,10 +382,13 @@ class _StatCard extends StatelessWidget {
   const _StatCard({
     required this.title,
     required this.value,
-    required this.subtitle,
+    this.subtitleHighlight,
+    this.subtitleSuffix,
     required this.isPositive,
     this.showArrow = true,
     required this.bgColor,
+    this.iconBgColor,
+    this.iconGradient,
     required this.iconColor,
     required this.icon,
     required this.isLoading,
@@ -329,27 +402,26 @@ class _StatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(_C.cardRadius),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            decoration: BoxDecoration(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(_C.cardRadius),
+              borderRadius: BorderRadius.all(Radius.circular(_C.cardRadius)),
             ),
             child: Row(
               children: [
                 Container(
                   width: 56,
                   height: 56,
-                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: iconColor,
+                    color: iconBgColor,
+                    gradient: iconGradient,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, color: Colors.white, size: 28),
+                  child: Icon(icon, color: iconColor, size: 32),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -358,9 +430,9 @@ class _StatCard extends StatelessWidget {
                     style: const TextStyle(
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.w700,
-                      fontSize: 15,
+                      fontSize: 16,
+                      color: _C.textDark,
                       height: 1.3,
-                      color: Colors.black,
                     ),
                   ),
                 ),
@@ -368,10 +440,9 @@ class _StatCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            padding: const EdgeInsets.fromLTRB(32, 24, 32, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 if (isLoading)
                   const _Skeleton(width: 64, height: 48, borderRadius: 8)
@@ -380,13 +451,14 @@ class _StatCard extends StatelessWidget {
                     value,
                     style: const TextStyle(
                       fontFamily: 'Poppins',
-                      fontSize: 48,
+                      fontSize: 56,
                       fontWeight: FontWeight.w800,
-                      height: 1,
-                      color: Colors.black,
+                      letterSpacing: -1.5,
+                      color: _C.textDark,
+                      height: 1.0,
                     ),
                   ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 if (isLoading)
                   const _Skeleton(width: 120, height: 18, borderRadius: 4)
                 else
@@ -397,26 +469,35 @@ class _StatCard extends StatelessWidget {
                           isPositive
                               ? PhosphorIconsBold.arrowUp
                               : PhosphorIconsBold.arrowDown,
-                          color: iconColor == Colors.black
-                              ? _C.green
-                              : iconColor,
+                          color: isPositive ? _C.green : Colors.red,
                           size: 16,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                       ],
-                      Flexible(
-                        child: Text(
-                          subtitle,
+                      if (subtitleHighlight != null)
+                        Text(
+                          subtitleHighlight!,
                           style: TextStyle(
                             fontFamily: 'Poppins',
-                            color: iconColor == Colors.black
-                                ? _C.green
-                                : iconColor,
-                            fontWeight: FontWeight.w600,
+                            color: isPositive ? _C.green : Colors.red,
+                            fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
                         ),
-                      ),
+                      if (subtitleSuffix != null)
+                        Expanded(
+                          child: Text(
+                            subtitleSuffix!,
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              color: _C.textDark,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                     ],
                   ),
               ],
@@ -437,11 +518,11 @@ class _MiddleSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final sideBySide = constraints.maxWidth >= 650;
+        final sideBySide = constraints.maxWidth >= 760;
 
         final quickActionsBlock = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             const Text(
               'Quick Actions',
@@ -458,15 +539,13 @@ class _MiddleSection extends StatelessWidget {
         );
 
         if (sideBySide) {
-          return IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(flex: 7, child: Center(child: quickActionsBlock)),
-                const SizedBox(width: 24),
-                Expanded(flex: 3, child: _PendingReviews(isLoading: isLoading)),
-              ],
-            ),
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(flex: 6, child: quickActionsBlock),
+              const SizedBox(width: 24),
+              Expanded(flex: 4, child: _PendingReviews(isLoading: isLoading)),
+            ],
           );
         }
 
@@ -500,7 +579,7 @@ class _QuickActionsRow extends StatelessWidget {
           ),
         ),
         behavior: SnackBarBehavior.floating,
-        width: 280, // Size constrained neatly to text instead of entire width
+        width: 280,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
@@ -513,12 +592,12 @@ class _QuickActionsRow extends StatelessWidget {
       _QuickAction(
         PhosphorIconsFill.fileText,
         'Review Activities',
-        onTap: () => _showAction(context, 'Review Activities'),
+        onTap: () => context.go('/supervisor/students'),
       ),
       _QuickAction(
         PhosphorIconsFill.fileArrowDown,
         'Generate Report',
-        onTap: () => _showAction(context, 'Generate Report'),
+        onTap: () => context.go('/supervisor/reports'),
       ),
       _QuickAction(
         PhosphorIconsFill.graduationCap,
@@ -528,13 +607,14 @@ class _QuickActionsRow extends StatelessWidget {
       _QuickAction(
         PhosphorIconsFill.export,
         'Export Logs',
-        onTap: () => _showAction(context, 'Export Logs'),
+        onTap: () => context.go('/supervisor/reports'),
       ),
     ];
 
     if (!scrollable) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: actions,
       );
     }
@@ -546,7 +626,10 @@ class _QuickActionsRow extends StatelessWidget {
     }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Row(children: spaced),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: spaced,
+      ),
     );
   }
 }
@@ -573,16 +656,21 @@ class _QuickAction extends StatelessWidget {
               color: Colors.white,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: Colors.black87, size: 28),
+            child: Icon(icon, color: _C.textDark, size: 28),
           ),
           const SizedBox(height: 12),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: _C.textDark,
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _C.textDark,
+                height: 1.2,
+              ),
             ),
           ),
         ],
@@ -600,18 +688,11 @@ class _PendingReviews extends StatelessWidget {
     final pending = context.select<DashboardState, int>(
       (s) => s.pendingReviews,
     );
-    final isEmpty = pending == 0;
-
-    // Dynamic styles based on empty states
-    final bgColor = isEmpty
-        ? _C.greenLight.withOpacity(0.4)
-        : _C.orangeLight.withOpacity(0.74);
-    final iconColor = isEmpty ? _C.green : _C.orange;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: pending == 0 ? _C.greenLight : _C.peach,
         borderRadius: BorderRadius.circular(_C.cardRadius),
       ),
       child: Row(
@@ -627,12 +708,12 @@ class _PendingReviews extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'Poppins',
                     fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                    fontSize: 18,
                     height: 1.25,
-                    color: Colors.black,
+                    color: _C.textDark,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 if (isLoading)
                   const _Skeleton(width: 50, height: 38, borderRadius: 8)
                 else
@@ -640,23 +721,24 @@ class _PendingReviews extends StatelessWidget {
                     '$pending',
                     style: const TextStyle(
                       fontFamily: 'Poppins',
-                      fontSize: 38,
+                      fontSize: 56,
+                      letterSpacing: -1.5,
                       fontWeight: FontWeight.w800,
                       height: 1,
-                      color: Colors.black,
+                      color: _C.textDark,
                     ),
                   ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 if (isLoading)
                   const _Skeleton(width: 80, height: 16, borderRadius: 4)
                 else
                   Text(
-                    isEmpty ? 'All caught up!' : 'Needs your\nattention',
+                    pending == 0 ? 'All caught up!' : 'Needs your\nattention',
                     style: TextStyle(
                       fontFamily: 'Poppins',
-                      color: iconColor,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      color: pending == 0 ? _C.green : _C.orange,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                       height: 1.2,
                     ),
                   ),
@@ -664,14 +746,28 @@ class _PendingReviews extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: iconColor, shape: BoxShape.circle),
-            child: Icon(
-              isEmpty
-                  ? PhosphorIconsBold.check
-                  : PhosphorIconsBold.arrowUpRight,
-              color: Colors.white,
-              size: 32,
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              color: pending == 0 ? _C.green : _C.orange,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 4),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                pending == 0
+                    ? PhosphorIconsBold.check
+                    : PhosphorIconsBold.arrowUpRight,
+                color: Colors.white,
+                size: 28,
+              ),
             ),
           ),
         ],
@@ -692,6 +788,7 @@ class _MapCard extends StatefulWidget {
 class _MapCardState extends State<_MapCard> {
   final MapController _mapController = MapController();
   String? _lastPannedStudentId;
+  bool _isMapReady = false;
 
   List<StudentData> _getAllStudents(List<StudentData> students) {
     return students
@@ -711,17 +808,22 @@ class _MapCardState extends State<_MapCard> {
     });
 
     if (_lastPannedStudentId == latest.id) return;
-    _lastPannedStudentId = latest.id;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _mapController.move(
-        LatLng(
-          latest.currentSession!.latitude,
-          latest.currentSession!.longitude,
-        ),
-        13.5,
-      );
+      if (!_isMapReady) return; // Wait until map is ready
+      try {
+        _mapController.move(
+          LatLng(
+            latest.currentSession!.latitude,
+            latest.currentSession!.longitude,
+          ),
+          13.5,
+        );
+        _lastPannedStudentId = latest.id; // Only mark as panned if successful
+      } catch (_) {
+        // Ignored if map still not attached somehow
+      }
     });
   }
 
@@ -744,12 +846,13 @@ class _MapCardState extends State<_MapCard> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(20.0),
             child: LayoutBuilder(
               builder: (context, c) {
                 final narrow = c.maxWidth < 420;
                 final icon = Container(
-                  padding: const EdgeInsets.all(14),
+                  width: 48,
+                  height: 48,
                   decoration: const BoxDecoration(
                     color: _C.greenLight,
                     shape: BoxShape.circle,
@@ -765,12 +868,12 @@ class _MapCardState extends State<_MapCard> {
                   style: TextStyle(
                     fontFamily: 'Poppins',
                     fontWeight: FontWeight.w700,
-                    fontSize: 18,
+                    fontSize: 16,
                     color: _C.textDark,
                   ),
                 );
                 final button = SizedBox(
-                  height: _C.controlHeight,
+                  height: 48,
                   child: ElevatedButton(
                     onPressed: () {
                       try {
@@ -782,9 +885,7 @@ class _MapCardState extends State<_MapCard> {
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          _C.controlHeight / 2,
-                        ),
+                        borderRadius: BorderRadius.circular(24),
                       ),
                     ),
                     child: const Text(
@@ -792,7 +893,7 @@ class _MapCardState extends State<_MapCard> {
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         color: Colors.white,
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -840,9 +941,17 @@ class _MapCardState extends State<_MapCard> {
                       borderRadius: 0,
                     )
                   : FlutterMap(
-                      options: const MapOptions(
-                        initialCenter: LatLng(-3.6305, 39.8499),
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: const LatLng(-3.6305, 39.8499),
                         initialZoom: 13.0,
+                        onMapReady: () {
+                          if (mounted) {
+                            setState(() {
+                              _isMapReady = true;
+                            });
+                          }
+                        },
                       ),
                       children: [
                         TileLayer(
@@ -866,27 +975,23 @@ class _MapCardState extends State<_MapCard> {
                                   width: 56,
                                   height: 56,
                                   child: Container(
-                                    padding: const EdgeInsets.all(5),
+                                    padding: const EdgeInsets.all(4),
                                     decoration: const BoxDecoration(
-                                      color: Colors.white,
+                                      color: _C.greenLight,
                                       shape: BoxShape.circle,
                                     ),
                                     child: Container(
+                                      padding: const EdgeInsets.all(4),
                                       decoration: const BoxDecoration(
                                         color: _C.green,
                                         shape: BoxShape.circle,
                                       ),
-                                      child: SizedBox(
-                                        width: 46,
-                                        height: 46,
-                                        child: AppAvatar(
-                                          imagePath:
-                                              student.avatarUrl.isNotEmpty
-                                              ? student.avatarUrl
-                                              : null,
-                                          size: 46,
-                                          shape: AvatarShape.circle,
-                                        ),
+                                      child: AppAvatar(
+                                        imagePath: student.avatarUrl.isNotEmpty
+                                            ? student.avatarUrl
+                                            : null,
+                                        size: 40,
+                                        shape: AvatarShape.circle,
                                       ),
                                     ),
                                   ),
@@ -908,13 +1013,13 @@ class _DonutMetric {
   final String title;
   final int value;
   final Color color;
-  final String subtitle;
+  final Color? textColor;
 
   const _DonutMetric({
     required this.title,
     required this.value,
     required this.color,
-    required this.subtitle,
+    this.textColor,
   });
 }
 
@@ -927,9 +1032,8 @@ class _SegmentedDonutPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final strokeWidth = 32.0;
-    // Leaving ample room for outer labels
-    final radius = (math.min(size.width, size.height) - 90) / 2;
+    const strokeWidth = 36.0;
+    final radius = (math.min(size.width, size.height) - strokeWidth) / 2;
 
     if (total == 0) {
       canvas.drawCircle(
@@ -944,19 +1048,16 @@ class _SegmentedDonutPainter extends CustomPainter {
     }
 
     final capAngle = (strokeWidth / 2) / radius;
-    double visualGap = 0.12; // Gap in radians
-    int activeSegments = metrics.where((m) => m.value > 0).length;
+    const visualGap = 0.08;
+    final activeSegments = metrics.where((m) => m.value > 0).length;
 
     double totalReserved = activeSegments * (visualGap + 2 * capAngle);
     if (totalReserved > 2 * math.pi) {
-      visualGap = 0.02; // shrink gap if segments can't fit
-      totalReserved = activeSegments * (visualGap + 2 * capAngle);
+      totalReserved = activeSegments * (0.02 + 2 * capAngle);
     }
 
     final availableSweep = math.max(0.0, 2 * math.pi - totalReserved);
-    double startAngle = -math.pi / 2; // start from top
-
-    final textPainter = TextPainter(textDirection: ui.TextDirection.ltr);
+    double startAngle = -math.pi / 2;
 
     for (var metric in metrics) {
       if (metric.value == 0) continue;
@@ -977,65 +1078,6 @@ class _SegmentedDonutPainter extends CustomPainter {
           ..strokeWidth = strokeWidth,
       );
 
-      final mid = drawStart + sweep / 2;
-
-      // Draw Inner Value Label
-      textPainter.text = TextSpan(
-        text: '${metric.value}',
-        style: TextStyle(
-          fontFamily: 'Poppins',
-          fontSize: 16,
-          fontWeight: FontWeight.w800,
-          color: metric.color,
-        ),
-      );
-      textPainter.layout();
-      final innerR = radius - strokeWidth / 2 - 20;
-      final valOffset = Offset(
-        center.dx + innerR * math.cos(mid) - textPainter.width / 2,
-        center.dy + innerR * math.sin(mid) - textPainter.height / 2,
-      );
-      textPainter.paint(canvas, valOffset);
-
-      // Draw Outer Label and connecting line
-      final outR = radius + strokeWidth / 2 + 6;
-      final p1 = Offset(
-        center.dx + outR * math.cos(mid),
-        center.dy + outR * math.sin(mid),
-      );
-      final p2 = Offset(
-        center.dx + (outR + 12) * math.cos(mid),
-        center.dy + (outR + 12) * math.sin(mid),
-      );
-      final isRight = math.cos(mid) >= 0;
-      final p3 = Offset(p2.dx + (isRight ? 20 : -20), p2.dy);
-
-      final linePaint = Paint()
-        ..color = _C.textMuted.withOpacity(0.5)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5;
-
-      canvas.drawLine(p1, p2, linePaint);
-      canvas.drawLine(p2, p3, linePaint);
-
-      textPainter.text = TextSpan(
-        text: metric.title,
-        style: const TextStyle(
-          fontFamily: 'Poppins',
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          fontStyle: FontStyle.italic,
-          color: _C.textDark,
-        ),
-      );
-      textPainter.layout();
-      final labelOffset = Offset(
-        isRight ? p3.dx + 6 : p3.dx - 6 - textPainter.width,
-        p3.dy - textPainter.height / 2,
-      );
-      textPainter.paint(canvas, labelOffset);
-
-      // Advance angle for next segment
       startAngle += sweep + 2 * capAngle + visualGap;
     }
   }
@@ -1052,36 +1094,38 @@ class _OverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final checkIns = context.select<DashboardState, int>((s) => s.checkedIn);
-    final inField = context.select<DashboardState, int>((s) => s.inField);
-    final checkedOut = context.select<DashboardState, int>((s) => s.checkedOut);
+    final int approved = context.select<DashboardState, int>(
+      (s) => s.approvedReviews,
+    );
+    final int pending = context.select<DashboardState, int>(
+      (s) => s.pendingReviews,
+    );
+    final int revision = context.select<DashboardState, int>(
+      (s) => s.needsRevision,
+    );
+    final int total = approved + pending + revision;
 
-    final total = (checkIns + inField + checkedOut).toDouble();
-    final actualTotal = checkIns + inField + checkedOut;
+    final int reviewedPercent = total > 0
+        ? ((approved + revision) / total * 100).round()
+        : 0;
 
     final metrics = [
+      _DonutMetric(title: 'Approved', value: approved, color: _C.greenDark),
       _DonutMetric(
-        title: 'Checked Out',
-        value: checkedOut,
-        color: _C.greenDark,
-        subtitle: 'Checked out students',
+        title: 'Pending',
+        value: pending,
+        color: const Color(0xFFF59E0B), // Orange-ish for pending
+        textColor: const Color(0xFFD97706),
       ),
       _DonutMetric(
-        title: 'Checked In',
-        value: checkIns,
-        color: _C.green,
-        subtitle: 'Students checked in',
-      ),
-      _DonutMetric(
-        title: 'In Field',
-        value: inField,
-        color: _C.greenLight,
-        subtitle: 'Students currently in field',
+        title: 'Needs revision',
+        value: revision,
+        color: const Color(0xFFEF4444), // Red-ish for revision
       ),
     ];
 
     return Container(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(_C.cardRadius),
@@ -1090,53 +1134,52 @@ class _OverviewCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            "Today's Overview",
+            "Review & Activity Health",
             style: TextStyle(
               fontFamily: 'Poppins',
               fontWeight: FontWeight.w700,
-              fontSize: 20,
+              fontSize: 18,
               color: _C.textDark,
             ),
           ),
           const SizedBox(height: 28),
           if (isLoading)
             const SizedBox(
-              height: 280,
+              height: 240,
               child: Center(
-                child: _Skeleton(width: 240, height: 240, borderRadius: 120),
+                child: _Skeleton(width: 200, height: 200, borderRadius: 100),
               ),
             )
           else
-            SizedBox(
-              height: 300,
-              width: double.infinity,
+            Expanded(
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   Positioned.fill(
                     child: CustomPaint(
-                      painter: _SegmentedDonutPainter(metrics, total),
+                      painter: _SegmentedDonutPainter(
+                        metrics,
+                        total.toDouble(),
+                      ),
                     ),
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '$actualTotal',
+                        '$reviewedPercent%',
                         style: const TextStyle(
                           fontFamily: 'Poppins',
-                          fontSize: 36,
+                          fontSize: 24,
                           fontWeight: FontWeight.w800,
                           color: _C.textDark,
-                          height: 1,
                         ),
                       ),
-                      const SizedBox(height: 6),
                       const Text(
-                        'Total Active',
+                        'Reviewed',
                         style: TextStyle(
                           fontFamily: 'Poppins',
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: _C.textMuted,
                         ),
@@ -1146,6 +1189,76 @@ class _OverviewCard extends StatelessWidget {
                 ],
               ),
             ),
+          if (!isLoading) ...[
+            const SizedBox(height: 24),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: metrics.map((m) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: m.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          m.title,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: _C.textDark,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${m.value}',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: m.textColor ?? _C.textDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+            InkWell(
+              onTap: () {
+                // Navigate to review queue
+              },
+              child: const Row(
+                children: [
+                  Text(
+                    'View review queue',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _C.textDark,
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(
+                    PhosphorIconsRegular.arrowRight,
+                    size: 16,
+                    color: _C.textDark,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1170,7 +1283,7 @@ class _BottomSection extends StatelessWidget {
             children: [
               Expanded(flex: 6, child: map),
               const SizedBox(width: 24),
-              Expanded(flex: 4, child: SingleChildScrollView(child: overview)),
+              Expanded(flex: 4, child: overview),
             ],
           );
         }
@@ -1179,7 +1292,7 @@ class _BottomSection extends StatelessWidget {
           children: [
             Expanded(child: map),
             const SizedBox(height: 24),
-            SingleChildScrollView(child: overview),
+            SizedBox(height: 380, child: overview),
           ],
         );
       },
@@ -1204,7 +1317,10 @@ class _BottomSectionStacked extends StatelessWidget {
           height: mapHeight,
           child: _MapCard(isLoading: isLoading),
         );
-        final overview = _OverviewCard(isLoading: isLoading);
+        final overview = SizedBox(
+          height: 380,
+          child: _OverviewCard(isLoading: isLoading),
+        );
 
         if (sideBySide) {
           return Row(
@@ -1254,15 +1370,20 @@ class _RightSidebarState extends State<_RightSidebar> {
   }
 
   Widget build(BuildContext context) {
-    final filteredActivities = context
+    final paginatedActivities = context
+        .select<DashboardState, List<RecentActivity>>(
+          (s) => s.paginatedActivities,
+        );
+    final allActivitiesForEmpty = context
         .select<DashboardState, List<RecentActivity>>(
           (s) => s.filteredActivities,
         );
     final feedItems = context.select<DashboardState, List<FeedItem>>(
       (s) => s.feedItems,
     );
+    final dashState = context.watch<DashboardState>();
 
-    // Setup Activities List (Empty State, Skeleton, or Live Data)
+    // Setup Activities List
     Widget recentActivitiesList;
     if (widget.isLoading) {
       recentActivitiesList = ListView.builder(
@@ -1272,7 +1393,7 @@ class _RightSidebarState extends State<_RightSidebar> {
             : const NeverScrollableScrollPhysics(),
         itemCount: 4,
         itemBuilder: (_, __) => const Padding(
-          padding: EdgeInsets.only(bottom: 12.0),
+          padding: EdgeInsets.only(bottom: 16.0),
           child: _Skeleton(
             width: double.infinity,
             height: 64,
@@ -1280,7 +1401,7 @@ class _RightSidebarState extends State<_RightSidebar> {
           ),
         ),
       );
-    } else if (filteredActivities.isEmpty) {
+    } else if (allActivitiesForEmpty.isEmpty) {
       recentActivitiesList = Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: Center(
@@ -1296,7 +1417,7 @@ class _RightSidebarState extends State<_RightSidebar> {
                 child: const Icon(
                   PhosphorIconsRegular.clipboardText,
                   size: 32,
-                  color: _C.greenDark,
+                  color: _C.green,
                 ),
               ),
               const SizedBox(height: 16),
@@ -1318,34 +1439,6 @@ class _RightSidebarState extends State<_RightSidebar> {
                   color: _C.textMuted,
                 ),
               ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: () => context.go('/supervisor/students'),
-                icon: const Icon(
-                  PhosphorIconsBold.plus,
-                  size: 16,
-                  color: Colors.white,
-                ),
-                label: const Text(
-                  'Assign Activity',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _C.green,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -1356,9 +1449,9 @@ class _RightSidebarState extends State<_RightSidebar> {
         physics: widget.scrollableInternally
             ? null
             : const NeverScrollableScrollPhysics(),
-        itemCount: filteredActivities.length,
+        itemCount: paginatedActivities.length,
         itemBuilder: (context, index) {
-          final activity = filteredActivities[index];
+          final activity = paginatedActivities[index];
           return _RecentActivityItem(
             title: activity.title,
             subtitle: activity.location,
@@ -1387,7 +1480,7 @@ class _RightSidebarState extends State<_RightSidebar> {
             : const NeverScrollableScrollPhysics(),
         itemCount: 4,
         itemBuilder: (_, __) => const Padding(
-          padding: EdgeInsets.only(bottom: 20.0),
+          padding: EdgeInsets.only(bottom: 24.0),
           child: Row(
             children: [
               _Skeleton(width: 44, height: 16),
@@ -1421,15 +1514,105 @@ class _RightSidebarState extends State<_RightSidebar> {
       );
     }
 
+    // Pagination controls
+    final totalPages = dashState.totalActivityPages;
+    final currentPage = dashState.activityPage;
+    final startIndex = currentPage * dashState.activitiesPerPage + 1;
+    final endIndex = (currentPage + 1) * dashState.activitiesPerPage;
+    final actualEndIndex = endIndex.clamp(0, allActivitiesForEmpty.length);
+    final totalActivities = allActivitiesForEmpty.length;
+
+    final paginationControls =
+        allActivitiesForEmpty.isNotEmpty && totalPages > 1
+        ? Column(
+            children: [
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Showing $startIndex-$actualEndIndex of $totalActivities',
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 13,
+                        color: _C.textMuted,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Page ${currentPage + 1}/$totalPages',
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _C.textDark,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: currentPage > 0
+                          ? () => dashState.previousActivityPage()
+                          : null,
+                      icon: const Icon(
+                        PhosphorIconsRegular.caretLeft,
+                        size: 18,
+                      ),
+                      label: const Text('Previous'),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: currentPage > 0 ? _C.green : _C.textFaint,
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: dashState.hasMoreActivities
+                          ? () => dashState.nextActivityPage()
+                          : null,
+                      icon: const Icon(
+                        PhosphorIconsRegular.caretRight,
+                        size: 18,
+                      ),
+                      label: const Text('Next'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: dashState.hasMoreActivities
+                            ? _C.green
+                            : _C.textFaint,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          )
+        : const SizedBox.shrink();
+
     final viewAllButton = SizedBox(
       width: double.infinity,
-      height: _C.controlHeight,
+      height: 52,
       child: OutlinedButton(
         onPressed: () => context.go('/supervisor/students'),
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: _C.green.withOpacity(0.74), width: 1.5),
+          side: const BorderSide(color: _C.green, width: 1.5),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_C.controlHeight / 2),
+            borderRadius: BorderRadius.circular(26),
           ),
           padding: EdgeInsets.zero,
         ),
@@ -1460,12 +1643,15 @@ class _RightSidebarState extends State<_RightSidebar> {
             color: _C.textDark,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         widget.scrollableInternally
-            ? Expanded(flex: 4, child: recentActivitiesList)
+            ? Expanded(flex: 5, child: recentActivitiesList)
             : recentActivitiesList,
+        if (allActivitiesForEmpty.isNotEmpty && !widget.isLoading)
+          paginationControls,
         const SizedBox(height: 16),
-        if (filteredActivities.isNotEmpty && !widget.isLoading) viewAllButton,
+        if (allActivitiesForEmpty.isNotEmpty && !widget.isLoading)
+          viewAllButton,
         const SizedBox(height: 40),
         const Text(
           "Today's Activity Feed",
@@ -1478,7 +1664,7 @@ class _RightSidebarState extends State<_RightSidebar> {
         ),
         const SizedBox(height: 24),
         widget.scrollableInternally
-            ? Expanded(flex: 3, child: feedList)
+            ? Expanded(flex: 4, child: feedList)
             : feedList,
       ],
     );
@@ -1488,7 +1674,7 @@ class _RightSidebarState extends State<_RightSidebar> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(_C.cardRadius),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      padding: const EdgeInsets.all(32),
       child: innerContent,
     );
   }
@@ -1517,7 +1703,6 @@ class _RecentActivityItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use activity evidence image if available, otherwise fall back to avatar
     final hasActivityImage =
         activityImageUrl != null && activityImageUrl!.isNotEmpty;
     final displayImageUrl = hasActivityImage
@@ -1525,7 +1710,7 @@ class _RecentActivityItem extends StatelessWidget {
         : (imgUrl.isNotEmpty ? ImageUtils.getFullImageUrl(imgUrl) : null);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.only(bottom: 16.0),
       child: GestureDetector(
         onTap: () {
           if (studentId != null && activityId != null) {
@@ -1539,57 +1724,27 @@ class _RecentActivityItem extends StatelessWidget {
           }
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(
-              color: Colors.black.withOpacity(0.08),
-              width: 1.5,
-            ),
+            border: Border.all(color: Colors.grey.shade200, width: 1.5),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
             children: [
-              // Activity thumbnail (rounded square) or avatar fallback
               ClipRRect(
-                borderRadius: hasActivityImage
-                    ? BorderRadius.circular(12)
-                    : BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(999),
                 child: displayImageUrl != null
                     ? Image.network(
                         displayImageUrl,
-                        width: 36,
-                        height: 36,
+                        width: 44,
+                        height: 44,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 36,
-                          height: 36,
-                          decoration: const BoxDecoration(
-                            color: _C.greenLight,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            PhosphorIconsRegular.image,
-                            color: _C.green,
-                            size: 18,
-                          ),
-                        ),
+                        errorBuilder: (_, __, ___) => _buildFallbackIcon(),
                       )
-                    : Container(
-                        width: 36,
-                        height: 36,
-                        decoration: const BoxDecoration(
-                          color: _C.greenLight,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          PhosphorIconsRegular.image,
-                          color: _C.green,
-                          size: 18,
-                        ),
-                      ),
+                    : _buildFallbackIcon(),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1600,37 +1755,51 @@ class _RecentActivityItem extends StatelessWidget {
                       style: const TextStyle(
                         fontFamily: 'Poppins',
                         fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                        color: Colors.black87,
+                        fontSize: 13,
+                        color: Colors.black,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 1),
+                    const SizedBox(height: 2),
                     Text(
-                      '$subtitle · $time',
+                      '$subtitle\n$time',
                       style: const TextStyle(
                         fontFamily: 'Poppins',
                         color: _C.textFaint,
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w500,
+                        height: 1.4,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 8),
               const Icon(
                 PhosphorIconsRegular.caretRight,
                 color: _C.textMuted,
-                size: 16,
+                size: 20,
               ),
+              const SizedBox(width: 4),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildFallbackIcon() {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: const BoxDecoration(
+        color: _C.greenLight,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(PhosphorIconsFill.image, color: _C.green, size: 20),
     );
   }
 }
@@ -1643,7 +1812,7 @@ class _FeedItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
+      padding: const EdgeInsets.only(bottom: 24.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1656,7 +1825,7 @@ class _FeedItem extends StatelessWidget {
               color: _C.textMuted,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               content,

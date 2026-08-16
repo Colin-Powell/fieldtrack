@@ -57,11 +57,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final isEmail = identifier.contains('@');
 
-    final success = await ref.read(authProvider.notifier).login(
-      email: isEmail ? identifier : null,
-      registrationNo: isEmail ? null : identifier,
-      password: password,
-    );
+    final success = await ref
+        .read(authProvider.notifier)
+        .login(
+          email: isEmail ? identifier : null,
+          registrationNo: isEmail ? null : identifier,
+          password: password,
+        );
 
     if (!mounted) return;
 
@@ -88,8 +90,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } else {
       final error = ref.read(authProvider).error ?? 'Login failed';
-      ToastService.showError(error);
+
+      // Check for account lockout conditions
+      if (error.toLowerCase().contains('locked') ||
+          error.toLowerCase().contains('too many attempts') ||
+          error.toLowerCase().contains('account disabled')) {
+        _showAccountLockedDialog(context);
+      } else {
+        ToastService.showError(error);
+      }
     }
+  }
+
+  void _showAccountLockedDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(PhosphorIconsRegular.lock, color: Colors.red, size: 24),
+            const SizedBox(width: 12),
+            const Text('Account Locked'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your account has been temporarily locked due to multiple failed login attempts.',
+              style: TextStyle(fontSize: 14, height: 1.5),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Recovery Options:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            SizedBox(height: 8),
+            Text(
+              '• Reset your password\n'
+              '• Contact your supervisor or administrator\n'
+              '• Wait approximately 30 minutes for the account to unlock automatically',
+              style: TextStyle(fontSize: 13, color: Colors.grey, height: 1.6),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Dismiss'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.go('/forgot-password');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reset Password'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -392,4 +456,3 @@ class _BottomWavePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

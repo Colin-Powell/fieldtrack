@@ -8,6 +8,7 @@ import { broadcastDashboardEvent } from './dashboard_events.js';
 import { generateToken } from '../auth/jwt.js';
 import { exec } from 'child_process';
 import util from 'util';
+import { cacheMiddleware } from '../utils/cache.js';
 
 const DEFAULT_FEATURE_FLAGS = {
   'GPS Tracking': true,
@@ -247,7 +248,7 @@ router.get('/export', async (_req: Request, res: Response) => {
   }
 });
 
-router.get('/dashboard-aggregate', async (_req: Request, res: Response) => {
+router.get('/dashboard-aggregate', cacheMiddleware(300), async (_req: Request, res: Response) => {
   try {
     const [healthRes, metricsRes, logsRes, requestsRes, issuesRes, overviewRes, lastAction] = await Promise.all([
       prisma.user.count({ where: { deletedAt: null } }).then(() => ({ status: 'Ok', timestamp: new Date().toISOString(), uptime: process.uptime() })),

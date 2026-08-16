@@ -27,4 +27,19 @@ export class ReviewController {
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }
+    async getReviews(req, res) {
+        try {
+            const reviewerId = req.user?.userId;
+            if (!reviewerId)
+                return res.status(401).json({ error: 'Unauthorized' });
+            const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+            const offset = parseInt(req.query.offset) || 0;
+            const result = await reviewService.getReviews(reviewerId, limit, offset);
+            res.status(200).json(result);
+        }
+        catch (error) {
+            console.error('[getReviews]', error);
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
 }

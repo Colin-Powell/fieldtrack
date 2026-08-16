@@ -202,8 +202,14 @@ export async function createSupervisor(req: Request, res: Response) {
 
 export async function getAllUsers(req: Request, res: Response) {
   try {
-    const users = await prisma.user.findMany({
-      include: {
+    const limit = parseInt(req.query.limit as string, 10) || 50;
+    const offset = parseInt(req.query.offset as string, 10) || 0;
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        take: limit,
+        skip: offset,
+        include: {
         studentProfile: {
           include: {
             supervisor: {
@@ -216,7 +222,9 @@ export async function getAllUsers(req: Request, res: Response) {
         }
       },
       orderBy: { createdAt: 'desc' }
-    });
+    }),
+    prisma.user.count()
+  ]);
 
     const mappedUsers = users.map(user => {
       let regNo;
@@ -252,7 +260,7 @@ export async function getAllUsers(req: Request, res: Response) {
       };
     });
 
-    return res.status(200).json({ users: mappedUsers });
+    return res.status(200).json({ users: mappedUsers, total, limit, offset });
   } catch (error: any) {
     console.error('Get all users error:', error);
     return res.status(500).json({ error: 'Internal server error' });
@@ -831,17 +839,18 @@ export async function broadcastNotification(req: Request, res: Response) {
 
     const notificationType = type || 'SYSTEM_ALERT';
 
-    // Create notifications and push for all active users
-    for (const user of allUsers) {
-      await notificationService.sendNotification({
-        recipientId: user.id,
-        senderId: actorId,
-        title,
-        message,
-        type: notificationType as any,
-        priority: 1,
-      });
-    }
+    // Extract just the user IDs for the background job
+    const recipientIds = allUsers.map(u => u.id);
+
+    // Using BullMQ for background processing
+    const { notificationQueue } = await import('../utils/queue.js');
+    await notificationQueue.add('bulkNotification', {
+      recipientIds,
+      senderId: actorId,
+      title,
+      message,
+      type: notificationType,
+    });
 
     if (actorId) {
       await AuditLogService.log({

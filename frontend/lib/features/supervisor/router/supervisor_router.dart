@@ -17,6 +17,7 @@ import 'package:fieldtrack/features/supervisor/location/supervisor_location_scre
 import 'package:fieldtrack/features/supervisor/map/supervisor_map_screen.dart';
 import 'package:fieldtrack/features/supervisor/reports/supervisor_reports_screen.dart';
 import 'package:fieldtrack/features/supervisor/settings/supervisor_settings_screen.dart';
+import 'package:fieldtrack/features/supervisor/profile/supervisor_profile_screen.dart';
 
 /// Standalone GoRouter configuration for the Supervisor Portal.
 ///
@@ -182,6 +183,17 @@ final GoRouter supervisorRouter = GoRouter(
             return const SupervisorScaffold(
               currentLocation: '/supervisor/map',
               child: SupervisorMapScreen(),
+            );
+          },
+        ),
+
+        // ── Profile ─────────────────────────────────────────────────────────
+        GoRoute(
+          path: '/supervisor/profile',
+          builder: (context, state) {
+            return const SupervisorScaffold(
+              currentLocation: '/supervisor/profile',
+              child: SupervisorProfileScreen(),
             );
           },
         ),

@@ -6,6 +6,7 @@ import 'package:fieldtrack/core/providers/auth_provider.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/core/widgets/app_avatar.dart';
+import 'package:fieldtrack/core/widgets/error_boundary.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class SupervisorScaffold extends ConsumerStatefulWidget {
@@ -58,13 +59,19 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           width: expanded ? 240 : 100,
-          margin: isDrawer ? EdgeInsets.zero : const EdgeInsets.only(left: 16, top: 16, bottom: 16),
+          margin: isDrawer
+              ? EdgeInsets.zero
+              : const EdgeInsets.only(left: 16, top: 16, bottom: 16),
           constraints: BoxConstraints(
-            maxHeight: isDrawer ? double.infinity : MediaQuery.of(context).size.height - 32,
+            maxHeight: isDrawer
+                ? double.infinity
+                : MediaQuery.of(context).size.height - 32,
           ),
           decoration: BoxDecoration(
             color: sidebarColor,
-            borderRadius: isDrawer ? BorderRadius.zero : BorderRadius.circular(50),
+            borderRadius: isDrawer
+                ? BorderRadius.zero
+                : BorderRadius.circular(50),
           ),
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
           child: Column(
@@ -102,10 +109,7 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
               const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Divider(
-                  color: Colors.white.withOpacity(0.3),
-                  height: 1,
-                ),
+                child: Divider(color: Colors.white.withOpacity(0.3), height: 1),
               ),
               const SizedBox(height: 32),
 
@@ -190,10 +194,7 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
 
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Divider(
-                  color: Colors.white.withOpacity(0.3),
-                  height: 1,
-                ),
+                child: Divider(color: Colors.white.withOpacity(0.3), height: 1),
               ),
               const SizedBox(height: 24),
 
@@ -222,10 +223,7 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
                           height: 48,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 2,
-                            ),
+                            border: Border.all(color: Colors.white, width: 2),
                             color: Colors.white.withOpacity(0.2),
                           ),
                           child: SizedBox(
@@ -240,9 +238,7 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
                               initials: displayName.isNotEmpty
                                   ? displayName
                                         .split(' ')
-                                        .map(
-                                          (s) => s.isNotEmpty ? s[0] : '',
-                                        )
+                                        .map((s) => s.isNotEmpty ? s[0] : '')
                                         .take(2)
                                         .join()
                                   : null,
@@ -275,17 +271,24 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
-      drawer: isMobile ? Drawer(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: buildSidebar(isDrawer: true),
-      ) : null,
+      drawer: isMobile
+          ? Drawer(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: buildSidebar(isDrawer: true),
+            )
+          : null,
       body: Row(
         children: [
           if (!isMobile) buildSidebar(isDrawer: false),
 
           // Main Content Area
-          Expanded(child: ClipRRect(child: widget.child)),
+          Expanded(
+            child: ErrorBoundary(
+              title: 'Screen Error',
+              child: ClipRRect(child: widget.child),
+            ),
+          ),
         ],
       ),
     );

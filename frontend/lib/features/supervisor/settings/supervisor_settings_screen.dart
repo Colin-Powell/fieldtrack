@@ -9,6 +9,7 @@ import 'package:fieldtrack/core/providers/auth_provider.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fieldtrack/features/supervisor/authentication/supervisor_login_screen.dart';
+import '../widgets/supervisor_top_header.dart';
 
 // ==========================================
 // DESIGN TOKENS
@@ -481,21 +482,30 @@ class _SupervisorSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _C.bg,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTopHeader(),
-              const SizedBox(height: 32),
-              _buildTabsBar(),
-              const SizedBox(height: 32),
-              _buildTabContent(),
-            ],
-          ),
+    return Container(
+      color: _C.bg,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 32, 32, 0),
+              child: _buildTopHeader(),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTabsBar(),
+                    const SizedBox(height: 32),
+                    _buildTabContent(),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -503,90 +513,11 @@ class _SupervisorSettingsScreenState
 
   // ── 1. Top Header ─────────────────────────────────────────────────────
   Widget _buildTopHeader() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 700;
-
-        const titleBlock = Text(
-          'Settings',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: _C.textDark,
-          ),
-        );
-
-        final bellIcon = Container(
-          width: 52,
-          height: 52,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(PhosphorIcons.bell(), color: _C.textMuted, size: 24),
-        );
-
-        final searchBar = SizedBox(
-          width: isNarrow ? double.infinity : 320,
-          height: 52,
-          child: TextField(
-            onChanged: (v) {
-              setState(() => _globalSearch = v);
-              // TODO(API): Implement local or remote search filtering
-            },
-            style: const TextStyle(fontFamily: 'Poppins', fontSize: 14),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.white,
-              hintText: 'Search Settings',
-              hintStyle: const TextStyle(
-                fontFamily: 'Poppins',
-                color: _C.textFaint,
-                fontSize: 14,
-              ),
-              prefixIcon: Icon(
-                PhosphorIcons.magnifyingGlass(),
-                color: _C.textFaint,
-                size: 20,
-              ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(26),
-                borderSide:
-                    BorderSide.none, // Removes the double material effect
-              ),
-            ),
-          ),
-        );
-
-        if (isNarrow) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              titleBlock,
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(child: searchBar),
-                  const SizedBox(width: 16),
-                  bellIcon,
-                ],
-              ),
-            ],
-          );
-        }
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(child: titleBlock),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [searchBar, const SizedBox(width: 16), bellIcon],
-            ),
-          ],
-        );
+    return SupervisorTopHeader(
+      title: 'Settings',
+      searchHint: 'Search Settings',
+      onSearchChanged: (v) {
+        setState(() => _globalSearch = v);
       },
     );
   }

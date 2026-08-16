@@ -12,7 +12,8 @@ class SupervisorLoginScreen extends ConsumerStatefulWidget {
   const SupervisorLoginScreen({super.key});
 
   @override
-  ConsumerState<SupervisorLoginScreen> createState() => _SupervisorLoginScreenState();
+  ConsumerState<SupervisorLoginScreen> createState() =>
+      _SupervisorLoginScreenState();
 }
 
 class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
@@ -41,6 +42,83 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
     }
   }
 
+  void _showAccountLockedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(PhosphorIconsFill.lock, size: 48, color: Colors.red),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Text(
+                'Account Locked',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your account is temporarily locked due to multiple failed login attempts. For security reasons, you cannot log in right now.',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF97316).withValues(alpha: 0.1),
+                border: Border.all(color: const Color(0xFFF97316), width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Recovery Options:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  SizedBox(height: 8),
+                  Text('• Reset your password', style: TextStyle(fontSize: 13)),
+                  SizedBox(height: 4),
+                  Text(
+                    '• Contact your administrator',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '• Wait 30 minutes for automatic unlock',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Dismiss'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.go('/supervisor/forgot-password');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF97316),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reset Password'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -52,17 +130,22 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
     try {
       if (!_formKey.currentState!.validate()) return;
 
-      final success = await ref.read(authProvider.notifier).login(
-        email: _emailController.text.trim(),
-        password: _pwController.text,
-      );
+      final success = await ref
+          .read(authProvider.notifier)
+          .login(
+            email: _emailController.text.trim(),
+            password: _pwController.text,
+          );
 
       if (!mounted) return;
 
       if (success) {
         final prefs = await SharedPreferences.getInstance();
         if (_rememberMe) {
-          await prefs.setString('saved_supervisor_identifier', _emailController.text.trim());
+          await prefs.setString(
+            'saved_supervisor_identifier',
+            _emailController.text.trim(),
+          );
         } else {
           await prefs.remove('saved_supervisor_identifier');
         }
@@ -74,7 +157,9 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
           rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
           rootScaffoldMessengerKey.currentState?.showSnackBar(
             const SnackBar(
-              content: Text('Access denied. This portal is for supervisors only.'),
+              content: Text(
+                'Access denied. This portal is for supervisors only.',
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -82,13 +167,20 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
         }
       } else {
         final error = ref.read(authProvider).error ?? 'Login failed';
-        rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
-        rootScaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            content: Text(error),
-            backgroundColor: Colors.red,
-          ),
-        );
+
+        // Check if account is locked
+        if (error.toLowerCase().contains('locked') ||
+            error.toLowerCase().contains('too many attempts') ||
+            error.toLowerCase().contains('account disabled')) {
+          if (mounted) {
+            _showAccountLockedDialog();
+          }
+        } else {
+          rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+          rootScaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(error), backgroundColor: Colors.red),
+          );
+        }
       }
     } catch (e, stackTrace) {
       print('Login Exception: $e\n$stackTrace');
@@ -233,10 +325,7 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
                         context.go('/welcome');
                       }
                     },
-                    icon: Icon(
-                      PhosphorIcons.arrowLeft(),
-                      color: Colors.black,
-                    ),
+                    icon: Icon(PhosphorIcons.arrowLeft(), color: Colors.black),
                   ),
                   const SizedBox(height: 24),
 
@@ -432,7 +521,8 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
                         ],
                       ),
                       TextButton(
-                        onPressed: () => context.push('/supervisor/forgot-password'),
+                        onPressed: () =>
+                            context.push('/supervisor/forgot-password'),
                         style: TextButton.styleFrom(
                           foregroundColor: greenColor,
                           padding: EdgeInsets.zero,

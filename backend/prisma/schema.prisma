@@ -26,8 +26,10 @@ model User {
   updatedAt           DateTime @updatedAt
   deletedAt           DateTime?
   fcmToken            String?
+  maxActiveDevices    Int      @default(3)
 
   // Relations
+  deviceSessions    DeviceSession[]
   studentProfile    StudentProfile?
   supervisorProfile SupervisorProfile?
   preferences       UserPreferences?
@@ -40,6 +42,24 @@ model User {
   reviews           Review[]
   notificationsReceived Notification[] @relation("NotificationRecipient")
   notificationsSent     Notification[] @relation("NotificationSender")
+}
+
+model DeviceSession {
+  id           String   @id @default(uuid())
+  userId       String
+  deviceId     String   // Unique identifier from hardware (UUID)
+  deviceName   String?  // e.g., "iPhone 15", "Samsung Galaxy S23"
+  platform     String?  // iOS, Android, Web
+  osVersion    String?
+  lastActiveAt DateTime @default(now())
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([deviceId])
 }
 
 model StudentProfile {
@@ -107,6 +127,10 @@ model FieldSession {
 
   user               User               @relation(fields: [studentId], references: [id])
   locationPings      LocationPing[]
+
+  @@index([studentId])
+  @@index([checkOutTime])
+  @@index([status])
 }
 
 model LocationPing {
@@ -121,6 +145,9 @@ model LocationPing {
   timestamp DateTime @default(now())
 
   session   FieldSession @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId])
+  @@index([timestamp])
 }
 
 model FieldLog {
@@ -143,6 +170,10 @@ model FieldLog {
   user           User           @relation(fields: [studentId], references: [id])
   evidence       Evidence[]
   reviews        Review[]
+
+  @@index([studentId])
+  @@index([status])
+  @@index([timestamp])
 }
 
 enum UploadStatus {
@@ -205,6 +236,9 @@ model Notification {
 
   recipient   User             @relation("NotificationRecipient", fields: [recipientId], references: [id])
   sender      User?            @relation("NotificationSender", fields: [senderId], references: [id])
+
+  @@index([recipientId])
+  @@index([createdAt])
 }
 
 enum ActivityStatus {
@@ -261,6 +295,8 @@ model RefreshToken {
   createdAt DateTime @default(now())
   
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model AuditLog {
@@ -276,6 +312,10 @@ model AuditLog {
 
   actor User? @relation("AuditLogActor", fields: [actorId], references: [id])
   user  User? @relation("AuditLogUser", fields: [userId], references: [id])
+
+  @@index([timestamp])
+  @@index([actorId])
+  @@index([userId])
 }
 
 model SystemSetting {

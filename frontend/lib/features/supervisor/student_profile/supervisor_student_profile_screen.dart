@@ -91,15 +91,15 @@ class _SupervisorStudentProfileScreenState
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: _C.bg,
-        body: Center(child: CircularProgressIndicator(color: _C.green)),
+      return Container(
+        color: _C.bg,
+        child: const Center(child: CircularProgressIndicator(color: _C.green)),
       );
     }
     if (_error != null) {
-      return Scaffold(
-        backgroundColor: _C.bg,
-        body: Center(
+      return Container(
+        color: _C.bg,
+        child: Center(
           child: Text(
             'Failed to load student: $_error',
             style: const TextStyle(color: _C.textMuted, fontFamily: 'Poppins'),
@@ -108,35 +108,40 @@ class _SupervisorStudentProfileScreenState
       );
     }
     final bool isOverview = _activeTabIndex == 0;
-    return Scaffold(
-      backgroundColor: _C.bg,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Only show header + profile card on the Overview tab
-              if (isOverview) ...[
-                _buildHeader(context),
-                const SizedBox(height: 24),
-                _buildProfileCard(),
-                const SizedBox(height: 32),
-              ],
-              _buildTabs(),
-              const SizedBox(height: 32),
+    return Container(
+      color: _C.bg,
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isMobile = constraints.maxWidth < 800;
+            return Padding(
+              padding: EdgeInsets.all(isMobile ? 16.0 : 32.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Only show header + profile card on the Overview tab
+                  if (isOverview) ...[
+                    _buildHeader(context, isMobile: isMobile),
+                    SizedBox(height: isMobile ? 16 : 24),
+                    _buildProfileCard(isMobile: isMobile),
+                    SizedBox(height: isMobile ? 16 : 32),
+                  ],
+                  _buildTabs(),
+                  SizedBox(height: isMobile ? 16 : 32),
 
-              // Expanded Content Router - Fills remaining screen space automatically
-              Expanded(child: _buildTabContent()),
-            ],
-          ),
+                  // Expanded Content Router - Fills remaining screen space automatically
+                  Expanded(child: _buildTabContent(isMobile: isMobile)),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildTabContent() {
-    if (_activeTabIndex == 0) return _buildOverviewTab();
+  Widget _buildTabContent({required bool isMobile}) {
+    if (_activeTabIndex == 0) return _buildOverviewTab(isMobile: isMobile);
     if (_activeTabIndex == 1) {
       return SupervisorDailyFieldLogsScreen(
         studentId: widget.studentId,
@@ -147,7 +152,7 @@ class _SupervisorStudentProfileScreenState
   }
 
   // ── 1. HEADER (Title & Breadcrumbs) ───────────────────────────────────
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, {required bool isMobile}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,19 +243,8 @@ class _SupervisorStudentProfileScreenState
   }
 
   // ── 2. TOP PROFILE CARD ───────────────────────────────────────────────
-  Widget _buildProfileCard() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(90), // Pill/Highly rounded shape
-        border: Border.all(color: _C.border),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            // Avatar with error builder
-            ClipOval(
+  Widget _buildProfileCard({required bool isMobile}) {
+    final avatarWidget = ClipOval(
               child:
                   _student?.avatarUrl != null && _student!.avatarUrl.isNotEmpty
                   ? Image.network(
@@ -285,193 +279,220 @@ class _SupervisorStudentProfileScreenState
                         ),
                       ),
                     ),
-            ),
-            const SizedBox(width: 24),
+    );
 
-            // Name and Degree Info
-            Expanded(
-              flex: 5,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          _student?.name ?? 'Loading...',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: _C.textDark,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _studentStatusColor.withAlpha(
-                            (0.15 * 255).round(),
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _studentStatus,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: _studentStatusColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    _student != null && _student!.reg.isNotEmpty
-                        ? _student!.reg
-                        : 'Registration number not available',
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 13,
-                      color: _C.textMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Icon(
-                        PhosphorIconsRegular.graduationCap,
-                        size: 16,
-                        color: _C.textDark,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _student != null && _student!.programme.isNotEmpty
-                              ? _student!.programme
-                              : 'Programme not provided',
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 13,
-                            color: _C.textDark,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(
-                        PhosphorIconsRegular.buildings,
-                        size: 16,
-                        color: _C.textDark,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _student != null &&
-                                  _student!.academicInfo.department.isNotEmpty
-                              ? _student!.academicInfo.department
-                              : 'Department not provided',
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 13,
-                            color: _C.textDark,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(
-                        PhosphorIconsRegular.mapPin,
-                        size: 16,
-                        color: _C.textDark,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _student != null &&
-                                  _student!.academicInfo.university.isNotEmpty
-                              ? _student!.academicInfo.university
-                              : 'Institution not provided',
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 13,
-                            color: _C.textDark,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+    final infoColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                _student?.name ?? 'Loading...',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: _C.textDark,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: _studentStatusColor.withAlpha(
+                  (0.15 * 255).round(),
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                _studentStatus,
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: _studentStatusColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        Text(
+          _student != null && _student!.reg.isNotEmpty
+              ? _student!.reg
+              : 'Registration number not available',
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 13,
+            color: _C.textMuted,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Icon(
+              PhosphorIconsRegular.graduationCap,
+              size: 16,
+              color: _C.textDark,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _student != null && _student!.programme.isNotEmpty
+                    ? _student!.programme
+                    : 'Programme not provided',
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 13,
+                  color: _C.textDark,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Icon(
+              PhosphorIconsRegular.buildings,
+              size: 16,
+              color: _C.textDark,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _student != null &&
+                        _student!.academicInfo.department.isNotEmpty
+                    ? _student!.academicInfo.department
+                    : 'Department not provided',
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 13,
+                  color: _C.textDark,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Icon(
+              PhosphorIconsRegular.mapPin,
+              size: 16,
+              color: _C.textDark,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _student != null &&
+                        _student!.academicInfo.university.isNotEmpty
+                    ? _student!.academicInfo.university
+                    : 'Institution not provided',
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 13,
+                  color: _C.textDark,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
 
-            // Vertical Divider
+    final contactColumn = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildDetailRow(
+          'Email',
+          _student != null && _student!.personalInfo.email.isNotEmpty
+              ? _student!.personalInfo.email
+              : 'Email not provided',
+        ),
+        const SizedBox(height: 12),
+        _buildDetailRow(
+          'Phone',
+          _student != null && _student!.personalInfo.phone.isNotEmpty
+              ? _student!.personalInfo.phone
+              : 'Phone not provided',
+        ),
+        const SizedBox(height: 12),
+        _buildDetailRow(
+          'Supervisor',
+          _student != null &&
+                  _student!.academicInfo.supervisorName.isNotEmpty
+              ? _student!.academicInfo.supervisorName
+              : 'Supervisor not assigned',
+        ),
+        const SizedBox(height: 12),
+        _buildDetailRow(
+          'Research Topic',
+          _student != null && _student!.topic.isNotEmpty
+              ? _student!.topic
+              : (_student != null &&
+                        _student!
+                            .academicInfo
+                            .researchTopic
+                            .isNotEmpty
+                    ? _student!.academicInfo.researchTopic
+                    : 'No research topic provided'),
+          maxLines: 2,
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: _C.border),
+        ),
+        child: Column(
+          children: [
+            avatarWidget,
+            const SizedBox(height: 24),
+            infoColumn,
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Divider(color: _C.border, height: 1),
+            ),
+            contactColumn,
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(90), // Pill/Highly rounded shape
+        border: Border.all(color: _C.border),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            avatarWidget,
+            const SizedBox(width: 24),
+            Expanded(flex: 5, child: infoColumn),
             Container(
               width: 1,
               color: _C.border,
               margin: const EdgeInsets.symmetric(horizontal: 24),
             ),
-
-            // Contact & Research Info
-            Expanded(
-              flex: 6,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildDetailRow(
-                    'Email',
-                    _student != null && _student!.personalInfo.email.isNotEmpty
-                        ? _student!.personalInfo.email
-                        : 'Email not provided',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    'Phone',
-                    _student != null && _student!.personalInfo.phone.isNotEmpty
-                        ? _student!.personalInfo.phone
-                        : 'Phone not provided',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    'Supervisor',
-                    _student != null &&
-                            _student!.academicInfo.supervisorName.isNotEmpty
-                        ? _student!.academicInfo.supervisorName
-                        : 'Supervisor not assigned',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    'Research Topic',
-                    _student != null && _student!.topic.isNotEmpty
-                        ? _student!.topic
-                        : (_student != null &&
-                                  _student!
-                                      .academicInfo
-                                      .researchTopic
-                                      .isNotEmpty
-                              ? _student!.academicInfo.researchTopic
-                              : 'No research topic provided'),
-                    maxLines: 2,
-                  ),
-                ],
-              ),
-            ),
+            Expanded(flex: 6, child: contactColumn),
           ],
         ),
       ),
@@ -578,7 +599,7 @@ class _SupervisorStudentProfileScreenState
   }
 
   // ── 4. OVERVIEW TAB CONTENT (Fixed heights with Stretch) ──────────────
-  Widget _buildOverviewTab() {
+  Widget _buildOverviewTab({bool isMobile = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment
           .stretch, // Ensure all 3 columns share the exact same height

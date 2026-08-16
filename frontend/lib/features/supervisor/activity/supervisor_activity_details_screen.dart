@@ -21,8 +21,6 @@ class _C {
   static const textDark = Color(0xFF111827);
   static const textMuted = Color(0xFF9CA3AF);
   static const textBody = Color(0xFF6B7280);
-  static const border = Color(0xFFE5E7EB);
-  static const red = Color(0xFFEF4444);
   static const cardRadius = 32.0;
 }
 
@@ -77,50 +75,55 @@ class _SupervisorActivityDetailsScreenState
     if (widget.embedded) {
       return body;
     }
-    return Scaffold(
-      backgroundColor: _C.bg,
-      body: SafeArea(child: body),
+    return Container(
+      color: _C.bg,
+      child: SafeArea(child: body),
     );
   }
 
   Widget _buildBody(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildHeader(context),
-          const SizedBox(height: 32),
-          _buildCustomTabs(),
-          const SizedBox(height: 32),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isMobile = constraints.maxWidth < 800;
+        return Padding(
+          padding: EdgeInsets.all(isMobile ? 16.0 : 32.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(context, isMobile: isMobile),
+              SizedBox(height: isMobile ? 16 : 32),
+              _buildCustomTabs(),
+              SizedBox(height: isMobile ? 16 : 32),
 
-          // Tab Views (Expanded to take remaining fixed height)
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              physics: const NeverScrollableScrollPhysics(), // Keeps it fixed
-              children: [
-                _buildOverviewTab(),
-                SupervisorEvidenceScreen(
-                  studentId: widget.studentId,
-                  activityId: widget.activityId,
+              // Tab Views (Expanded to take remaining fixed height)
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  physics: const NeverScrollableScrollPhysics(), // Keeps it fixed
+                  children: [
+                    _buildOverviewTab(isMobile: isMobile),
+                    SupervisorEvidenceScreen(
+                      studentId: widget.studentId,
+                      activityId: widget.activityId,
+                    ),
+                    SupervisorLocationScreen(studentId: widget.studentId, activityId: widget.activityId),
+                    SupervisorReviewScreen(
+                      studentId: widget.studentId,
+                      activityId: widget.activityId,
+                      studentName: widget.studentName,
+                    ),
+                  ],
                 ),
-                SupervisorLocationScreen(studentId: widget.studentId, activityId: widget.activityId),
-                SupervisorReviewScreen(
-                  studentId: widget.studentId,
-                  activityId: widget.activityId,
-                  studentName: widget.studentName,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   // ── 1. HEADER (Title, Breadcrumbs & Reviewed Badge) ───────────────────
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, {required bool isMobile}) {
     final activityAsync = ref.watch(activityDetailsProvider(widget.activityId));
     final activityResult = activityAsync.asData?.value;
     final activity = activityResult is Success ? (activityResult as Success).data : null;
@@ -131,74 +134,119 @@ class _SupervisorActivityDetailsScreenState
         ? widget.activityTitle
         : (activity?['title'] as String? ?? 'Activity Details');
 
+    final headerTextAndBreadcrumbs = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Activity Details & Review',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: _C.textDark,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _buildBreadcrumb(
+              'Students',
+              onTap: () => context.go('/supervisor/students'),
+            ),
+            _buildBreadcrumbCaret(),
+            _buildBreadcrumb(
+              resolvedStudentName,
+              onTap: () =>
+                  context.go('/supervisor/student/${widget.studentId}'),
+            ),
+            _buildBreadcrumbCaret(),
+            _buildBreadcrumb(
+              'Field Logs',
+              onTap: () => context.go(
+                '/supervisor/student/${widget.studentId}/logs',
+              ),
+            ),
+            _buildBreadcrumbCaret(),
+            Text(
+              resolvedTitle,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 13,
+                color: _C.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    Widget buildBadge(BuildContext context) {
+      return Builder(
+        builder: (context) {
+          final status = activity?['status'] as String? ?? 'DRAFT';
+          final isReviewed = status == 'APPROVED' || status == 'REJECTED' || status == 'REVISION';
+          final isPending = status == 'SUBMITTED' || status == 'UNDER_REVIEW';
+
+          Color badgeColor;
+          Color textColor;
+          String badgeText;
+
+          if (isReviewed) {
+            badgeColor = _C.greenLight;
+            textColor = _C.green;
+            badgeText = 'Reviewed';
+          } else if (isPending) {
+            badgeColor = const Color(0xFFFFF7ED);
+            textColor = const Color(0xFFC2410C);
+            badgeText = 'Pending Review';
+          } else {
+            badgeColor = const Color(0xFFF3F4F6);
+            textColor = const Color(0xFF4B5563);
+            badgeText = 'Draft';
+          }
+
+          return Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: badgeColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              badgeText,
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: textColor,
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          headerTextAndBreadcrumbs,
+          const SizedBox(height: 16),
+          buildBadge(context),
+        ],
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Activity Details & Review',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: _C.textDark,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _buildBreadcrumb(
-                  'Students',
-                  onTap: () => context.go('/supervisor/students'),
-                ),
-                _buildBreadcrumbCaret(),
-                _buildBreadcrumb(
-                  resolvedStudentName,
-                  onTap: () =>
-                      context.go('/supervisor/student/${widget.studentId}'),
-                ),
-                _buildBreadcrumbCaret(),
-                _buildBreadcrumb(
-                  'Field Logs',
-                  onTap: () => context.go(
-                    '/supervisor/student/${widget.studentId}/logs',
-                  ),
-                ),
-                _buildBreadcrumbCaret(),
-                Text(
-                  resolvedTitle,
-                  style: const TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 13,
-                    color: _C.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-
-        // "Reviewed" Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          decoration: BoxDecoration(
-            color: _C.greenLight,
-            borderRadius: BorderRadius.circular(40),
-          ),
-          child: const Text(
-            'Reviewed',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: _C.green,
-            ),
-          ),
-        ),
+        headerTextAndBreadcrumbs,
+        buildBadge(context),
       ],
     );
   }
@@ -296,7 +344,7 @@ class _SupervisorActivityDetailsScreenState
   }
 
   // ── 3. OVERVIEW TAB CONTENT ───────────────────────────────────────────
-  Widget _buildOverviewTab() {
+  Widget _buildOverviewTab({required bool isMobile}) {
     final activityAsync = ref.watch(activityDetailsProvider(widget.activityId));
 
     return ApiResultBuilder<Map<String, dynamic>>(
@@ -318,9 +366,61 @@ class _SupervisorActivityDetailsScreenState
         final locName = activity['locationName'] as String?;
         final fallbackLoc = "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
         final locationStr = (locName != null && locName.isNotEmpty) 
-            ? '${locName}${activity['county'] != null ? ', ${activity['county']}' : ''}' 
+            ? '$locName${activity['county'] != null ? ', ${activity['county']}' : ''}' 
             : fallbackLoc;
         final accuracyStr = "${activity['gpsAccuracy']?.toStringAsFixed(1) ?? '-'} m";
+
+        final leftColumn = Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(_C.cardRadius),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Activity Details',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: _C.textDark,
+                ),
+              ),
+              const SizedBox(height: 32),
+              _buildInfoRow('Activity Type', title),
+              _buildInfoRow('Time', timeStr),
+              _buildInfoRow('Location', 'Field Location', subValue: locationStr),
+              _buildInfoRow('Accuracy', accuracyStr),
+              _buildInfoRow('Methodology', methodology),
+            ],
+          ),
+        );
+
+        final rightColumn = Column(
+          children: [
+            _buildRightCard(
+              title: 'Description',
+              content: description,
+            ),
+            const SizedBox(height: 24),
+            _buildSupervisorReviewCard(status),
+          ],
+        );
+
+        if (isMobile) {
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                leftColumn,
+                const SizedBox(height: 24),
+                rightColumn,
+              ],
+            ),
+          );
+        }
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,52 +428,13 @@ class _SupervisorActivityDetailsScreenState
             // Left Column: Details
             Expanded(
               flex: 5,
-              child: Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(_C.cardRadius),
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Activity Details',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: _C.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      _buildInfoRow('Activity Type', title),
-                      _buildInfoRow('Time', timeStr),
-                      _buildInfoRow('Location', 'Field Location', subValue: locationStr),
-                      _buildInfoRow('Accuracy', accuracyStr),
-                      _buildInfoRow('Methodology', methodology),
-                    ],
-                  ),
-                ),
-              ),
+              child: SingleChildScrollView(child: leftColumn),
             ),
             const SizedBox(width: 32),
             // Right Column: Descriptions, Findings & Review
             Expanded(
               flex: 9,
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildRightCard(
-                      title: 'Description',
-                      content: description,
-                    ),
-                    const SizedBox(height: 24),
-                    _buildSupervisorReviewCard(status),
-                  ],
-                ),
-              ),
+              child: SingleChildScrollView(child: rightColumn),
             ),
           ],
         );
@@ -472,7 +533,7 @@ class _SupervisorActivityDetailsScreenState
 
   // Right column Supervisor Review Card (with green button)
   Widget _buildSupervisorReviewCard(String status) {
-    bool isReviewed = status == 'APPROVED' || status == 'REJECTED';
+    bool isReviewed = status == 'APPROVED' || status == 'REJECTED' || status == 'REVISION';
     
     return Container(
       width: double.infinity,
@@ -519,8 +580,8 @@ class _SupervisorActivityDetailsScreenState
                   borderRadius: BorderRadius.circular(40),
                 ),
               ),
-              child: const Text(
-                'Add a Review',
+              child: Text(
+                isReviewed ? 'View Review' : 'Add a Review',
                 style: TextStyle(
                   fontFamily: 'Poppins',
                   fontSize: 14,
@@ -535,29 +596,3 @@ class _SupervisorActivityDetailsScreenState
     );
   }
 }
-
-// ==========================================
-// DOTTED LINE PAINTER
-// ==========================================
-class _VerticalDottedLinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = _C.textMuted.withOpacity(0.5)
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-
-    const double dashHeight = 5;
-    const double dashSpace = 5;
-    double startY = 0;
-
-    while (startY < size.height) {
-      canvas.drawLine(Offset(0, startY), Offset(0, startY + dashHeight), paint);
-      startY += dashHeight + dashSpace;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-

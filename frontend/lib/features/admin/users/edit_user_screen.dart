@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -244,7 +244,7 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
               borderSide: BorderSide(color: readOnly ? _C.border : _C.green),
             ),
             filled: true,
-            fillColor: readOnly ? _C.border.withOpacity(0.3) : Colors.white,
+            fillColor: readOnly ? _C.border.withValues(alpha: 0.3) : Colors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
@@ -290,7 +290,7 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: readOnly ? _C.border.withOpacity(0.3) : Colors.white,
+            color: readOnly ? _C.border.withValues(alpha: 0.3) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: _C.border),
           ),
@@ -389,55 +389,81 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
     );
   }
 
+  Widget _buildResponsiveRow(Widget a, Widget b, bool isMobile) {
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          a,
+          const SizedBox(height: 24),
+          b,
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: a),
+        const SizedBox(width: 24),
+        Expanded(child: b),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: _C.bg,
-      child: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: _C.green))
-            : Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 800;
+        return Container(
+          color: _C.bg,
+          child: SafeArea(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: _C.green))
+                : Padding(
+                    padding: EdgeInsets.all(isMobile ? 16.0 : 32.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        InkWell(
-                          onTap: () => context.go('/admin/users'),
-                          borderRadius: BorderRadius.circular(24),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
+                        // Header
+                        Row(
+                          children: [
+                            InkWell(
+                              onTap: () => context.go('/admin/users'),
                               borderRadius: BorderRadius.circular(24),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 18,
-                                  offset: const Offset(0, 6),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.05),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                                child: Icon(
+                                  PhosphorIcons.arrowLeft(),
+                                  color: _C.textDark,
+                                ),
+                              ),
                             ),
-                            child: Icon(
-                              PhosphorIcons.arrowLeft(),
-                              color: _C.textDark,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                'Edit User',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: isMobile ? 24 : 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: _C.textDark,
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                        const SizedBox(width: 24),
-                        const Text(
-                          'Edit User',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: _C.textDark,
-                          ),
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: 32),
 
                     // Main Content
@@ -448,7 +474,7 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
                           borderRadius: BorderRadius.circular(40),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 18,
                               offset: const Offset(0, 6),
                             ),
@@ -469,80 +495,62 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
                                 ),
                               ),
                               const SizedBox(height: 24),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTextField(
-                                      'Full Name',
-                                      'e.g. John Doe',
-                                      _nameController,
-                                      isRequired: true,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 24),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      'Email Address',
-                                      'e.g. john@fieldtrack.edu',
-                                      _emailController,
-                                      readOnly: true,
-                                    ),
-                                  ),
-                                ],
+                              _buildResponsiveRow(
+                                _buildTextField(
+                                  'Full Name',
+                                  'e.g. John Doe',
+                                  _nameController,
+                                  isRequired: true,
+                                ),
+                                _buildTextField(
+                                  'Email Address',
+                                  'e.g. john@fieldtrack.edu',
+                                  _emailController,
+                                  readOnly: true,
+                                ),
+                                isMobile,
                               ),
                               const SizedBox(height: 24),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildDropdownField(
-                                      'Role',
-                                      ['Student', 'Supervisor', 'Admin'],
-                                      _selectedRole,
-                                      (v) {},
-                                      readOnly: true,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 24),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      _selectedRole == 'Student'
-                                          ? 'Reg Number'
-                                          : 'Employee Number',
-                                      'Required',
-                                      _regStaffController,
-                                      readOnly: true,
-                                    ),
-                                  ),
-                                ],
+                              _buildResponsiveRow(
+                                _buildDropdownField(
+                                  'Role',
+                                  ['Student', 'Supervisor', 'Admin'],
+                                  _selectedRole,
+                                  (v) {},
+                                  readOnly: true,
+                                ),
+                                _buildTextField(
+                                  _selectedRole == 'Student'
+                                      ? 'Reg Number'
+                                      : 'Employee Number',
+                                  'Required',
+                                  _regStaffController,
+                                  readOnly: true,
+                                ),
+                                isMobile,
                               ),
                               const SizedBox(height: 24),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTextField(
-                                      'Phone Number',
-                                      'e.g. +254 700 000000',
-                                      _phoneController,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 24),
-                                  Expanded(
-                                    child: _buildDropdownField(
-                                      'Status',
-                                      [
-                                        'ACTIVE',
-                                        'PENDING',
-                                        'DISABLED',
-                                        'SUSPENDED',
-                                        'LOCKED',
-                                        'ARCHIVED',
-                                      ],
-                                      _selectedStatus,
-                                      (v) =>
-                                          setState(() => _selectedStatus = v),
-                                    ),
-                                  ),
-                                ],
+                              _buildResponsiveRow(
+                                _buildTextField(
+                                  'Phone Number',
+                                  'e.g. +254 700 000000',
+                                  _phoneController,
+                                ),
+                                _buildDropdownField(
+                                  'Status',
+                                  [
+                                    'ACTIVE',
+                                    'PENDING',
+                                    'DISABLED',
+                                    'SUSPENDED',
+                                    'LOCKED',
+                                    'ARCHIVED',
+                                  ],
+                                  _selectedStatus,
+                                  (v) =>
+                                      setState(() => _selectedStatus = v),
+                                ),
+                                isMobile,
                               ),
 
                               const SizedBox(height: 48),
@@ -550,7 +558,7 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
                               const SizedBox(height: 32),
 
                               Text(
-                                '${_selectedRole} Details',
+                                '$_selectedRole Details',
                                 style: const TextStyle(
                                   fontFamily: 'Poppins',
                                   fontSize: 18,
@@ -559,24 +567,18 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
                                 ),
                               ),
                               const SizedBox(height: 24),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTextField(
-                                      'Faculty',
-                                      'e.g. Science',
-                                      _facultyController,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 24),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      'Department',
-                                      'e.g. Computer Science',
-                                      _departmentController,
-                                    ),
-                                  ),
-                                ],
+                              _buildResponsiveRow(
+                                _buildTextField(
+                                  'Faculty',
+                                  'e.g. Science',
+                                  _facultyController,
+                                ),
+                                _buildTextField(
+                                  'Department',
+                                  'e.g. Computer Science',
+                                  _departmentController,
+                                ),
+                                isMobile,
                               ),
 
                               if (_selectedRole == 'Student') ...[
@@ -606,24 +608,18 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
 
                               if (_selectedRole == 'Supervisor') ...[
                                 const SizedBox(height: 24),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildTextField(
-                                        'Office',
-                                        'e.g. Room 402',
-                                        _officeController,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 24),
-                                    Expanded(
-                                      child: _buildTextField(
-                                        'Max Student Capacity',
-                                        'e.g. 20',
-                                        _capacityController,
-                                      ),
-                                    ),
-                                  ],
+                                _buildResponsiveRow(
+                                  _buildTextField(
+                                    'Office',
+                                    'e.g. Room 402',
+                                    _officeController,
+                                  ),
+                                  _buildTextField(
+                                    'Max Student Capacity',
+                                    'e.g. 20',
+                                    _capacityController,
+                                  ),
+                                  isMobile,
                                 ),
                                 const SizedBox(height: 24),
                                 _buildTextField(
@@ -634,8 +630,10 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
                               ],
 
                               const SizedBox(height: 48),
-                              Row(
+                              Flex(
+                                direction: isMobile ? Axis.vertical : Axis.horizontal,
                                 mainAxisAlignment: MainAxisAlignment.end,
+                                crossAxisAlignment: isMobile ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
                                 children: [
                                   OutlinedButton(
                                     onPressed: _isSaving
@@ -660,7 +658,7 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
+                                  SizedBox(height: isMobile ? 16 : 0, width: isMobile ? 0 : 16),
                                   ElevatedButton(
                                     onPressed: _isSaving ? null : _submit,
                                     style: ElevatedButton.styleFrom(
@@ -702,7 +700,9 @@ class _EditUserScreenState extends ConsumerState<EditUserScreen> {
                   ],
                 ),
               ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

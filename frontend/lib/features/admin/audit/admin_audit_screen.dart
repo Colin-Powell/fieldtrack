@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'dart:math';
 import '../../../../core/network/api_client.dart';
 
 // ── Audit Log Model ──
@@ -46,22 +48,122 @@ class AuditLogEntry {
   }
 }
 
+// ── Pagination Model ──
+class AuditLogsPage {
+  final List<AuditLogEntry> logs;
+  final int totalCount;
+  final int currentPage;
+  final int pageSize;
+
+  AuditLogsPage({
+    required this.logs,
+    required this.totalCount,
+    required this.currentPage,
+    required this.pageSize,
+  });
+
+  int get totalPages => (totalCount / pageSize).ceil();
+  bool get hasNextPage => currentPage < totalPages - 1;
+}
+
 // ── Provider ──
-final auditLogsProvider = FutureProvider<List<AuditLogEntry>>((ref) async {
+final auditLogsPageProvider = FutureProvider.family<AuditLogsPage, (int, int)>((
+  ref,
+  params,
+) async {
+  final (page, pageSize) = params;
   final api = ApiClient();
-  final response = await api.dio.get('/admin/audit-logs');
-  final List<dynamic> data = response.data['logs'];
-  return data
+  final offset = page * pageSize;
+
+  final response = await api.dio.get(
+    '/admin/audit-logs',
+    queryParameters: {'limit': pageSize, 'offset': offset},
+  );
+
+  final List<dynamic> logsData = response.data['logs'] ?? [];
+  final logs = logsData
       .map((e) => AuditLogEntry.fromJson(e as Map<String, dynamic>))
       .toList();
+
+  return AuditLogsPage(
+    logs: logs,
+    totalCount: response.data['totalCount'] ?? 0,
+    currentPage: page,
+    pageSize: pageSize,
+  );
 });
 
+// ── Export utilities ──
+class _ExportUtils {
+  static String generateCsv(List<AuditLogEntry> logs) {
+    final buffer = StringBuffer();
+    buffer.writeln(
+      'Time,Administrator,Action,Affected Resource,IP Address,Status',
+    );
+
+    for (var log in logs) {
+      buffer.writeln(
+        '"${log.formattedTime}",'
+        '"${log.administrator}",'
+        '"${log.action}",'
+        '"${log.affectedResource}",'
+        '"${log.ipAddress}",'
+        '"${log.status}"',
+      );
+    }
+
+    return buffer.toString();
+  }
+}
+
 // ── Audit Screen ──
-class AdminAuditScreen extends ConsumerWidget {
+class AdminAuditScreen extends ConsumerStatefulWidget {
   const AdminAuditScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminAuditScreen> createState() => _AdminAuditScreenState();
+}
+
+class _AdminAuditScreenState extends ConsumerState<AdminAuditScreen> {
+  int _currentPage = 0;
+  final int _pageSize = 25;
+
+  Future<void> _exportAuditLogs() async {
+    try {
+      final response = await ApiClient().dio.get(
+        '/admin/audit-logs',
+        queryParameters: {'limit': 10000, 'offset': 0},
+      );
+
+      final List<dynamic> logsData = response.data['logs'] ?? [];
+      final logs = logsData
+          .map((e) => AuditLogEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      final csv = _ExportUtils.generateCsv(logs);
+      final bytes = utf8.encode(csv);
+      base64Encode(bytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Exported ${logs.length} audit logs')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pageAsync = ref.watch(
+      auditLogsPageProvider((_currentPage, _pageSize)),
+    );
+
     return Padding(
       padding: const EdgeInsets.all(48.0),
       child: Column(
@@ -80,7 +182,7 @@ class AdminAuditScreen extends ConsumerWidget {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: _exportAuditLogs,
                 icon: Icon(PhosphorIcons.downloadSimple(), size: 18),
                 label: const Text('Export Logs'),
                 style: OutlinedButton.styleFrom(
@@ -99,20 +201,24 @@ class AdminAuditScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
           Expanded(
-            child: ref
-                .watch(auditLogsProvider)
-                .when(
-                  data: (logs) {
-                    if (logs.isEmpty) {
-                      return _buildEmptyContainer();
-                    }
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: Column(
+            child: pageAsync.when(
+              data: (page) {
+                if (page.logs.isEmpty && _currentPage == 0) {
+                  return _buildEmptyContainer();
+                }
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      const minWidth = 1000.0;
+                      final isNarrow = constraints.maxWidth < minWidth;
+
+                      Widget content = Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Padding(
                             padding: const EdgeInsets.symmetric(
@@ -148,22 +254,98 @@ class AdminAuditScreen extends ConsumerWidget {
                           const Divider(height: 1, color: Color(0xFFE5E7EB)),
                           Expanded(
                             child: ListView.separated(
-                              itemCount: logs.length,
+                              itemCount: page.logs.length,
                               separatorBuilder: (_, __) => const Divider(
                                 height: 1,
                                 color: Color(0xFFE5E7EB),
                               ),
                               itemBuilder: (context, index) =>
-                                  _buildAuditRow(logs[index]),
+                                  _buildAuditRow(page.logs[index]),
+                            ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Showing ${page.currentPage * _pageSize + 1}-${min((page.currentPage + 1) * _pageSize, page.totalCount)} of ${page.totalCount}',
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 12,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: _currentPage > 0
+                                          ? () => setState(() => _currentPage--)
+                                          : null,
+                                      icon: Icon(
+                                        PhosphorIcons.caretLeft(),
+                                        size: 16,
+                                      ),
+                                      label: const Text('Previous'),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Page ${page.currentPage + 1}/${page.totalPages}',
+                                      style: const TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    OutlinedButton.icon(
+                                      onPressed: page.hasNextPage
+                                          ? () => setState(() => _currentPage++)
+                                          : null,
+                                      icon: Icon(
+                                        PhosphorIcons.caretRight(),
+                                        size: 16,
+                                      ),
+                                      label: const Text('Next'),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                    );
-                  },
-                  loading: () => _buildLoadingContainer(),
-                  error: (err, stack) => _buildErrorContainer(err.toString()),
-                ),
+                      );
+
+                      if (isNarrow) {
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(width: minWidth, child: content),
+                        );
+                      }
+                      return content;
+                    },
+                  ),
+                );
+              },
+              loading: () => _buildLoadingContainer(),
+              error: (err, stack) => _buildErrorContainer(err.toString()),
+            ),
           ),
         ],
       ),

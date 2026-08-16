@@ -53,7 +53,7 @@ class DashboardState extends ChangeNotifier {
   // ── Reactive dashboard stats ──
   Map<String, dynamic>? _supervisor;
   Map<String, dynamic>? _trend;
-  
+
   int _checkedIn = 0;
   int _inField = 0;
   int _checkedOut = 0;
@@ -61,10 +61,12 @@ class DashboardState extends ChangeNotifier {
   int _studentsInField = 0;
   int _activitiesSubmitted = 0;
   int _pendingReviews = 0;
+  int _approvedReviews = 0;
+  int _needsRevision = 0;
 
   Map<String, dynamic>? get supervisor => _supervisor;
   Map<String, dynamic>? get trend => _trend;
-  
+
   int get checkedIn => _checkedIn;
   int get inField => _inField;
   int get checkedOut => _checkedOut;
@@ -72,6 +74,8 @@ class DashboardState extends ChangeNotifier {
   int get studentsInField => _studentsInField;
   int get activitiesSubmitted => _activitiesSubmitted;
   int get pendingReviews => _pendingReviews;
+  int get approvedReviews => _approvedReviews;
+  int get needsRevision => _needsRevision;
 
   // ── Data-backed lists ────────────────────────────────────────────────
   List<StudentData> _students = [];
@@ -92,15 +96,43 @@ class DashboardState extends ChangeNotifier {
   // ── Search query ─────────────────────────────────────────────────────
   String _searchQuery = '';
 
+  // ── Pagination state ──────────────────────────────────────────────────
+  int _activityPage = 0;
+  static const int _activitiesPerPage = 10;
+
   String get searchQuery => _searchQuery;
+  int get activityPage => _activityPage;
+  int get activitiesPerPage => _activitiesPerPage;
 
   set searchQuery(String value) {
     _searchQuery = value;
+    _activityPage = 0; // Reset to first page when searching
     notifyListeners();
   }
 
   void setSearchQuery(String query) {
     _searchQuery = query;
+    _activityPage = 0; // Reset to first page when searching
+    notifyListeners();
+  }
+
+  void nextActivityPage() {
+    final totalPages = (filteredActivities.length / _activitiesPerPage).ceil();
+    if (_activityPage < totalPages - 1) {
+      _activityPage++;
+      notifyListeners();
+    }
+  }
+
+  void previousActivityPage() {
+    if (_activityPage > 0) {
+      _activityPage--;
+      notifyListeners();
+    }
+  }
+
+  void resetActivityPage() {
+    _activityPage = 0;
     notifyListeners();
   }
 
@@ -116,6 +148,22 @@ class DashboardState extends ChangeNotifier {
     }).toList();
   }
 
+  // ── Paginated activities ──────────────────────────────────────────────
+  List<RecentActivity> get paginatedActivities {
+    final start = _activityPage * _activitiesPerPage;
+    final end = start + _activitiesPerPage;
+    final list = filteredActivities;
+    return list.sublist(start, end.clamp(0, list.length));
+  }
+
+  bool get hasMoreActivities {
+    final totalPages = (filteredActivities.length / _activitiesPerPage).ceil();
+    return _activityPage < totalPages - 1;
+  }
+
+  int get totalActivityPages =>
+      (filteredActivities.length / _activitiesPerPage).ceil();
+
   List<FeedItem> get feedItems => _feedItems;
 
   @override
@@ -126,7 +174,7 @@ class DashboardState extends ChangeNotifier {
   // ── Load dashboard data from repository ──────────────────────────────
 
   /// Called once at app start to hydrate the dashboard from the API.
-  /// Falls back to hardcoded defaults when the backend is unavailable.
+  /// Falls back to hardcoded defaults when the backend is unavailable.https://www.youtube.com/watch?v=756YdTT-WJ0&list=PLjCfSCrzuPiHIniz6Ixan8JdPKSL9wZQW&pp=8AUB
   Future<void> loadDashboard({bool isPolling = false}) async {
     if (!isPolling) {
       _isLoading = true;
@@ -138,9 +186,9 @@ class DashboardState extends ChangeNotifier {
     try {
       // 1. Fetch dashboard stats
       final stats = await _repository.fetchDashboardStats();
-      
+
       _supervisor = stats['supervisor'] as Map<String, dynamic>?;
-      
+
       if (stats['statistics'] != null) {
         final st = stats['statistics'] as Map<String, dynamic>;
         _checkedOut = st['checkedOut'] as int? ?? 0;
@@ -148,13 +196,17 @@ class DashboardState extends ChangeNotifier {
         _studentsInField = st['studentsInField'] as int? ?? 0;
         _activitiesSubmitted = st['activitiesSubmitted'] as int? ?? 0;
         _pendingReviews = st['pendingApprovals'] as int? ?? 0;
+        _approvedReviews =
+            st['approvedActivities'] ?? st['approved'] as int? ?? 0;
+        _needsRevision =
+            st['revisionRequested'] ?? st['needsRevision'] as int? ?? 0;
       }
-      
+
       _studentsCheckedInToday = stats['studentsCheckedIn'] as int? ?? 0;
       if (stats['trend'] != null) {
         _trend = Map<String, String>.from(stats['trend'] as Map);
       }
-      
+
       if (stats['recentActivities'] != null) {
         final recent = stats['recentActivities'] as List<dynamic>;
         _allActivities = recent.map((e) {
@@ -165,12 +217,15 @@ class DashboardState extends ChangeNotifier {
           final evidence = map['evidence'] as List<dynamic>?;
           if (evidence != null && evidence.isNotEmpty) {
             final ev = evidence[0] as Map<String, dynamic>;
-            activityImageUrl = ev['thumbnailPath'] as String? ?? ev['storagePath'] as String?;
+            activityImageUrl =
+                ev['thumbnailPath'] as String? ?? ev['storagePath'] as String?;
           }
           return RecentActivity(
             title: map['title'] as String? ?? 'Activity',
             location: 'Location Captured',
-            time: map['timestamp'] != null ? _formatTime(DateTime.parse(map['timestamp'])) : '',
+            time: map['timestamp'] != null
+                ? _formatTime(DateTime.parse(map['timestamp']))
+                : '',
             imageUrl: user?['avatarUrl'] as String? ?? '',
             activityImageUrl: activityImageUrl,
             activityId: map['id'] as String?,
@@ -179,7 +234,6 @@ class DashboardState extends ChangeNotifier {
           );
         }).toList();
       }
-      
     } catch (_) {
       // Empty state
       if (!isPolling) _allActivities = [];
@@ -188,7 +242,7 @@ class DashboardState extends ChangeNotifier {
     try {
       // 2. Fetch all students (provides data for list)
       _students = await _repository.fetchStudents();
-      
+
       // Update feed items from real student events
       _feedItems = [];
       for (final student in _students) {

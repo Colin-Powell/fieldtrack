@@ -8,6 +8,10 @@ export async function login(req, res) {
         const { email, registrationNo, password } = req.body;
         const ipAddress = req.ip;
         const userAgent = req.headers['user-agent'];
+        const deviceId = req.headers['x-device-id'];
+        const deviceName = req.headers['x-device-model'];
+        const platform = req.headers['x-platform'];
+        const osVersion = req.headers['x-os-version'];
         authLogger.info('Login attempt received', {
             ipAddress,
             loginMethod: email ? 'email' : registrationNo ? 'registrationNo' : 'unknown',
@@ -95,6 +99,47 @@ export async function login(req, res) {
                 lastLogin: new Date(),
             },
         });
+        // Enforce device limits if device telemetry provided
+        if (deviceId) {
+            const activeDevices = await prisma.deviceSession.findMany({
+                where: { userId: user.id, isActive: true },
+                orderBy: { lastActiveAt: 'asc' },
+            });
+            const isExistingDevice = activeDevices.some((d) => d.deviceId === deviceId);
+            if (!isExistingDevice && activeDevices.length >= user.maxActiveDevices) {
+                // Enforce limit: reject login
+                return res.status(403).json({ error: `Device limit reached (max ${user.maxActiveDevices}). Please log out from another device.` });
+            }
+            // Upsert device session
+            const existingSession = await prisma.deviceSession.findFirst({
+                where: { userId: user.id, deviceId },
+            });
+            if (existingSession) {
+                await prisma.deviceSession.update({
+                    where: { id: existingSession.id },
+                    data: {
+                        isActive: true,
+                        lastActiveAt: new Date(),
+                        deviceName,
+                        platform,
+                        osVersion,
+                    },
+                });
+            }
+            else {
+                await prisma.deviceSession.create({
+                    data: {
+                        userId: user.id,
+                        deviceId,
+                        deviceName,
+                        platform,
+                        osVersion,
+                        isActive: true,
+                        lastActiveAt: new Date(),
+                    },
+                });
+            }
+        }
         const token = generateToken({
             userId: user.id,
             role: user.role,
@@ -190,6 +235,7 @@ export async function refresh(req, res) {
 export async function logout(req, res) {
     try {
         const { refreshToken } = req.body;
+        const deviceId = req.headers['x-device-id'];
         if (refreshToken) {
             await prisma.refreshToken.updateMany({
                 where: { token: refreshToken },
@@ -197,6 +243,12 @@ export async function logout(req, res) {
             });
         }
         if (req.user) {
+            if (deviceId) {
+                await prisma.deviceSession.updateMany({
+                    where: { userId: req.user.userId, deviceId },
+                    data: { isActive: false },
+                });
+            }
             await AuditLogService.log({
                 userId: req.user.userId,
                 action: 'LOGOUT',

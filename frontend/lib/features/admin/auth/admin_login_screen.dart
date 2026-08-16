@@ -50,17 +50,22 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     try {
       if (!_formKey.currentState!.validate()) return;
 
-      final success = await ref.read(authProvider.notifier).login(
-        email: _emailController.text.trim(),
-        password: _pwController.text,
-      );
+      final success = await ref
+          .read(authProvider.notifier)
+          .login(
+            email: _emailController.text.trim(),
+            password: _pwController.text,
+          );
 
       if (!mounted) return;
 
       if (success) {
         final prefs = await SharedPreferences.getInstance();
         if (_rememberMe) {
-          await prefs.setString('saved_admin_identifier', _emailController.text.trim());
+          await prefs.setString(
+            'saved_admin_identifier',
+            _emailController.text.trim(),
+          );
         } else {
           await prefs.remove('saved_admin_identifier');
         }
@@ -72,19 +77,26 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
           ref.read(authProvider.notifier).logout();
           rootScaffoldMessengerKey.currentState?.showSnackBar(
             const SnackBar(
-              content: Text('Access denied. Administrator privileges required.'),
+              content: Text(
+                'Access denied. Administrator privileges required.',
+              ),
               backgroundColor: Colors.red,
             ),
           );
         }
       } else {
         final error = ref.read(authProvider).error ?? 'Login failed';
-        rootScaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            content: Text(error),
-            backgroundColor: Colors.red,
-          ),
-        );
+
+        // Check if account is locked
+        if (error.toLowerCase().contains('locked') ||
+            error.toLowerCase().contains('too many attempts') ||
+            error.toLowerCase().contains('account disabled')) {
+          _showAccountLockedDialog(error);
+        } else {
+          rootScaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(error), backgroundColor: Colors.red),
+          );
+        }
       }
     } catch (e, stackTrace) {
       print('Login Exception: $e\n$stackTrace');
@@ -97,6 +109,72 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
         ),
       );
     }
+  }
+
+  /// Show dialog when admin account is locked
+  void _showAccountLockedDialog(String errorMessage) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        icon: Icon(PhosphorIconsFill.lock, size: 48, color: Colors.red),
+        title: const Text('Account Locked'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your admin account has been temporarily locked due to multiple failed login attempts.',
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Recovery Options:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '• Reset your password\n'
+                    '• Contact your system administrator\n'
+                    '• Wait 30 minutes for automatic unlock',
+                    style: TextStyle(fontSize: 12, height: 1.6),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Dismiss'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.push('/admin/forgot-password');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1BA654),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reset Password'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -227,10 +305,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                         context.go('/welcome');
                       }
                     },
-                    icon: Icon(
-                      PhosphorIcons.arrowLeft(),
-                      color: Colors.black,
-                    ),
+                    icon: Icon(PhosphorIcons.arrowLeft(), color: Colors.black),
                   ),
                   const SizedBox(height: 24),
 
@@ -386,7 +461,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // --- Options Row (Remember me & Forgot Password) ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -424,7 +499,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                         onPressed: () => context.push('/admin/forgot-password'),
                         style: TextButton.styleFrom(
                           foregroundColor: greenColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
@@ -439,7 +517,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 32),
 
                   // --- Login Button ---
@@ -485,7 +563,8 @@ class _BottomWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFE8F6ED) // Very light green wave
+      ..color =
+          const Color(0xFFE8F6ED) // Very light green wave
       ..style = PaintingStyle.fill;
 
     final path = Path();

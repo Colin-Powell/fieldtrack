@@ -99,6 +99,8 @@ export async function getSupervisorReports(req: Request, res: Response) {
     if (!supervisorId) return res.status(401).json({ error: 'Unauthorized' });
 
     const period = (req.query.period as string) || 'This Month';
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const offset = parseInt(req.query.offset as string) || 0;
     const periodStart = getPeriodStart(period);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -197,6 +199,8 @@ export async function getSupervisorReports(req: Request, res: Response) {
         methodology: log.methodology || '',
       }));
 
+    const paginatedLogs = recentActivities.slice(offset, offset + limit);
+
     res.json({
       stats: {
         totalActivities,
@@ -206,7 +210,10 @@ export async function getSupervisorReports(req: Request, res: Response) {
       },
       gaugeMap,
       trendData: trendDataPoints,
-      recentActivities,
+      recentActivities: paginatedLogs,
+      total: recentActivities.length,
+      limit,
+      offset,
       logSummary,
       period,
       periodStart: periodStart?.toISOString() || null,
@@ -223,7 +230,9 @@ export async function getAdminReports(req: Request, res: Response) {
     const department = req.query.department as string | undefined;
     const supervisorId = req.query.supervisorId as string | undefined;
     const county = req.query.county as string | undefined;
-    
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const offset = parseInt(req.query.offset as string) || 0;
+
     const periodStart = getPeriodStart(period);
 
     const dateFilter = periodStart ? { timestamp: { gte: periodStart } } : {};
@@ -263,6 +272,17 @@ export async function getAdminReports(req: Request, res: Response) {
     const departments = await prisma.department.findMany({ select: { name: true } }).then(d => d.map(x => x.name));
     const supervisors = await prisma.user.findMany({ where: { role: 'SUPERVISOR' }, select: { id: true, name: true } });
 
+    const logSummaryAll = allLogs.map(l => ({
+      title: l.title,
+      student: l.user.name,
+      department: l.user.studentProfile?.department || 'N/A',
+      supervisor: l.user.studentProfile?.supervisor?.user.name || 'N/A',
+      status: l.status,
+      timestamp: l.timestamp.toISOString(),
+      location: l.locationName || 'Unknown',
+      county: l.county || 'Unknown',
+    }));
+
     res.json({
       stats: { totalActivities },
       trendData: trendDataPoints,
@@ -272,16 +292,10 @@ export async function getAdminReports(req: Request, res: Response) {
         supervisors: [{ id: 'All Supervisors', name: 'All Supervisors' }, ...supervisors.map(s => ({ id: s.id, name: s.name }))],
         counties: ['All Counties', 'Nairobi', 'Mombasa', 'Kisumu', 'Other'],
       },
-      logSummary: allLogs.map(l => ({
-        title: l.title,
-        student: l.user.name,
-        department: l.user.studentProfile?.department || 'N/A',
-        supervisor: l.user.studentProfile?.supervisor?.user.name || 'N/A',
-        status: l.status,
-        timestamp: l.timestamp.toISOString(),
-        location: l.locationName || 'Unknown',
-        county: l.county || 'Unknown',
-      })).slice(0, 50), // Send top 50 for report PDF
+      logSummary: logSummaryAll.slice(offset, offset + limit),
+      total: logSummaryAll.length,
+      limit,
+      offset,
     });
   } catch (error) {
     console.error('getAdminReports error:', error);

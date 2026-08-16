@@ -96,6 +96,8 @@ export async function getSupervisorReports(req, res) {
         if (!supervisorId)
             return res.status(401).json({ error: 'Unauthorized' });
         const period = req.query.period || 'This Month';
+        const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+        const offset = parseInt(req.query.offset) || 0;
         const periodStart = getPeriodStart(period);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -179,6 +181,7 @@ export async function getSupervisorReports(req, res) {
             timestamp: log.timestamp.toISOString(),
             methodology: log.methodology || '',
         }));
+        const paginatedLogs = recentActivities.slice(offset, offset + limit);
         res.json({
             stats: {
                 totalActivities,
@@ -188,7 +191,10 @@ export async function getSupervisorReports(req, res) {
             },
             gaugeMap,
             trendData: trendDataPoints,
-            recentActivities,
+            recentActivities: paginatedLogs,
+            total: recentActivities.length,
+            limit,
+            offset,
             logSummary,
             period,
             periodStart: periodStart?.toISOString() || null,
@@ -205,6 +211,8 @@ export async function getAdminReports(req, res) {
         const department = req.query.department;
         const supervisorId = req.query.supervisorId;
         const county = req.query.county;
+        const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+        const offset = parseInt(req.query.offset) || 0;
         const periodStart = getPeriodStart(period);
         const dateFilter = periodStart ? { timestamp: { gte: periodStart } } : {};
         const deptFilter = department && department !== 'All Departments' ? { user: { studentProfile: { department } } } : {};
@@ -237,6 +245,16 @@ export async function getAdminReports(req, res) {
         // Filters for dropdowns
         const departments = await prisma.department.findMany({ select: { name: true } }).then(d => d.map(x => x.name));
         const supervisors = await prisma.user.findMany({ where: { role: 'SUPERVISOR' }, select: { id: true, name: true } });
+        const logSummaryAll = allLogs.map(l => ({
+            title: l.title,
+            student: l.user.name,
+            department: l.user.studentProfile?.department || 'N/A',
+            supervisor: l.user.studentProfile?.supervisor?.user.name || 'N/A',
+            status: l.status,
+            timestamp: l.timestamp.toISOString(),
+            location: l.locationName || 'Unknown',
+            county: l.county || 'Unknown',
+        }));
         res.json({
             stats: { totalActivities },
             trendData: trendDataPoints,
@@ -246,16 +264,10 @@ export async function getAdminReports(req, res) {
                 supervisors: [{ id: 'All Supervisors', name: 'All Supervisors' }, ...supervisors.map(s => ({ id: s.id, name: s.name }))],
                 counties: ['All Counties', 'Nairobi', 'Mombasa', 'Kisumu', 'Other'],
             },
-            logSummary: allLogs.map(l => ({
-                title: l.title,
-                student: l.user.name,
-                department: l.user.studentProfile?.department || 'N/A',
-                supervisor: l.user.studentProfile?.supervisor?.user.name || 'N/A',
-                status: l.status,
-                timestamp: l.timestamp.toISOString(),
-                location: l.locationName || 'Unknown',
-                county: l.county || 'Unknown',
-            })).slice(0, 50), // Send top 50 for report PDF
+            logSummary: logSummaryAll.slice(offset, offset + limit),
+            total: logSummaryAll.length,
+            limit,
+            offset,
         });
     }
     catch (error) {

@@ -8,7 +8,11 @@ class TrendDataPoint {
   final double value;
   final String dateLabel;
 
-  const TrendDataPoint({required this.label, required this.value, required this.dateLabel});
+  const TrendDataPoint({
+    required this.label,
+    required this.value,
+    required this.dateLabel,
+  });
 
   factory TrendDataPoint.fromJson(Map<String, dynamic> json) {
     return TrendDataPoint(
@@ -25,7 +29,11 @@ class SubmissionSegment {
   final double value;
   final String color;
 
-  const SubmissionSegment({required this.label, required this.value, required this.color});
+  const SubmissionSegment({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   factory SubmissionSegment.fromJson(Map<String, dynamic> json) {
     return SubmissionSegment(
@@ -43,7 +51,12 @@ class DeptStat {
   final double percentage;
   final String color;
 
-  const DeptStat({required this.name, required this.count, required this.percentage, required this.color});
+  const DeptStat({
+    required this.name,
+    required this.count,
+    required this.percentage,
+    required this.color,
+  });
 
   factory DeptStat.fromJson(Map<String, dynamic> json) {
     return DeptStat(
@@ -62,7 +75,12 @@ class RecentUser {
   final String time;
   final String avatarUrl;
 
-  const RecentUser({required this.name, required this.role, required this.time, required this.avatarUrl});
+  const RecentUser({
+    required this.name,
+    required this.role,
+    required this.time,
+    required this.avatarUrl,
+  });
 
   factory RecentUser.fromJson(Map<String, dynamic> json) {
     return RecentUser(
@@ -82,7 +100,13 @@ class SysActivity {
   final String icon;
   final String color;
 
-  const SysActivity({required this.title, required this.desc, required this.time, required this.icon, required this.color});
+  const SysActivity({
+    required this.title,
+    required this.desc,
+    required this.time,
+    required this.icon,
+    required this.color,
+  });
 
   factory SysActivity.fromJson(Map<String, dynamic> json) {
     return SysActivity(
@@ -134,27 +158,35 @@ class AdminDashboardStats {
       submittedToday: json['submittedToday'] ?? 0,
       pendingReviews: json['pendingReviews'] ?? 0,
       activeProjects: json['activeProjects'] ?? 0,
-      activityTrend: (json['activityTrend'] as List<dynamic>?)
+      activityTrend:
+          (json['activityTrend'] as List<dynamic>?)
               ?.map((e) => TrendDataPoint.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      attendanceTrend: (json['attendanceTrend'] as List<dynamic>?)
+      attendanceTrend:
+          (json['attendanceTrend'] as List<dynamic>?)
               ?.map((e) => TrendDataPoint.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      submissionStatus: (json['submissionStatus'] as List<dynamic>?)
-              ?.map((e) => SubmissionSegment.fromJson(e as Map<String, dynamic>))
+      submissionStatus:
+          (json['submissionStatus'] as List<dynamic>?)
+              ?.map(
+                (e) => SubmissionSegment.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
-      departmentStats: (json['departmentStats'] as List<dynamic>?)
+      departmentStats:
+          (json['departmentStats'] as List<dynamic>?)
               ?.map((e) => DeptStat.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      recentUsers: (json['recentUsers'] as List<dynamic>?)
+      recentUsers:
+          (json['recentUsers'] as List<dynamic>?)
               ?.map((e) => RecentUser.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      systemActivities: (json['systemActivities'] as List<dynamic>?)
+      systemActivities:
+          (json['systemActivities'] as List<dynamic>?)
               ?.map((e) => SysActivity.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -162,9 +194,12 @@ class AdminDashboardStats {
   }
 }
 
-final adminDashboardProvider = FutureProvider.autoDispose.family<AdminDashboardStats, String>((ref, timeFilter) async {
-  final api = ApiClient();
-  final response = await api.dio.get('/dashboard/admin', queryParameters: {'period': timeFilter});
-  return AdminDashboardStats.fromJson(response.data);
-});
-
+final adminDashboardProvider =
+    FutureProvider.family<AdminDashboardStats, String>((ref, timeFilter) async {
+      final api = ApiClient();
+      final response = await api.dio.get(
+        '/dashboard/admin',
+        queryParameters: {'period': timeFilter},
+      );
+      return AdminDashboardStats.fromJson(response.data);
+    });

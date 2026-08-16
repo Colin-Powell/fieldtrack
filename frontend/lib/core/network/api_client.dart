@@ -12,6 +12,7 @@ import 'connectivity_interceptor.dart';
 import 'offline_queue_service.dart';
 import 'connectivity_service.dart';
 import 'package:fieldtrack/core/utils/toast_service.dart';
+import 'device_fingerprint_interceptor.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -76,6 +77,11 @@ class ApiClient {
 
     // 3. Cache Interceptor
     dio.interceptors.add(DioCacheInterceptor(options: _cacheOptions!));
+
+    // 3.5 Device Fingerprint Interceptor
+    final fingerprintInterceptor = DeviceFingerprintInterceptor(secureStorage: _secureStorage);
+    await fingerprintInterceptor.init();
+    dio.interceptors.add(fingerprintInterceptor);
 
     // 4. Retry Interceptor
     dio.interceptors.add(

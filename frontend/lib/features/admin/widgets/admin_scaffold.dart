@@ -4,6 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/features/admin/widgets/admin_top_header.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/widgets/error_boundary.dart';
 
 class AdminScaffold extends StatefulWidget {
   final Widget child;
@@ -65,21 +66,31 @@ class _AdminScaffoldState extends State<AdminScaffold> {
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
-          width: expanded ? 240 : 120, // 120px collapsed as per spec (120-140px)
-          margin: isDrawer ? EdgeInsets.zero : const EdgeInsets.only(left: 32, top: 32, bottom: 32),
+          width: expanded
+              ? 240
+              : 120, // 120px collapsed as per spec (120-140px)
+          margin: isDrawer
+              ? EdgeInsets.zero
+              : const EdgeInsets.only(left: 32, top: 32, bottom: 32),
           constraints: BoxConstraints(
-            maxHeight: isDrawer ? double.infinity : MediaQuery.of(context).size.height - 64,
+            maxHeight: isDrawer
+                ? double.infinity
+                : MediaQuery.of(context).size.height - 64,
           ),
           decoration: BoxDecoration(
             color: sidebarColor,
-            borderRadius: isDrawer ? BorderRadius.zero : BorderRadius.circular(32),
-            boxShadow: isDrawer ? [] : [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            borderRadius: isDrawer
+                ? BorderRadius.zero
+                : BorderRadius.circular(32),
+            boxShadow: isDrawer
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
           padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
           child: Column(
@@ -133,23 +144,131 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
-                      _buildNavItem(context, PhosphorIconsFill.squaresFour, PhosphorIconsRegular.squaresFour, 'Dashboard', 0, selectedIndex, '/admin/dashboard', activeItemBg, activeItemIcon, expanded, isDrawer),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.squaresFour,
+                        PhosphorIconsRegular.squaresFour,
+                        'Dashboard',
+                        0,
+                        selectedIndex,
+                        '/admin/dashboard',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
                       const SizedBox(height: 8),
-                      _buildNavItem(context, PhosphorIconsFill.users, PhosphorIconsRegular.users, 'Users', 1, selectedIndex, '/admin/users', activeItemBg, activeItemIcon, expanded, isDrawer),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.users,
+                        PhosphorIconsRegular.users,
+                        'Users',
+                        1,
+                        selectedIndex,
+                        '/admin/users',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
                       const SizedBox(height: 8),
-                      _buildNavItem(context, PhosphorIconsFill.buildings, PhosphorIconsRegular.buildings, 'Departments', 2, selectedIndex, '/admin/departments', activeItemBg, activeItemIcon, expanded, isDrawer),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.buildings,
+                        PhosphorIconsRegular.buildings,
+                        'Departments',
+                        2,
+                        selectedIndex,
+                        '/admin/departments',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
                       const SizedBox(height: 8),
-                      _buildNavItem(context, PhosphorIconsFill.files, PhosphorIconsRegular.files, 'Projects', 3, selectedIndex, '/admin/projects', activeItemBg, activeItemIcon, expanded, isDrawer),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.files,
+                        PhosphorIconsRegular.files,
+                        'Projects',
+                        3,
+                        selectedIndex,
+                        '/admin/projects',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
                       const SizedBox(height: 8),
-                      _buildNavItem(context, PhosphorIconsFill.chartBar, PhosphorIconsRegular.chartBar, 'Reports', 4, selectedIndex, '/admin/reports', activeItemBg, activeItemIcon, expanded, isDrawer),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.chartBar,
+                        PhosphorIconsRegular.chartBar,
+                        'Reports',
+                        4,
+                        selectedIndex,
+                        '/admin/reports',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
                       const SizedBox(height: 8),
-                      _buildNavItem(context, PhosphorIconsFill.mapTrifold, PhosphorIconsRegular.mapTrifold, 'Map', 5, selectedIndex, '/admin/map', activeItemBg, activeItemIcon, expanded, isDrawer),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.mapTrifold,
+                        PhosphorIconsRegular.mapTrifold,
+                        'Map',
+                        5,
+                        selectedIndex,
+                        '/admin/map',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
                       const SizedBox(height: 8),
-                      _buildNavItem(context, PhosphorIconsFill.bell, PhosphorIconsRegular.bell, 'Alerts', 6, selectedIndex, '/admin/notifications', activeItemBg, activeItemIcon, expanded, isDrawer),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.bell,
+                        PhosphorIconsRegular.bell,
+                        'Alerts',
+                        6,
+                        selectedIndex,
+                        '/admin/notifications',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
                       const SizedBox(height: 8),
-                      _buildNavItem(context, PhosphorIconsFill.shield, PhosphorIconsRegular.shield, 'Audit', 7, selectedIndex, '/admin/audit', activeItemBg, activeItemIcon, expanded, isDrawer),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.shield,
+                        PhosphorIconsRegular.shield,
+                        'Audit',
+                        7,
+                        selectedIndex,
+                        '/admin/audit',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
                       const SizedBox(height: 8),
-                      _buildNavItem(context, PhosphorIconsFill.gear, PhosphorIconsRegular.gear, 'Settings', 8, selectedIndex, '/admin/settings', activeItemBg, activeItemIcon, expanded, isDrawer),
+                      _buildNavItem(
+                        context,
+                        PhosphorIconsFill.gear,
+                        PhosphorIconsRegular.gear,
+                        'Settings',
+                        8,
+                        selectedIndex,
+                        '/admin/settings',
+                        activeItemBg,
+                        activeItemIcon,
+                        expanded,
+                        isDrawer,
+                      ),
                     ],
                   ),
                 ),
@@ -234,11 +353,13 @@ class _AdminScaffoldState extends State<AdminScaffold> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F7), // Neutral background from spec
-      drawer: isMobile ? Drawer(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: buildSidebar(isDrawer: true),
-      ) : null,
+      drawer: isMobile
+          ? Drawer(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: buildSidebar(isDrawer: true),
+            )
+          : null,
       body: Row(
         children: [
           // Floating Sidebar
@@ -250,11 +371,12 @@ class _AdminScaffoldState extends State<AdminScaffold> {
               children: [
                 // Top Header
                 AdminTopHeader(currentLocation: widget.currentLocation),
-                
-                // Content
+
+                // Content with Error Boundary
                 Expanded(
-                  child: ClipRRect(
-                    child: widget.child,
+                  child: ErrorBoundary(
+                    title: 'Screen Error',
+                    child: ClipRRect(child: widget.child),
                   ),
                 ),
               ],
@@ -298,7 +420,9 @@ class _AdminScaffoldState extends State<AdminScaffold> {
           children: [
             Icon(
               isSelected ? activeIcon : inactiveIcon,
-              color: isSelected ? activeIconColor : Colors.white.withValues(alpha: isSelected ? 1.0 : 0.8),
+              color: isSelected
+                  ? activeIconColor
+                  : Colors.white.withValues(alpha: isSelected ? 1.0 : 0.8),
               size: 28, // Icon size 28px
             ),
             if (expanded) ...[
@@ -307,7 +431,9 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                 child: Text(
                   label,
                   style: TextStyle(
-                    color: isSelected ? activeIconColor : Colors.white.withValues(alpha: 0.8),
+                    color: isSelected
+                        ? activeIconColor
+                        : Colors.white.withValues(alpha: 0.8),
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                     fontFamily: 'Inter', // Material 3 typography style

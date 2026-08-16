@@ -11,6 +11,20 @@ import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
 import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import '../widgets/supervisor_top_header.dart';
+import '../repositories/student_repository.dart';
+import 'package:fieldtrack/shared/models/student_data.dart';
+
+final _studentDailyLogProvider = FutureProvider.family.autoDispose<DailyFieldLog?, String>((ref, studentId) async {
+  final repo = StudentRepository(); // Create or get from provider
+  try {
+    final logs = await repo.fetchStudentDailyLogs(studentId);
+    if (logs.isEmpty) return null;
+    return logs.first; // Returning latest daily log for now
+  } catch (_) {
+    return null;
+  }
+});
+
 // ==========================================
 // DESIGN TOKENS
 // ==========================================
@@ -42,9 +56,9 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
     if (embedded) {
       return body;
     }
-    return Scaffold(
-      backgroundColor: _C.bg,
-      body: SafeArea(child: body),
+    return Container(
+      color: _C.bg,
+      child: SafeArea(child: body),
     );
   }
 
@@ -165,17 +179,15 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
               _buildHeader(context, resolvedName),
               const SizedBox(height: 40),
 
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Left Column: Field Session Timeline
-                  Expanded(
-                    flex: 4,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 800) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // Summary & Activities on top for mobile
                         const Text(
-                          'Field Session Timeline',
+                          'Daily Summary',
                           style: TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 18,
@@ -183,75 +195,71 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
                             color: _C.textDark,
                           ),
                         ),
-                        const SizedBox(height: 32),
-                        ...timelineItems,
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-
-                  // Right Column: Summary & Activities
-                  Expanded(
-                    flex: 7,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Daily Summary Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Daily Summary',
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: _C.textDark,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _C.greenLight,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                'Completed',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: _C.green,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
+                        const SizedBox(height: 16),
                         // Green Summary Pills
-                        Row(
-                          children: [
-                            Expanded(child: _buildSummaryPill('Total Activities', '${activities.length}')),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildSummaryPill('Evidence Files', '$evidenceCount')),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildSummaryPill('Time in Field', '9h 00m')),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildSummaryPill('Distance Travelled', '12.6 km')),
-                          ],
-                        ),
-                        const SizedBox(height: 40),
-
+                        LayoutBuilder(builder: (context, pillConstraints) {
+                          final isTiny = pillConstraints.maxWidth < 400;
+                          return Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(child: _buildSummaryPill('Total Activities', '${activities.length}')),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _buildSummaryPill('Evidence Files', '$evidenceCount')),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Consumer(
+                                      builder: (context, ref, _) {
+                                        final logAsync = ref.watch(_studentDailyLogProvider(studentId));
+                                        return logAsync.when(
+                                          data: (log) {
+                                            final duration = log?.duration;
+                                            final timeStr = duration != null
+                                                ? '${duration.inHours}h ${(duration.inMinutes % 60).toString().padLeft(2, '0')}m'
+                                                : '0h 00m';
+                                            return _buildSummaryPill('Time in Field', timeStr);
+                                          },
+                                          loading: () => _buildSummaryPill('Time in Field', '...'),
+                                          error: (_, __) => _buildSummaryPill('Time in Field', '-'),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Consumer(
+                                      builder: (context, ref, _) {
+                                        final logAsync = ref.watch(_studentDailyLogProvider(studentId));
+                                        return logAsync.when(
+                                          data: (log) {
+                                            final distance = log?.distanceTravelled;
+                                            final distStr = distance != null
+                                                ? '${distance.toStringAsFixed(1)} km'
+                                                : '0.0 km';
+                                            return _buildSummaryPill('Distance Travelled', distStr);
+                                          },
+                                          loading: () => _buildSummaryPill('Distance Travelled', '...'),
+                                          error: (_, __) => _buildSummaryPill('Distance Travelled', '-'),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        }),
+                        const SizedBox(height: 24),
                         // Activities Card
                         Container(
                           decoration: BoxDecoration(
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.03),
+                                color: Colors.black.withOpacity(0.05),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
                               ),
@@ -260,12 +268,11 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Dark Header
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                                 decoration: const BoxDecoration(
                                   color: Color(0xFF1F2937),
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(_C.cardRadius)),
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                                 ),
                                 child: const Text(
                                   'Activities for Today',
@@ -277,12 +284,11 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
                                   ),
                                 ),
                               ),
-                              // White Body
                               Container(
-                                padding: const EdgeInsets.all(32),
+                                padding: const EdgeInsets.all(24),
                                 decoration: const BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(_C.cardRadius)),
+                                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
                                 ),
                                 child: Column(
                                   children: activityItems,
@@ -291,10 +297,189 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 48),
+                        // Field Session Timeline
+                        const Text(
+                          'Field Session Timeline',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: _C.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        ...timelineItems,
                       ],
-                    ),
-                  ),
-                ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left Column: Field Session Timeline
+                      Expanded(
+                        flex: 4,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Field Session Timeline',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: _C.textDark,
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            ...timelineItems,
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+
+                      // Right Column: Summary & Activities
+                      Expanded(
+                        flex: 7,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Daily Summary Header
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Daily Summary',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: _C.textDark,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _C.greenLight,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text(
+                                    'Completed',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _C.green,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Green Summary Pills
+                            Row(
+                              children: [
+                                Expanded(child: _buildSummaryPill('Total Activities', '${activities.length}')),
+                                const SizedBox(width: 16),
+                                Expanded(child: _buildSummaryPill('Evidence Files', '$evidenceCount')),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Consumer(
+                                    builder: (context, ref, _) {
+                                      final logAsync = ref.watch(_studentDailyLogProvider(studentId));
+                                      return logAsync.when(
+                                        data: (log) {
+                                          final duration = log?.duration;
+                                          final timeStr = duration != null
+                                              ? '${duration.inHours}h ${(duration.inMinutes % 60).toString().padLeft(2, '0')}m'
+                                              : '0h 00m';
+                                          return _buildSummaryPill('Time in Field', timeStr);
+                                        },
+                                        loading: () => _buildSummaryPill('Time in Field', '...'),
+                                        error: (_, __) => _buildSummaryPill('Time in Field', '-'),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Consumer(
+                                    builder: (context, ref, _) {
+                                      final logAsync = ref.watch(_studentDailyLogProvider(studentId));
+                                      return logAsync.when(
+                                        data: (log) {
+                                          final distance = log?.distanceTravelled;
+                                          final distStr = distance != null
+                                              ? '${distance.toStringAsFixed(1)} km'
+                                              : '0.0 km';
+                                          return _buildSummaryPill('Distance Travelled', distStr);
+                                        },
+                                        loading: () => _buildSummaryPill('Distance Travelled', '...'),
+                                        error: (_, __) => _buildSummaryPill('Distance Travelled', '-'),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 40),
+
+                            // Activities Card
+                            Container(
+                              decoration: BoxDecoration(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Dark Header
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF1F2937),
+                                      borderRadius: BorderRadius.vertical(top: Radius.circular(_C.cardRadius)),
+                                    ),
+                                    child: const Text(
+                                      'Activities for Today',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  // White Body
+                                  Container(
+                                    padding: const EdgeInsets.all(32),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(_C.cardRadius)),
+                                    ),
+                                    child: Column(
+                                      children: activityItems,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -305,28 +490,6 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
 
   // ── 1. HEADER ─────────────────────────────────────────────────────────
   Widget _buildHeader(BuildContext context, String resolvedName) {
-    final exportBtn = ElevatedButton(
-      onPressed: () {},
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: _C.textDark,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(40),
-          side: const BorderSide(color: _C.border),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      ),
-      child: const Text(
-        'Export Log',
-        style: TextStyle(
-          fontFamily: 'Poppins',
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-
     return SupervisorTopHeader(
       title: 'Daily Field Logs',
       subtitleWidget: Row(
@@ -382,7 +545,6 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      trailingWidget: exportBtn,
     );
   }
 

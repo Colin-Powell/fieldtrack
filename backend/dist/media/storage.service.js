@@ -38,8 +38,8 @@ export class StorageService {
         return url;
     }
     async processUpload(file, activityId, uploaderId, gpsLatitude, gpsLongitude, gpsAccuracy, capturedAt, evidenceType) {
-        const date = new Date();
-        // Determine category based on explicitly passed evidenceType
+        const ext = path.extname(file.originalname);
+        const filename = `${uuidv4()}${ext}`;
         let category = 'documents';
         if (evidenceType === 'photo') {
             category = 'images';
@@ -62,9 +62,73 @@ export class StorageService {
             else if (file.mimetype.startsWith('audio/'))
                 category = 'documents'; // Voice notes/Audio
         }
-        const relDir = this.getRelativeStoragePath(date, category);
+        // Create the PENDING record
+        const evidence = await prisma.evidence.create({
+            data: {
+                activityId,
+                uploadedById: uploaderId,
+                originalName: file.originalname,
+                storedName: filename,
+                fileExtension: ext,
+                mimeType: category === 'images' ? 'image/jpeg' : file.mimetype,
+                fileSize: file.size,
+                storagePath: '', // Will be updated later
+                uploadStatus: 'PENDING',
+                gpsLatitude,
+                gpsLongitude,
+                gpsAccuracy,
+                capturedAt,
+            }
+        });
+        // Enqueue the background job
+        const { mediaQueue } = await import('../utils/queue.js');
+        await mediaQueue.add('processUpload', {
+            evidenceId: evidence.id,
+            file,
+            category,
+            filename
+        });
+        return evidence;
+    }
+    /**
+     * Creates a PENDING evidence DB record without doing any processing.
+     * The route calls this first, then separately enqueues the job.
+     */
+    async createPendingEvidence(file, activityId, uploaderId, gpsLatitude, gpsLongitude, gpsAccuracy, capturedAt, evidenceType) {
         const ext = path.extname(file.originalname);
         const filename = `${uuidv4()}${ext}`;
+        let category = 'documents';
+        if (evidenceType === 'photo')
+            category = 'images';
+        else if (evidenceType === 'video')
+            category = 'videos';
+        else if (file.mimetype.startsWith('image/'))
+            category = 'images';
+        else if (file.mimetype.startsWith('video/'))
+            category = 'videos';
+        return prisma.evidence.create({
+            data: {
+                activityId,
+                uploadedById: uploaderId,
+                originalName: file.originalname,
+                storedName: filename,
+                fileExtension: ext,
+                mimeType: file.mimetype,
+                fileSize: file.size,
+                storagePath: '',
+                uploadStatus: 'PENDING',
+                gpsLatitude,
+                gpsLongitude,
+                gpsAccuracy,
+                capturedAt,
+            }
+        });
+    }
+    // Called by BullMQ worker
+    async processMediaUploadJob(jobData) {
+        const { evidenceId, file, category, filename } = jobData;
+        const date = new Date();
+        const relDir = this.getRelativeStoragePath(date, category);
         const firebasePath = path.posix.join(relDir, filename);
         let storagePath = '';
         let thumbnailPath = undefined;
@@ -112,32 +176,24 @@ export class StorageService {
                 fs.copyFileSync(file.path, absTmpFilePath);
                 storagePath = await this.uploadToFirebase(absTmpFilePath, firebasePath, file.mimetype);
             }
-            // Save Evidence to Database
-            const evidence = await prisma.evidence.create({
+            await prisma.evidence.update({
+                where: { id: evidenceId },
                 data: {
-                    activityId,
-                    uploadedById: uploaderId,
-                    originalName: file.originalname,
-                    storedName: filename,
-                    fileExtension: ext,
-                    mimeType: category === 'images' ? 'image/jpeg' : file.mimetype,
-                    fileSize: fs.statSync(absTmpFilePath).size,
                     width,
                     height,
                     duration,
-                    storagePath, // Contains public Firebase URL
-                    thumbnailPath, // Contains public Firebase URL
+                    storagePath,
+                    thumbnailPath,
                     uploadStatus: 'SUCCESS',
-                    gpsLatitude,
-                    gpsLongitude,
-                    gpsAccuracy,
-                    capturedAt,
                 }
             });
-            return evidence;
         }
         catch (error) {
             console.error('Error processing upload:', error);
+            await prisma.evidence.update({
+                where: { id: evidenceId },
+                data: { uploadStatus: 'FAILED' }
+            });
             throw new Error('Failed to process and store media file');
         }
         finally {
@@ -175,3 +231,7 @@ export class StorageService {
         });
     }
 }
+export const processMediaUpload = async (jobData) => {
+    const service = new StorageService();
+    return await service.processMediaUploadJob(jobData);
+};
