@@ -10,6 +10,7 @@ import 'package:fieldtrack/core/providers/auth_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:fieldtrack/core/services/version_check_service.dart';
 import 'package:fieldtrack/shared/widgets/update_dialog.dart';
+import 'package:url_launcher/url_launcher.dart';
 // --- Theme Colors ---
 const Color _lightGreen = Color(0xFFCDE8D5);
 const Color _primaryGreen = Color(0xFF1B934F);
