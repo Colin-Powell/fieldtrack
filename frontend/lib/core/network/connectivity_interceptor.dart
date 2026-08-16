@@ -12,7 +12,7 @@ class ConnectivityInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
+    if (connectivityResult.contains(ConnectivityResult.none) || connectivityResult.isEmpty) {
       // Offline
       if (options.method.toUpperCase() != 'GET') {
         // Enqueue mutation for later replay

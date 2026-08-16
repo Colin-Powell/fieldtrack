@@ -14,7 +14,8 @@ class VersionCheckService {
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
 
-      final response = await _dio.get('/api/v1/system/version');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final response = await _dio.get('/api/v1/system/version?_t=$timestamp');
       final data = response.data;
 
       if (data == null) {
