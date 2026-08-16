@@ -353,6 +353,7 @@
       {
         title: "Configuration",
         items: [
+          { key: 'app-version', label: 'App Versions', icon: 'mobile-screen', title: 'App Version Management', subtitle: 'Manage required and latest app versions.' },
           { key: 'feature-flags', label: 'Feature Flags', icon: 'toggle-on', title: 'Feature Flags', subtitle: 'Enable and disable modules without a deployment.' },
           { key: 'maintenance-mode', label: 'Maintenance Mode', icon: 'wrench', title: 'Maintenance Mode', subtitle: 'Toggle maintenance and control access windows.' },
           { key: 'api-testing-console', label: 'API Console', icon: 'code', title: 'API Testing Console', subtitle: 'Run debug requests against the platform APIs.' }
@@ -1334,6 +1335,59 @@ function expireSession(message = 'Session expired.') {
       return html;
     }
 
+    async function saveAppVersion(event) {
+      event.preventDefault();
+      const latestVersion = document.getElementById('latestVersionInput').value;
+      const requiredVersion = document.getElementById('requiredVersionInput').value;
+      const updateUrl = document.getElementById('updateUrlInput').value;
+      
+      try {
+        await loadJson('/api/v1/system/version', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ latestVersion, requiredVersion, updateUrl })
+        });
+        alert('App version settings updated successfully.');
+        await loadModuleData('app-version');
+      } catch (err) {
+        alert('Failed to update app versions: ' + err.message);
+      }
+    }
+
+    function renderAppVersionPage() {
+      const module = getCurrentModule();
+      const dynData = dashboardState.dynamicModules[currentView];
+      let html = renderPageHero(module.title, module.subtitle, module.icon);
+      
+      if (!dynData) return html + renderLoadingState();
+      
+      const v = dynData || {};
+      html += `<div class="card" style="padding:16px;">
+        <h2 style="padding:12px;">Version Configuration</h2>
+        <form onsubmit="saveAppVersion(event)" style="padding: 12px; display: flex; flex-direction: column; gap: 16px;">
+          <div>
+            <label style="display:block; margin-bottom: 8px; font-weight: bold; color: var(--text-dark);">Latest Version</label>
+            <input type="text" id="latestVersionInput" value="${v.latestVersion || ''}" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px;" required />
+            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">The current most up-to-date version of the app.</div>
+          </div>
+          <div>
+            <label style="display:block; margin-bottom: 8px; font-weight: bold; color: var(--text-dark);">Minimum Required Version</label>
+            <input type="text" id="requiredVersionInput" value="${v.requiredVersion || ''}" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px;" required />
+            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">Any user with a version lower than this will be forced to update.</div>
+          </div>
+          <div>
+            <label style="display:block; margin-bottom: 8px; font-weight: bold; color: var(--text-dark);">Update URL</label>
+            <input type="text" id="updateUrlInput" value="${v.updateUrl || ''}" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px;" required />
+            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">The URL to redirect the user to download the update (e.g., Play Store or direct APK link).</div>
+          </div>
+          <div>
+            <button type="submit" class="btn-primary" style="margin-top: 8px;">Save Settings</button>
+          </div>
+        </form>
+      </div>`;
+      return html;
+    }
+
     function renderPage() {
       const container = document.getElementById('pageContent');
       switch (currentView) {
@@ -1346,6 +1400,7 @@ function expireSession(message = 'Session expired.') {
         case 'security-center': container.innerHTML = renderSecurityCenterPage(); break;
         case 'background-jobs': container.innerHTML = renderBackgroundJobsPage(); break;
         case 'feature-flags': container.innerHTML = renderFeatureFlagsPage(); break;
+        case 'app-version': container.innerHTML = renderAppVersionPage(); break;
         case 'database-explorer': container.innerHTML = renderDatabaseExplorerPage(); break;
         default: container.innerHTML = renderGenericMappedPage(); break;
       }

@@ -720,6 +720,18 @@ router.get('/modules/:moduleKey', async (req: Request, res: Response) => {
       });
     }
 
+    if (moduleKey === 'app-version') {
+      const setting = await prisma.systemSetting.findUnique({ where: { key: 'APP_VERSION_CONFIG' } });
+      if (!setting) {
+        return res.json({
+          latestVersion: process.env.APP_LATEST_VERSION || '1.0.0',
+          requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.0',
+          updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update',
+        });
+      }
+      return res.json(setting.value);
+    }
+
     if (moduleKey === 'background-jobs') {
       const [pendingUploads, pendingReviews, unreadNotifications, activeSessions] = await Promise.all([
         prisma.evidence.count({ where: { uploadStatus: { not: 'SUCCESS' } } }),
