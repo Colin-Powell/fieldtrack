@@ -109,7 +109,7 @@ export class ActivityService {
       take: limit,
       skip: offset,
       include: {
-        evidence: { select: { id: true, fileUrl: true, fileType: true, fileSize: true, description: true } },
+        evidence: { select: { id: true, storagePath: true, mimeType: true, fileSize: true, originalName: true } },
         reviews: true,
         user: { select: { id: true, name: true, email: true } },
       },
@@ -160,7 +160,7 @@ export class ActivityService {
       take: limit,
       skip: offset,
       include: {
-        evidence: { select: { id: true, fileUrl: true, fileType: true, fileSize: true, description: true } },
+        evidence: { select: { id: true, storagePath: true, mimeType: true, fileSize: true, originalName: true } },
         user: { select: { id: true, name: true, email: true } },
         reviews: { select: { id: true, status: true } },
       },
