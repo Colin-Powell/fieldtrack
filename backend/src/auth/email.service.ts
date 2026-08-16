@@ -27,7 +27,9 @@ class EmailService {
       tls: {
         // Do not fail on invalid/self-signed certs which are common on cPanel shared hosting
         rejectUnauthorized: false
-      }
+      },
+      logger: true, // Log information to console
+      debug: true,  // Include SMTP traffic in the logs
     });
   }
 
@@ -43,7 +45,7 @@ class EmailService {
     try {
       await this.transporter.sendMail(mailOptions);
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error('[EmailService] Failed to send standard email:', error);
       throw new Error('Failed to send email');
     }
   }
@@ -70,7 +72,7 @@ class EmailService {
     try {
       await this.transporter.sendMail(mailOptions);
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error('[EmailService] Failed to send OTP email:', error);
       throw new Error('Failed to send OTP email');
     }
   }
