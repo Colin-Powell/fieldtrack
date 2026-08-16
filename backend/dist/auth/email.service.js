@@ -4,15 +4,27 @@ class EmailService {
     constructor() {
         const smtpUser = process.env.SMTP_USER;
         const smtpPass = process.env.SMTP_PASS;
+        const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+        const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
+        // True for 465, false for other ports
+        const smtpSecure = smtpPort === 465;
         if (!smtpUser || !smtpPass) {
             throw new Error('SMTP credentials must be configured via environment variables.');
         }
         this.transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: smtpHost,
+            port: smtpPort,
+            secure: smtpSecure,
             auth: {
                 user: smtpUser,
                 pass: smtpPass,
             },
+            tls: {
+                // Do not fail on invalid/self-signed certs which are common on cPanel shared hosting
+                rejectUnauthorized: false
+            },
+            logger: true, // Log information to console
+            debug: true, // Include SMTP traffic in the logs
         });
     }
     async sendEmail(to, subject, html, text) {
@@ -27,7 +39,7 @@ class EmailService {
             await this.transporter.sendMail(mailOptions);
         }
         catch (error) {
-            console.error('Error sending email:', error);
+            console.error('[EmailService] Failed to send standard email:', error);
             throw new Error('Failed to send email');
         }
     }
@@ -53,7 +65,7 @@ class EmailService {
             await this.transporter.sendMail(mailOptions);
         }
         catch (error) {
-            console.error('Error sending email:', error);
+            console.error('[EmailService] Failed to send OTP email:', error);
             throw new Error('Failed to send OTP email');
         }
     }

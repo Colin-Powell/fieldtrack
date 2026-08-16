@@ -47,7 +47,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       const { prisma } = await import('../db.js');
       const deviceSession = await prisma.deviceSession.findFirst({
         where: {
-          userId: payload.id,
+          userId: payload.userId,
           deviceId: deviceId,
           isActive: true,
         },

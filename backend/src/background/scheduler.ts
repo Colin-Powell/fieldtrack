@@ -5,7 +5,7 @@ import { NotificationService } from '../notifications/notification.service.js';
 
 const notificationService = new NotificationService();
 
-const INACTIVE_SESSION_THRESHOLD_MINUTES = 30;
+const INACTIVE_SESSION_THRESHOLD_HOURS = 24;
 const OVERDUE_SESSION_THRESHOLD_HOURS = 12;
 const STUDENT_ACTIVITY_REMINDER_HOURS = 24;
 const STUDENT_SUBMISSION_REMINDER_HOURS = 12;
@@ -66,7 +66,7 @@ async function hasRecentStudentReminder(studentId: string, title: string, lookba
 }
 
 export async function checkInactiveStudentSessions() {
-  const cutoff = new Date(Date.now() - INACTIVE_SESSION_THRESHOLD_MINUTES * 60 * 1000);
+  const cutoff = new Date(Date.now() - INACTIVE_SESSION_THRESHOLD_HOURS * 60 * 60 * 1000);
 
   const sessions = await prisma.fieldSession.findMany({
     where: {
@@ -331,7 +331,7 @@ export async function sendDailySupervisorSummaries() {
 export function startScheduler() {
   console.log('[scheduler] Starting background scheduler.');
 
-  cron.schedule('*/15 * * * *', async () => {
+  cron.schedule('0 * * * *', async () => {
     console.log('[scheduler] Running inactive session alert job.');
     try {
       await checkInactiveStudentSessions();

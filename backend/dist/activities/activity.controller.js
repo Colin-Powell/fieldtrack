@@ -64,8 +64,11 @@ export class ActivityController {
                 return res.status(400).json({ error: 'Missing studentId' });
             }
             const limit = parseInt(req.query.limit, 10) || 50;
-            const offset = parseInt(req.query.offset, 10) || 0;
-            const activities = await activityService.getStudentActivities(studentId, limit, offset);
+            const page = parseInt(req.query.page, 10) || 1;
+            const offset = (page - 1) * limit;
+            const status = req.query.status;
+            const search = req.query.search;
+            const activities = await activityService.getStudentActivities(studentId, limit, offset, status, search);
             res.status(200).json(activities);
         }
         catch (error) {

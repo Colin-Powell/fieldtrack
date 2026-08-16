@@ -20,11 +20,11 @@ import reviewRoutes from './reviews/review.routes.js';
 import reportRoutes from './reports/reports.routes.js';
 import settingsRoutes from './settings/settings.routes.js';
 import developerRoutes from './developer/developer.routes.js';
+import supervisorRoutes from './supervisor/supervisor.routes.js';
 import systemRoutes from './system/system.routes.js';
 import { initializeDashboardSocket } from './developer/dashboard_events.js';
 import { startScheduler } from './background/scheduler.js';
 import { initFirebaseAdmin } from './firebase_admin.js';
-import './utils/queue.js'; // Initialize BullMQ workers
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (Nginx) for accurate client IP
 const port = process.env.PORT || 3000;
@@ -40,7 +40,7 @@ const corsOptions = {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-platform', 'x-app-version', 'x-device-id', 'x-fingerprint', 'x-os-version', 'x-device-model', 'x-device-brand', 'x-build-number'],
 };
 if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET must be configured before starting the backend.');
@@ -195,6 +195,7 @@ app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/developer', developerRoutes);
+app.use('/api/v1/supervisor', supervisorRoutes);
 app.use('/api/v1/system', systemRoutes);
 // ── Health Check ──
 app.get('/health', (req, res) => {
@@ -230,266 +231,6 @@ app.use('/storage', express.static(BASE_STORAGE_DIR, {
 }));
 // 404 and Error handlers moved to end of file
 import { ensureEnvAdminAccount } from './admin-sync.js';
-import { authorizeRole } from './auth/auth.middleware.js';
-// ── Supervisor Routes ── (SUPERVISOR role only — strict RBAC)
-app.get('/api/v1/supervisor/dashboard/stats', authenticate, authorizeRole(['SUPERVISOR']), async (req, res) => {
-    try {
-        const supervisorId = req.user?.userId;
-        const supervisorProfile = await prisma.supervisorProfile.findUnique({
-            where: { userId: supervisorId }
-        });
-        if (!supervisorProfile) {
-            return res.json({ checkedOut: 0, checkedIn: 0, inField: 0 });
-        }
-        const students = await prisma.user.findMany({
-            where: {
-                role: 'STUDENT',
-                studentProfile: { supervisorId: supervisorProfile.id },
-            },
-            include: {
-                fieldSessions: {
-                    where: { checkOutTime: null }
-                }
-            }
-        });
-        let checkedIn = 0;
-        let checkedOut = 0;
-        let inField = 0;
-        for (const s of students) {
-            if (s.fieldSessions && s.fieldSessions.length > 0) {
-                checkedIn++;
-                inField++;
-            }
-            else {
-                checkedOut++;
-            }
-        }
-        res.json({ checkedOut, checkedIn, inField });
-    }
-    catch (error) {
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-app.get('/api/v1/supervisor/students', authenticate, authorizeRole(['SUPERVISOR']), async (req, res) => {
-    try {
-        const supervisorId = req.user?.userId;
-        const supervisorProfile = await prisma.supervisorProfile.findUnique({
-            where: { userId: supervisorId }
-        });
-        if (!supervisorProfile) {
-            // Supervisor has no profile yet — they have no students
-            return res.json([]);
-        }
-        const students = await prisma.user.findMany({
-            where: {
-                role: 'STUDENT',
-                studentProfile: { supervisorId: supervisorProfile.id },
-            },
-            include: {
-                studentProfile: {
-                    include: {
-                        supervisor: {
-                            include: { user: true }
-                        }
-                    }
-                },
-                fieldSessions: {
-                    where: { checkOutTime: null },
-                    orderBy: { checkInTime: 'desc' },
-                    take: 1,
-                },
-                logs: {
-                    orderBy: { timestamp: 'desc' },
-                    take: 1,
-                }
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-        const mapped = students.map((u) => {
-            const sp = u.studentProfile;
-            const activeSession = u.fieldSessions?.[0] ?? null;
-            const latestLog = u.logs?.[0] ?? null;
-            const supervisorUser = sp?.supervisor?.user;
-            const isCheckedIn = !!activeSession;
-            const fieldStatus = isCheckedIn ? 'In Field' : 'Offline';
-            const lastActivity = latestLog?.timestamp
-                ? new Date(latestLog.timestamp).toISOString()
-                : null;
-            return {
-                id: u.id,
-                name: u.name,
-                email: u.email,
-                status: u.status,
-                avatarUrl: sp?.avatar ?? '',
-                reg: sp?.registrationNo ?? '',
-                programme: sp?.programme ?? '',
-                department: sp?.department ?? '',
-                faculty: sp?.faculty ?? '',
-                topic: sp?.topic ?? '',
-                checkInStatus: isCheckedIn ? 'Checked In' : 'Checked Out',
-                fieldStatus,
-                lastActivity,
-                supervisorId: sp?.supervisorId ?? null,
-                supervisorName: supervisorUser?.name ?? null,
-                currentSession: activeSession
-                    ? {
-                        active: true,
-                        checkInTime: activeSession.checkInTime.toISOString(),
-                        checkOutTime: activeSession.checkOutTime?.toISOString() ?? null,
-                        latitude: activeSession.startLatitude ?? 0,
-                        longitude: activeSession.startLongitude ?? 0,
-                        accuracy: activeSession.startAccuracy ?? 0,
-                    }
-                    : null,
-            };
-        });
-        res.json(mapped);
-    }
-    catch (error) {
-        console.error('Supervisor students error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-// ── GET /api/v1/supervisor/students/:id — full student profile (SUPERVISOR only)
-app.get('/api/v1/supervisor/students/:id', authenticate, authorizeRole(['SUPERVISOR']), async (req, res) => {
-    try {
-        const id = req.params.id;
-        const u = await prisma.user.findUnique({
-            where: { id },
-            include: {
-                studentProfile: {
-                    include: {
-                        supervisor: { include: { user: true } }
-                    }
-                },
-                fieldSessions: {
-                    orderBy: { checkInTime: 'desc' },
-                    take: 10,
-                },
-                logs: {
-                    orderBy: { timestamp: 'desc' },
-                    take: 20,
-                    include: { evidence: true }
-                },
-            }
-        });
-        if (!u)
-            return res.status(404).json({ error: 'Student not found' });
-        const sp = u.studentProfile;
-        const sessions = u.fieldSessions ?? [];
-        const activeSession = sessions.find((s) => !s.checkOutTime) ?? null;
-        const isCheckedIn = !!activeSession;
-        const logs = u.logs ?? [];
-        const supervisorUser = sp?.supervisor?.user;
-        res.json({
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            status: u.status,
-            avatarUrl: sp?.avatar ?? '',
-            reg: sp?.registrationNo ?? '',
-            programme: sp?.programme ?? '',
-            department: sp?.department ?? '',
-            faculty: sp?.faculty ?? '',
-            phone: sp?.phone ?? '',
-            topic: sp?.topic ?? '',
-            university: sp?.faculty ?? '',
-            checkInStatus: isCheckedIn ? 'Checked In' : 'Checked Out',
-            fieldStatus: isCheckedIn ? 'In Field' : 'Offline',
-            lastActivity: logs[0]?.timestamp ?? null,
-            supervisorId: sp?.supervisorId ?? null,
-            supervisorName: supervisorUser?.name ?? null,
-            supervisorEmail: supervisorUser?.email ?? null,
-            currentSession: activeSession
-                ? {
-                    active: true,
-                    checkInTime: activeSession.checkInTime.toISOString(),
-                    checkOutTime: activeSession.checkOutTime?.toISOString() ?? null,
-                    latitude: activeSession.startLatitude ?? 0,
-                    longitude: activeSession.startLongitude ?? 0,
-                    accuracy: activeSession.startAccuracy ?? 0,
-                }
-                : null,
-            activities: logs.map((l) => ({
-                id: l.id,
-                title: l.title,
-                description: l.description ?? '',
-                status: l.status,
-                startTime: l.timestamp.toISOString(),
-                endTime: l.timestamp.toISOString(),
-                duration: 0,
-                category: '',
-                methodology: l.methodology ?? '',
-                objectives: l.objectives ?? '',
-                findings: l.findings ?? '',
-                remarks: l.remarks ?? '',
-                location: {
-                    latitude: l.latitude ?? 0,
-                    longitude: l.longitude ?? 0,
-                    accuracy: l.gpsAccuracy ?? 0,
-                    altitude: 0,
-                    heading: 0,
-                    speed: 0,
-                    capturedAt: l.timestamp.toISOString(),
-                    address: '',
-                },
-                evidence: (l.evidence ?? []).map((e) => ({
-                    id: e.id,
-                    type: e.type?.toLowerCase() ?? 'image',
-                    fileName: e.fileName ?? '',
-                    url: e.url ?? '',
-                    sizeMB: 0,
-                    uploadedAt: e.createdAt?.toISOString() ?? new Date().toISOString(),
-                    uploadedBy: u.name,
-                })),
-                review: null,
-            })),
-            statistics: {
-                totalFieldDays: sessions.length,
-                totalActivities: logs.length,
-                totalReports: 0,
-                totalEvidence: logs.reduce((acc, l) => acc + (l.evidence?.length ?? 0), 0),
-                totalImages: logs.reduce((acc, l) => acc + (l.evidence?.length ?? 0), 0),
-                totalVideos: 0,
-                totalDocuments: 0,
-                totalDistanceTravelled: sessions.reduce((acc, s) => acc + (s.distanceTravelled ?? 0), 0),
-                totalTimeInField: sessions.reduce((acc, s) => acc + (s.durationSeconds ?? 0), 0),
-                firstCheckIn: sessions.length > 0 ? sessions[sessions.length - 1].checkInTime.toISOString() : new Date().toISOString(),
-                lastCheckOut: sessions.length > 0 && sessions[0].checkOutTime ? sessions[0].checkOutTime.toISOString() : new Date().toISOString(),
-                averageGPSAccuracy: sessions.length > 0 ? sessions.reduce((acc, s) => acc + (s.averageAccuracy ?? 0), 0) / sessions.length : 0,
-            },
-            timeline: [
-                ...sessions.map((s) => ({
-                    time: s.checkInTime.toISOString(),
-                    type: 'checkIn',
-                    title: 'Checked In',
-                    description: `Checked in (Accuracy: ${s.startAccuracy}m)`
-                })),
-                ...sessions.filter((s) => s.checkOutTime).map((s) => ({
-                    time: s.checkOutTime.toISOString(),
-                    type: 'checkOut',
-                    title: 'Checked Out',
-                    description: `Checked out`
-                })),
-                ...logs.map((l) => {
-                    const imageEvidence = l.evidence?.find((e) => e.mimeType?.startsWith('image/'));
-                    return {
-                        time: l.timestamp.toISOString(),
-                        type: 'activitySubmit',
-                        title: l.title,
-                        description: `Activity submitted with ${l.evidence?.length ?? 0} evidence files`,
-                        imageUrl: imageEvidence?.storagePath || undefined,
-                        activityId: l.id
-                    };
-                })
-            ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()),
-        });
-    }
-    catch (error) {
-        console.error('Get student by ID error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
 // ── Student Routes ──
 app.post('/api/v1/student/location', async (req, res) => {
     res.status(501).json({ error: 'Not Implemented. Migrated to LocationPing.' });

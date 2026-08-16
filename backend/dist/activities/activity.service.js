@@ -73,13 +73,37 @@ export class ActivityService {
     /**
      * Get all activities for a student
      */
-    async getStudentActivities(studentId, limit = 50, offset = 0) {
+    async getStudentActivities(studentId, limit = 50, offset = 0, status, search) {
+        const whereClause = { studentId };
+        if (status) {
+            // Handle the complex status mapping from frontend
+            if (status === 'DRAFT') {
+                whereClause.status = 'DRAFT';
+            }
+            else if (status === 'SUBMITTED') {
+                whereClause.status = { in: ['SUBMITTED', 'RESUBMITTED', 'UNDER_REVIEW', 'APPROVED'] };
+            }
+            else if (status === 'REVISION_REQUESTED') {
+                whereClause.status = { in: ['REVISION_REQUESTED', 'REJECTED'] };
+            }
+            else if (status === 'TODAY') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                whereClause.timestamp = { gte: today };
+            }
+        }
+        if (search) {
+            whereClause.OR = [
+                { title: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+            ];
+        }
         return prisma.fieldLog.findMany({
-            where: { studentId },
+            where: whereClause,
             take: limit,
             skip: offset,
             include: {
-                evidence: { select: { id: true, fileUrl: true, fileType: true, fileSize: true, description: true } },
+                evidence: { select: { id: true, storagePath: true, mimeType: true, fileSize: true, originalName: true } },
                 reviews: true,
                 user: { select: { id: true, name: true, email: true } },
             },
@@ -125,7 +149,7 @@ export class ActivityService {
             take: limit,
             skip: offset,
             include: {
-                evidence: { select: { id: true, fileUrl: true, fileType: true, fileSize: true, description: true } },
+                evidence: { select: { id: true, storagePath: true, mimeType: true, fileSize: true, originalName: true } },
                 user: { select: { id: true, name: true, email: true } },
                 reviews: { select: { id: true, status: true } },
             },

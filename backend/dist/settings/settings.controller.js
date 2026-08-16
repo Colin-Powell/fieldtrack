@@ -5,6 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import { getStorageBucket } from '../firebase_admin.js';
+import { emailService } from '../auth/email.service.js';
 // GET /api/v1/settings/info
 export const getSettingsInfo = async (req, res) => {
     try {
@@ -214,51 +215,31 @@ export const deactivateAccount = async (req, res) => {
             res.status(401).json({ success: false, message: 'Unauthorized' });
             return;
         }
-        const timestamp = Date.now();
+        const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
         await prisma.user.update({
             where: { id: user.userId },
             data: {
                 status: 'ARCHIVED',
                 isActive: false,
                 deletedAt: new Date(),
-                email: `deleted_${timestamp}_${user.userId}@anonymized.com`,
-                name: 'Deleted User',
             },
         });
-        if (user.role === 'STUDENT') {
+        if (dbUser?.email) {
             try {
-                await prisma.studentProfile.update({
-                    where: { userId: user.userId },
-                    data: {
-                        registrationNo: `deleted_${timestamp}`,
-                        phone: null,
-                        avatar: null,
-                    }
-                });
+                await emailService.sendEmail(dbUser.email, 'Your FieldTrack Account has been Deactivated', `<p>Hello ${dbUser.name},</p>
+           <p>Your FieldTrack account has been successfully deactivated as requested. Your account is now inactive and you will not be able to log in.</p>
+           <p>If this was a mistake or you wish to reactivate your account, please contact support.</p>
+           <p>Thank you,</p>
+           <p>The FieldTrack Team</p>`);
             }
-            catch (e) {
-                // profile might not exist
-            }
-        }
-        else if (user.role === 'SUPERVISOR') {
-            try {
-                await prisma.supervisorProfile.update({
-                    where: { userId: user.userId },
-                    data: {
-                        staffNumber: `deleted_${timestamp}`,
-                        phone: null,
-                        avatar: null,
-                    }
-                });
-            }
-            catch (e) {
-                // profile might not exist
+            catch (err) {
+                console.error('Failed to send deactivation email', err);
             }
         }
         await prisma.refreshToken.deleteMany({
             where: { userId: user.userId },
         });
-        res.json({ success: true, message: 'Account deactivated' });
+        res.json({ success: true, message: 'Account deactivated successfully' });
     }
     catch (error) {
         console.error('deactivateAccount error:', error);
