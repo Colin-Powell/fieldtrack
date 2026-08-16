@@ -24,6 +24,10 @@ class EmailService {
         user: smtpUser,
         pass: smtpPass,
       },
+      tls: {
+        // Do not fail on invalid/self-signed certs which are common on cPanel shared hosting
+        rejectUnauthorized: false
+      }
     });
   }
 
