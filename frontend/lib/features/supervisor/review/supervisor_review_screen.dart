@@ -482,89 +482,29 @@ class _SupervisorReviewScreenState
             const SizedBox(height: 20),
 
             // Comments Card - Wrapped in Expanded to fill available space!
-            Container(
-              height: isMobile ? 300 : null,
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: _Colors.white,
-                borderRadius: BorderRadius.circular(_Colors.cornerRadius),
-                border: Border.all(color: _Colors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(left: 8.0),
-                    child: Text(
-                      'Comments',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: _Colors.textDark,
+            isMobile
+                ? Container(
+                    height: 300,
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: _Colors.white,
+                      borderRadius: BorderRadius.circular(_Colors.cornerRadius),
+                      border: Border.all(color: _Colors.border),
+                    ),
+                    child: _buildCommentsCardContent(revisedOnText),
+                  )
+                : Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: _Colors.white,
+                        borderRadius: BorderRadius.circular(_Colors.cornerRadius),
+                        border: Border.all(color: _Colors.border),
                       ),
+                      child: _buildCommentsCardContent(revisedOnText),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: TextField(
-                        controller: _commentController,
-                        maxLines: null,
-                        expands: true,
-                        keyboardType: TextInputType.multiline,
-                        textAlignVertical: TextAlignVertical.top,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Enter detailed feedback here...',
-                          hintStyle: TextStyle(
-                            fontFamily: 'Poppins',
-                            color: _Colors.textFaint,
-                            fontSize: 15,
-                          ),
-                        ),
-                        style: const TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 15,
-                          height: 1.6,
-                          fontWeight: FontWeight.w500,
-                          color: _Colors.textDark,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: RichText(
-                        text: TextSpan(
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 13,
-                            color: _Colors.textBody,
-                          ),
-                          children: revisedOnText.isNotEmpty
-                              ? [
-                                  const TextSpan(text: 'Revised on: '),
-                                  TextSpan(
-                                    text: revisedOnText,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: _Colors.textDark,
-                                    ),
-                                  ),
-                                ]
-                              : [],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+
             const SizedBox(height: 24),
 
             // Action Buttons
@@ -631,9 +571,7 @@ class _SupervisorReviewScreenState
           ],
         );
 
-        Widget rightContent = isMobile
-            ? rightColumn
-            : Expanded(child: rightColumn);
+        Widget rightContent = rightColumn;
         Widget leftContent = leftColumn;
 
         if (isMobile) {
@@ -780,6 +718,83 @@ class _SupervisorReviewScreenState
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCommentsCardContent(String revisedOnText) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 8.0),
+          child: Text(
+            'Comments',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: _Colors.textDark,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: TextField(
+              controller: _commentController,
+              maxLines: null,
+              expands: true,
+              keyboardType: TextInputType.multiline,
+              textAlignVertical: TextAlignVertical.top,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Enter detailed feedback here...',
+                hintStyle: TextStyle(
+                  fontFamily: 'Poppins',
+                  color: _Colors.textFaint,
+                  fontSize: 15,
+                ),
+              ),
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 15,
+                height: 1.6,
+                fontWeight: FontWeight.w500,
+                color: _Colors.textDark,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.bottomRight,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 13,
+                  color: _Colors.textBody,
+                ),
+                children: revisedOnText.isNotEmpty
+                    ? [
+                        const TextSpan(text: 'Revised on: '),
+                        TextSpan(
+                          text: revisedOnText,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: _Colors.textDark,
+                          ),
+                        ),
+                      ]
+                    : [],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
