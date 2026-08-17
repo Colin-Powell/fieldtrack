@@ -61,13 +61,13 @@ class AdminApp extends ConsumerWidget {
       routerConfig: router,
       builder: (context, child) {
         return Shortcuts(
-          shortcuts: <LogicalKeySet, Intent>{
-            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK): const SearchIntent(),
-            LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyK): const SearchIntent(),
-            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyD): const NavigateDashboardIntent(),
-            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyU): const NavigateUsersIntent(),
-            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyP): const NavigateProjectsIntent(),
-            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyR): const NavigateReportsIntent(),
+          shortcuts: <ShortcutActivator, Intent>{
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true): const SearchIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyK, meta: true): const SearchIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyD, alt: true): const NavigateDashboardIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyU, alt: true): const NavigateUsersIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyP, alt: true): const NavigateProjectsIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyR, alt: true): const NavigateReportsIntent(),
           },
           child: Actions(
             actions: <Type, Action<Intent>>{

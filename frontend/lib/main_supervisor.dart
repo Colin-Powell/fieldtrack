@@ -61,13 +61,13 @@ class SupervisorApp extends ConsumerWidget {
       routerConfig: router,
       builder: (context, child) {
         return Shortcuts(
-          shortcuts: <LogicalKeySet, Intent>{
-            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK): const SearchIntent(),
-            LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyK): const SearchIntent(),
-            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyD): const NavigateDashboardIntent(),
-            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyS): const NavigateStudentsIntent(),
-            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyM): const NavigateMapIntent(),
-            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyF): const NavigateFeedIntent(),
+          shortcuts: <ShortcutActivator, Intent>{
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true): const SearchIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyK, meta: true): const SearchIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyD, alt: true): const NavigateDashboardIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyS, alt: true): const NavigateStudentsIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyM, alt: true): const NavigateMapIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyF, alt: true): const NavigateFeedIntent(),
           },
           child: Actions(
             actions: <Type, Action<Intent>>{

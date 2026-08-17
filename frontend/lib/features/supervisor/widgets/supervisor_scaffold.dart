@@ -83,12 +83,6 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
                     : MainAxisAlignment.center,
                 children: [
                   if (expanded) const SizedBox(width: 8),
-                  Image.asset(
-                    'lib/assets/Images/logo.png',
-                    width: 48,
-                    height: 48,
-                    fit: BoxFit.contain,
-                  ),
                   if (expanded) ...[
                     const SizedBox(width: 12),
                     const Expanded(
