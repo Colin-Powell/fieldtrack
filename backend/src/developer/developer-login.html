@@ -4,31 +4,111 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FieldTrack Developer Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-      :root { color-scheme: dark; font-family: Inter, Arial, sans-serif; }
-      body { margin: 0; background: #07111f; color: #f5f7fb; }
-      .shell { max-width: 520px; margin: 64px auto; padding: 24px; }
-      .card { background: #0f1b2c; border: 1px solid #22324a; border-radius: 12px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
-      .muted { color: #8ba0b7; font-size: 0.95rem; line-height: 1.5; }
-      .credentials { background: #14253c; border: 1px solid #22324a; border-radius: 8px; padding: 12px; margin: 12px 0 16px; font-family: Consolas, monospace; font-size: 0.95rem; }
-      input, button { width: 100%; border-radius: 8px; border: 1px solid #22324a; padding: 10px 12px; margin-bottom: 12px; background: #14253c; color: white; box-sizing: border-box; }
-      button { cursor: pointer; background: #1b934f; border: none; font-weight: 600; }
-      .error { color: #ff8f8f; }
+      :root {
+        --bg: #F3F4F6;
+        --green: #16A34A;
+        --green-dark: #115E2E;
+        --text-dark: #111827;
+        --text-muted: #6B7280;
+        --card-radius: 24px;
+        --control-height: 52px;
+      }
+      body { 
+        margin: 0; 
+        background-color: var(--bg); 
+        color: var(--text-dark); 
+        font-family: 'Poppins', sans-serif; 
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      }
+      .shell { 
+        width: 100%; 
+        max-width: 480px; 
+        padding: 24px; 
+      }
+      .card { 
+        background: #FFFFFF; 
+        border-radius: var(--card-radius); 
+        padding: 40px; 
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
+        text-align: center;
+      }
+      .logo {
+        color: var(--green);
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .muted { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px; }
+      .credentials { 
+        background: #F9FAFB; 
+        border-radius: 12px; 
+        padding: 12px; 
+        margin: 12px 0 24px; 
+        font-family: Consolas, monospace; 
+        font-size: 0.95rem; 
+        color: var(--text-dark);
+      }
+      input { 
+        width: 100%; 
+        border-radius: 16px; 
+        border: 1px solid #E5E7EB; 
+        padding: 0 16px; 
+        height: var(--control-height);
+        margin-bottom: 16px; 
+        font-family: 'Poppins', sans-serif;
+        font-size: 1rem;
+        background: #F9FAFB; 
+        color: var(--text-dark);
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      input:focus {
+        border-color: var(--green);
+      }
+      button { 
+        width: 100%; 
+        border-radius: 16px; 
+        border: none; 
+        height: var(--control-height);
+        background: var(--green); 
+        color: white; 
+        font-family: 'Poppins', sans-serif;
+        font-size: 1rem;
+        font-weight: 600; 
+        cursor: pointer; 
+        transition: background-color 0.2s;
+      }
+      button:hover {
+        background: var(--green-dark);
+      }
+      .error { color: #DC2626; margin-top: 16px; font-size: 0.9rem; }
+      .status-muted { color: var(--text-muted); margin-top: 16px; font-size: 0.9rem; }
     </style>
   </head>
   <body>
     <div class="shell">
       <div class="card">
-        <h1>Developer Dashboard Login</h1>
-        <p class="muted">Sign in with the admin credentials configured in the backend environment.</p>
-        <div class="credentials">
+        <div class="logo">
+          <i class="fa-solid fa-leaf"></i> FieldTrack
         </div>
+        <h2 style="margin-bottom: 8px;">Developer Login</h2>
+        <p class="muted">Sign in with backend admin credentials.</p>
         <form id="loginForm">
           <input id="emailInput" type="email" placeholder="Admin email" required />
           <input id="passwordInput" type="password" placeholder="Password" required />
-          <button type="submit">Sign in</button>
+          <button type="submit">Sign In</button>
         </form>
-        <div id="status" class="muted">Enter the admin email and password from the backend.</div>
+        <div id="status" class="status-muted"></div>
       </div>
     </div>
 
@@ -38,7 +118,7 @@
       function setStatus(message, isError = false) {
         const status = document.getElementById('status');
         status.textContent = message;
-        status.className = isError ? 'error' : 'muted';
+        status.className = isError ? 'error' : 'status-muted';
       }
 
       document.getElementById('loginForm').addEventListener('submit', async (event) => {
