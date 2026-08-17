@@ -442,10 +442,11 @@ function expireSession(message = 'Session expired.') {
     async function loadModuleData(view) {
       if (!view || view === 'overview' || !authToken) return;
       try {
-        const payload = await loadJson(`/api/v1/developer/modules/${view}`);
+        const ts = new Date().getTime();
+        const payload = await loadJson(`/api/v1/developer/modules/${view}?_t=${ts}`);
         dashboardState.dynamicModules[view] = payload;
         renderPage();
-      } catch (e) {
+      } catch (err) {
         console.warn(`No API data for ${view}, falling back to template.`);
         renderPage();
       }
