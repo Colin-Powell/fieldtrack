@@ -157,7 +157,7 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                         activeItemIcon,
                         expanded,
                         isDrawer,
-                        shortcutHint: 'Alt+D',
+                        shortcutHint: 'Alt+1',
                       ),
                       const SizedBox(height: 8),
                       _buildNavItem(
@@ -172,7 +172,7 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                         activeItemIcon,
                         expanded,
                         isDrawer,
-                        shortcutHint: 'Alt+U',
+                        shortcutHint: 'Alt+2',
                       ),
                       const SizedBox(height: 8),
                       _buildNavItem(
@@ -201,6 +201,7 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                         activeItemIcon,
                         expanded,
                         isDrawer,
+                        shortcutHint: 'Alt+3',
                       ),
                       const SizedBox(height: 8),
                       _buildNavItem(
@@ -215,6 +216,7 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                         activeItemIcon,
                         expanded,
                         isDrawer,
+                        shortcutHint: 'Alt+4',
                       ),
                       const SizedBox(height: 8),
                       _buildNavItem(

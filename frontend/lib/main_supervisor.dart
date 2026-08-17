@@ -64,10 +64,10 @@ class SupervisorApp extends ConsumerWidget {
           shortcuts: <ShortcutActivator, Intent>{
             const SingleActivator(LogicalKeyboardKey.keyK, control: true): const SearchIntent(),
             const SingleActivator(LogicalKeyboardKey.keyK, meta: true): const SearchIntent(),
-            const SingleActivator(LogicalKeyboardKey.keyD, alt: true): const NavigateDashboardIntent(),
-            const SingleActivator(LogicalKeyboardKey.keyS, alt: true): const NavigateStudentsIntent(),
-            const SingleActivator(LogicalKeyboardKey.keyM, alt: true): const NavigateMapIntent(),
-            const SingleActivator(LogicalKeyboardKey.keyF, alt: true): const NavigateFeedIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit1, alt: true): const NavigateDashboardIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit2, alt: true): const NavigateStudentsIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit3, alt: true): const NavigateMapIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit4, alt: true): const NavigateFeedIntent(),
           },
           child: Actions(
             actions: <Type, Action<Intent>>{

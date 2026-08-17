@@ -64,10 +64,10 @@ class AdminApp extends ConsumerWidget {
           shortcuts: <ShortcutActivator, Intent>{
             const SingleActivator(LogicalKeyboardKey.keyK, control: true): const SearchIntent(),
             const SingleActivator(LogicalKeyboardKey.keyK, meta: true): const SearchIntent(),
-            const SingleActivator(LogicalKeyboardKey.keyD, alt: true): const NavigateDashboardIntent(),
-            const SingleActivator(LogicalKeyboardKey.keyU, alt: true): const NavigateUsersIntent(),
-            const SingleActivator(LogicalKeyboardKey.keyP, alt: true): const NavigateProjectsIntent(),
-            const SingleActivator(LogicalKeyboardKey.keyR, alt: true): const NavigateReportsIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit1, alt: true): const NavigateDashboardIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit2, alt: true): const NavigateUsersIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit3, alt: true): const NavigateProjectsIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit4, alt: true): const NavigateReportsIntent(),
           },
           child: Actions(
             actions: <Type, Action<Intent>>{
