@@ -1032,7 +1032,7 @@ class _SegmentedDonutPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    const strokeWidth = 36.0;
+    const strokeWidth = 16.0;
     final radius = (math.min(size.width, size.height) - strokeWidth) / 2;
 
     if (total == 0) {

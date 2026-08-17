@@ -212,46 +212,62 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isMobile = constraints.maxWidth < 800;
+        
+        Widget content;
+        if (isMobile) {
+          content = SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SupervisorTopHeader(
+                  title: 'Live Location Tracking',
+                  subtitle: 'View real-time student location and activity',
+                ),
+                const SizedBox(height: 24),
+                _buildTopStatsRow(isMobile: isMobile),
+                const SizedBox(height: 32),
+                SizedBox(height: 400, child: _buildMapCard()),
+                const SizedBox(height: 24),
+                SizedBox(height: 400, child: _buildActivityTimeline()),
+              ],
+            ),
+          );
+        } else {
+          content = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SupervisorTopHeader(
+                title: 'Live Location Tracking',
+                subtitle: 'View real-time student location and activity',
+                showBackButton: true,
+              ),
+              const SizedBox(height: 24),
+              // ── TOP ROW: STATS & DETAILS ─────────────────────────────────────
+              _buildTopStatsRow(isMobile: isMobile),
+              
+              const SizedBox(height: 32),
+              
+              // ── BOTTOM ROW: MAP & TIMELINE ───────────────────────────────────
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 70, child: _buildMapCard()),
+                    const SizedBox(width: 24),
+                    Expanded(flex: 30, child: _buildActivityTimeline()),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+
         return Container(
           color: const Color(0xFFF3F4F6),
           child: SafeArea(
             child: Padding(
               padding: EdgeInsets.all(isMobile ? 16 : 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SupervisorTopHeader(
-                    title: 'Live Location Tracking',
-                    subtitle: 'View real-time student location and activity',
-                  ),
-                  const SizedBox(height: 24),
-                  // ── TOP ROW: STATS & DETAILS ─────────────────────────────────────
-                  _buildTopStatsRow(isMobile: isMobile),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // ── BOTTOM ROW: MAP & TIMELINE ───────────────────────────────────
-                  Expanded(
-                    child: isMobile
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(flex: 1, child: _buildMapCard()),
-                              const SizedBox(height: 24),
-                              Expanded(flex: 1, child: _buildActivityTimeline()),
-                            ],
-                          )
-                        : Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(flex: 70, child: _buildMapCard()),
-                              const SizedBox(width: 24),
-                              Expanded(flex: 30, child: _buildActivityTimeline()),
-                            ],
-                          ),
-                  ),
-                ],
-              ),
+              child: content,
             ),
           ),
         );

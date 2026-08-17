@@ -114,25 +114,37 @@ class _SupervisorStudentProfileScreenState
         child: LayoutBuilder(
           builder: (context, constraints) {
             final bool isMobile = constraints.maxWidth < 800;
+            
+            final children = [
+              // Only show header + profile card on the Overview tab
+              if (isOverview) ...[
+                _buildHeader(context, isMobile: isMobile),
+                SizedBox(height: isMobile ? 16 : 24),
+                _buildProfileCard(isMobile: isMobile),
+                SizedBox(height: isMobile ? 16 : 32),
+              ],
+              _buildTabs(),
+              SizedBox(height: isMobile ? 16 : 32),
+              
+              if (isMobile)
+                _buildTabContent(isMobile: isMobile)
+              else
+                Expanded(child: _buildTabContent(isMobile: isMobile)),
+            ];
+
             return Padding(
               padding: EdgeInsets.all(isMobile ? 16.0 : 32.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Only show header + profile card on the Overview tab
-                  if (isOverview) ...[
-                    _buildHeader(context, isMobile: isMobile),
-                    SizedBox(height: isMobile ? 16 : 24),
-                    _buildProfileCard(isMobile: isMobile),
-                    SizedBox(height: isMobile ? 16 : 32),
-                  ],
-                  _buildTabs(),
-                  SizedBox(height: isMobile ? 16 : 32),
-
-                  // Expanded Content Router - Fills remaining screen space automatically
-                  Expanded(child: _buildTabContent(isMobile: isMobile)),
-                ],
-              ),
+              child: isMobile
+                  ? SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: children,
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: children,
+                    ),
             );
           },
         ),
@@ -157,6 +169,22 @@ class _SupervisorStudentProfileScreenState
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            IconButton(
+              icon: Icon(PhosphorIcons.arrowLeft(), color: Colors.black, size: 28),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/supervisor/students');
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
         // Wrap in Expanded to prevent overflow on smaller screens
         Expanded(
           child: Column(
@@ -600,300 +628,304 @@ class _SupervisorStudentProfileScreenState
 
   // ── 4. OVERVIEW TAB CONTENT (Fixed heights with Stretch) ──────────────
   Widget _buildOverviewTab({bool isMobile = false}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment
-          .stretch, // Ensure all 3 columns share the exact same height
-      children: [
-        // Column 1: Student Statistics
-        Expanded(
-          flex: 1,
-          child: Container(
-            decoration: const BoxDecoration(color: Colors.transparent),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Student Statistics',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: _C.textDark,
-                  ),
-                ),
-                Expanded(
-                  child: _buildStatPill(
-                    'Field Days',
-                    '${_student?.statistics.totalFieldDays ?? 0}',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _buildStatPill(
-                    'Activities Submitted',
-                    '${_student?.statistics.totalActivities ?? 0}',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _buildStatPill(
-                    'Evidence Files',
-                    '${_student?.statistics.totalEvidence ?? 0}',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _buildStatPill(
-                    'Reports',
-                    '${_student?.statistics.totalReports ?? 0}',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _buildStatPill(
-                    'First Check in',
-                    _formatDate(_student?.statistics.firstCheckIn),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _buildStatPill(
-                    'Last Check Out',
-                    _formatDate(_student?.statistics.lastCheckOut),
-                  ),
-                ),
-              ],
+    final col1 = Container(
+      decoration: const BoxDecoration(color: Colors.transparent),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Student Statistics',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: _C.textDark,
             ),
           ),
+          Expanded(
+            child: _buildStatPill(
+              'Field Days',
+              '${_student?.statistics.totalFieldDays ?? 0}',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _buildStatPill(
+              'Activities Submitted',
+              '${_student?.statistics.totalActivities ?? 0}',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _buildStatPill(
+              'Evidence Files',
+              '${_student?.statistics.totalEvidence ?? 0}',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _buildStatPill(
+              'Reports',
+              '${_student?.statistics.totalReports ?? 0}',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _buildStatPill(
+              'First Check in',
+              _formatDate(_student?.statistics.firstCheckIn),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _buildStatPill(
+              'Last Check Out',
+              _formatDate(_student?.statistics.lastCheckOut),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final col2 = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Current Field Status',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: _C.textDark,
+          ),
         ),
-        const SizedBox(width: 24),
-
-        // Column 2: Current Field Status (With Green Wave perfectly fitted to the expanded height)
+        const SizedBox(height: 16),
         Expanded(
-          flex: 1,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Current Field Status',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: _C.textDark,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                // This card expands strictly to remaining fixed height
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(_C.cardRadius),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(_C.cardRadius),
-                    child: Stack(
-                      fit: StackFit.expand,
+          // This card expands strictly to remaining fixed height
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(_C.cardRadius),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_C.cardRadius),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        // Content
-                        Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _buildFieldStatusItem(
-                                PhosphorIconsRegular.target,
-                                _student?.currentSession != null
-                                    ? 'Checked in'
-                                    : 'Offline',
-                                _student?.currentSession != null
-                                    ? _formatDateTime(
-                                        _student!.currentSession!.checkInTime,
-                                      )
-                                    : 'Not in field',
-                                _student?.currentSession != null
-                                    ? _C.green
-                                    : _C.textMuted,
-                              ),
-                              _student?.currentSession != null
-                                  ? FutureBuilder<String>(
-                                      future: LocationNamingService().getLocationName(
-                                        _student!.currentSession!.latitude,
-                                        _student!.currentSession!.longitude,
-                                      ),
-                                      builder: (context, snapshot) {
-                                        final loc = snapshot.data ?? 'Lat: ${_student!.currentSession!.latitude.toStringAsFixed(4)}, Lng: ${_student!.currentSession!.longitude.toStringAsFixed(4)}';
-                                        return _buildFieldStatusItem(
-                                          PhosphorIconsRegular.mapPin,
-                                          'Location',
-                                          loc,
-                                          _C.textDark,
-                                        );
-                                      },
-                                    )
-                                  : _buildFieldStatusItem(
-                                      PhosphorIconsRegular.mapPin,
-                                      'Location',
-                                      'N/A',
-                                      _C.textDark,
-                                    ),
-                              _buildFieldStatusItem(
-                                PhosphorIconsRegular.crosshair,
-                                'Accuracy',
-                                _student?.currentSession != null
-                                    ? '${_student!.currentSession!.accuracy.toStringAsFixed(1)} m'
-                                    : 'N/A',
+                        _buildFieldStatusItem(
+                          PhosphorIconsRegular.target,
+                          _student?.currentSession != null
+                              ? 'Checked in'
+                              : 'Offline',
+                          _student?.currentSession != null
+                              ? _formatDateTime(
+                                  _student!.currentSession!.checkInTime,
+                                )
+                              : 'Not in field',
+                          _student?.currentSession != null
+                              ? _C.green
+                              : _C.textMuted,
+                        ),
+                        _student?.currentSession != null
+                            ? FutureBuilder<String>(
+                                future: LocationNamingService().getLocationName(
+                                  _student!.currentSession!.latitude,
+                                  _student!.currentSession!.longitude,
+                                ),
+                                builder: (context, snapshot) {
+                                  final loc = snapshot.data ?? 'Lat: ${_student!.currentSession!.latitude.toStringAsFixed(4)}, Lng: ${_student!.currentSession!.longitude.toStringAsFixed(4)}';
+                                  return _buildFieldStatusItem(
+                                    PhosphorIconsRegular.mapPin,
+                                    'Location',
+                                    loc,
+                                    _C.textDark,
+                                  );
+                                },
+                              )
+                            : _buildFieldStatusItem(
+                                PhosphorIconsRegular.mapPin,
+                                'Location',
+                                'N/A',
                                 _C.textDark,
                               ),
-                              _buildFieldStatusItem(
-                                PhosphorIconsRegular.clock,
-                                'Time in Field',
-                                _student?.currentSession != null
-                                    ? '${DateTime.now().difference(_student!.currentSession!.checkInTime).inHours}h ${DateTime.now().difference(_student!.currentSession!.checkInTime).inMinutes % 60}m'
-                                    : 'N/A',
-                                _C.textDark,
-                              ),
-                              const SizedBox(
-                                height: 60,
-                              ), // Spacing for button overlay
-                            ],
-                          ),
+                        _buildFieldStatusItem(
+                          PhosphorIconsRegular.crosshair,
+                          'Accuracy',
+                          _student?.currentSession != null
+                              ? '${_student!.currentSession!.accuracy.toStringAsFixed(1)} m'
+                              : 'N/A',
+                          _C.textDark,
                         ),
-
-                        // Bottom Green Wave Background
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          height: 160,
-                          child: ClipPath(
-                            clipper: _WaveClipper(),
-                            child: Container(color: _C.greenLight),
-                          ),
+                        _buildFieldStatusItem(
+                          PhosphorIconsRegular.clock,
+                          'Time in Field',
+                          _student?.currentSession != null
+                              ? '${DateTime.now().difference(_student!.currentSession!.checkInTime).inHours}h ${DateTime.now().difference(_student!.currentSession!.checkInTime).inMinutes % 60}m'
+                              : 'N/A',
+                          _C.textDark,
                         ),
-
-                        // View Live Location Button
-                        Positioned(
-                          bottom: 24,
-                          left: 24,
-                          right: 24,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              context.push('/supervisor/student/${widget.studentId}/location');
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _C.green,
-                              padding: const EdgeInsets.symmetric(vertical: 32),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(40),
-                              ), // Pill button
-                              elevation: 0,
-                            ),
-                            child: const Text(
-                              'View Live Location',
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
+                        const SizedBox(
+                          height: 60,
+                        ), // Spacing for button overlay
                       ],
                     ),
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 24),
 
-        // Column 3: Recent Activities (Timeline)
-        Expanded(
-          flex: 1,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Recent Activities',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: _C.textDark,
-                ),
-              ),
-              const SizedBox(height: 24),
+                  // Bottom Green Wave Background
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 160,
+                    child: ClipPath(
+                      clipper: _WaveClipper(),
+                      child: Container(color: _C.greenLight),
+                    ),
+                  ),
 
-              // Timeline items
-              if ((_student?.timeline ?? []).isEmpty)
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      'No recent activities',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        color: _C.textMuted,
+                  // View Live Location Button
+                  Positioned(
+                    bottom: 24,
+                    left: 24,
+                    right: 24,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        context.push('/supervisor/student/${widget.studentId}/location');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _C.green,
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(40),
+                        ), // Pill button
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'View Live Location',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
-                )
-              else
-                Expanded(
-                  child: Column(
-                    children: _student!.timeline.take(3).map((event) {
-                      final isLast = event == _student!.timeline.take(3).last;
-                      return Expanded(
-                        child: _buildTimelineItem(
-                          context,
-                          title: event.title,
-                          time: _formatTime(event.time),
-                          status: event.type.name,
-                          statusColor: event.type.name == 'activitySubmit'
-                              ? _C.green
-                              : _C.textMuted,
-                          imgUrl: event.imageUrl != null
-                              ? ImageUtils.getFullImageUrl(event.imageUrl!)
-                              : 'https://images.unsplash.com/photo-1544257124-741165bc6f23?auto=format&fit=crop&w=150&q=80',
-                          isLast: isLast,
-                          activityId: event.type.name == 'activitySubmit'
-                              ? event.activityId
-                              : null,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-
-              const SizedBox(height: 48),
-              OutlinedButton(
-                onPressed: () {
-                  context.go('/supervisor/student/${widget.studentId}/logs');
-                },
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 54),
-                  side: const BorderSide(color: _C.green),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(40),
-                  ), // Pill shape
-                ),
-                child: const Text(
-                  'View all activities',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _C.green,
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
+      ],
+    );
+
+    final col3 = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Recent Activities',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: _C.textDark,
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Timeline items
+        if ((_student?.timeline ?? []).isEmpty)
+          const Expanded(
+            child: Center(
+              child: Text(
+                'No recent activities',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  color: _C.textMuted,
+                ),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: Column(
+              children: _student!.timeline.take(3).map((event) {
+                final isLast = event == _student!.timeline.take(3).last;
+                return Expanded(
+                  child: _buildTimelineItem(
+                    context,
+                    title: event.title,
+                    time: _formatTime(event.time),
+                    status: event.type.name,
+                    statusColor: event.type.name == 'activitySubmit'
+                        ? _C.green
+                        : _C.textMuted,
+                    imgUrl: event.imageUrl != null
+                        ? ImageUtils.getFullImageUrl(event.imageUrl!)
+                        : 'https://images.unsplash.com/photo-1544257124-741165bc6f23?auto=format&fit=crop&w=150&q=80',
+                    isLast: isLast,
+                    activityId: event.type.name == 'activitySubmit'
+                        ? event.activityId
+                        : null,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+        const SizedBox(height: 48),
+        OutlinedButton(
+          onPressed: () {
+            context.go('/supervisor/student/${widget.studentId}/logs');
+          },
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 54),
+            side: const BorderSide(color: _C.green),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(40),
+            ), // Pill shape
+          ),
+          child: const Text(
+            'View all activities',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: _C.green,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(height: 400, child: col1),
+          const SizedBox(height: 32),
+          SizedBox(height: 400, child: col2),
+          const SizedBox(height: 32),
+          SizedBox(height: 400, child: col3),
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: col1),
+        const SizedBox(width: 24),
+        Expanded(child: col2),
+        const SizedBox(width: 24),
+        Expanded(child: col3),
       ],
     );
   }

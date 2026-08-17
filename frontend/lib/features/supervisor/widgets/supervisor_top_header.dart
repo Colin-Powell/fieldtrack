@@ -12,6 +12,7 @@ class SupervisorTopHeader extends ConsumerStatefulWidget {
   final ValueChanged<String>? onSearchChanged;
   final String searchHint;
   final Widget? trailingWidget;
+  final bool showBackButton;
 
   const SupervisorTopHeader({
     super.key,
@@ -21,6 +22,7 @@ class SupervisorTopHeader extends ConsumerStatefulWidget {
     this.onSearchChanged,
     this.searchHint = 'Search',
     this.trailingWidget,
+    this.showBackButton = false,
   });
 
   @override
@@ -293,7 +295,19 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (!isDesktop && !(_isSearchExpanded && narrow)) ...[
+            if (widget.showBackButton) ...[
+              IconButton(
+                icon: Icon(PhosphorIcons.arrowLeft(), color: Colors.black, size: 28),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/supervisor');
+                  }
+                },
+              ),
+              const SizedBox(width: 16),
+            ] else if (!isDesktop && !(_isSearchExpanded && narrow)) ...[
               IconButton(
                 icon: Icon(PhosphorIcons.list(), color: Colors.black, size: 28),
                 onPressed: () => Scaffold.of(context).openDrawer(),
