@@ -45,6 +45,24 @@ export async function authenticate(req, res, next) {
         return res.status(401).json({ error: 'Unauthorized: Invalid token or session error' });
     }
 }
+export async function authenticateDashboard(req, res, next) {
+    const cookies = parseCookieHeader(req.headers.cookie);
+    const token = cookies.fieldtrack_developer_token?.trim();
+    if (!token) {
+        return res.redirect('/developer-login');
+    }
+    try {
+        const payload = verifyToken(token);
+        if (payload.role !== 'ADMIN') {
+            return res.redirect('/developer-login');
+        }
+        req.user = payload;
+        next();
+    }
+    catch (err) {
+        return res.redirect('/developer-login');
+    }
+}
 export function authorizeRole(roles) {
     return (req, res, next) => {
         if (!req.user || !roles.includes(req.user.role)) {

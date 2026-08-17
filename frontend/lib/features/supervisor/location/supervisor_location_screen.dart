@@ -12,6 +12,7 @@ import 'package:fieldtrack/core/network/api_result.dart';
 import 'package:fieldtrack/core/services/location_naming_service.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/features/supervisor/widgets/supervisor_top_header.dart';
+import 'package:fieldtrack/shared/widgets/timeline_skeleton_loader.dart';
 
 final supervisorStudentGpsProvider = FutureProvider.family.autoDispose<List<GPSLocation>, String>((ref, studentId) async {
   final repo = StudentRepository();
@@ -268,7 +269,7 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
       child: Consumer(
               builder: (context, ref, _) {
                 final gpsAsync = ref.watch(supervisorStudentGpsProvider(widget.studentId));
-                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider({'studentId': widget.studentId}));
+                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider((studentId: widget.studentId, page: null, limit: null, status: null, search: null)));
                 List<GPSLocation> gpsHistory = gpsAsync.asData?.value ?? [];
                 
                 String fieldSession = '-';
@@ -287,7 +288,7 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
                   
                   fieldSession = DateFormat('dd MMM yyyy').format(first.capturedAt);
                   
-                  final duration = last.capturedAt.difference(first.capturedAt);
+                  final duration = last.capturedAt.difference(first.capturedAt).abs();
                   final hours = duration.inHours;
                   final minutes = duration.inMinutes.remainder(60);
                   timeInField = '${hours}h ${minutes}m';
@@ -416,7 +417,7 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
             Consumer(
               builder: (context, ref, _) {
                 final gpsAsync = ref.watch(supervisorStudentGpsProvider(widget.studentId));
-                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider({'studentId': widget.studentId}));
+                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider((studentId: widget.studentId, page: null, limit: null, status: null, search: null)));
 
                 List<GPSLocation> gpsHistory = gpsAsync.asData?.value ?? [];
                 
@@ -600,10 +601,13 @@ class _SupervisorLocationScreenState extends ConsumerState<SupervisorLocationScr
           Expanded(
             child: Consumer(
               builder: (context, ref, _) {
-                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider({'studentId': widget.studentId}));
+                final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider((studentId: widget.studentId, page: null, limit: null, status: null, search: null)));
                 
                 if (activitiesAsync.isLoading) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: TimelineSkeletonLoader(itemCount: 4),
+                  );
                 }
                 
                 if (!activitiesAsync.hasValue || activitiesAsync.value is! Success) {

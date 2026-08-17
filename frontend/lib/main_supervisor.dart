@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'core/shortcuts/app_intents.dart';
+import 'shared/widgets/command_palette.dart';
 import 'package:fieldtrack/core/app_setup.dart';
 import 'package:fieldtrack/core/router/supervisor_router.dart';
 import 'package:fieldtrack/core/theme/app_theme.dart';
@@ -54,6 +59,57 @@ class SupervisorApp extends ConsumerWidget {
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       theme: AppTheme.lightTheme(),
       routerConfig: router,
+      builder: (context, child) {
+        return Shortcuts(
+          shortcuts: <LogicalKeySet, Intent>{
+            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK): const SearchIntent(),
+            LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyK): const SearchIntent(),
+            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyD): const NavigateDashboardIntent(),
+            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyS): const NavigateStudentsIntent(),
+            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyM): const NavigateMapIntent(),
+            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyF): const NavigateFeedIntent(),
+          },
+          child: Actions(
+            actions: <Type, Action<Intent>>{
+              SearchIntent: CallbackAction<SearchIntent>(
+                onInvoke: (intent) {
+                  CommandPalette.show(context, commands: [
+                    CommandItem(
+                      title: 'Go to Dashboard',
+                      icon: PhosphorIconsRegular.squaresFour,
+                      onSelect: () => context.go('/supervisor/dashboard'),
+                    ),
+                    CommandItem(
+                      title: 'View Students',
+                      subtitle: 'List of all assigned students',
+                      icon: PhosphorIconsRegular.users,
+                      onSelect: () => context.go('/supervisor/students'),
+                    ),
+                    CommandItem(
+                      title: 'Live Map',
+                      subtitle: 'Real-time locations of students in the field',
+                      icon: PhosphorIconsRegular.mapTrifold,
+                      onSelect: () => context.go('/supervisor/map'),
+                    ),
+                    CommandItem(
+                      title: 'Activity Feed',
+                      subtitle: 'Recent field logs and submissions',
+                      icon: PhosphorIconsRegular.listDashes,
+                      onSelect: () => context.go('/supervisor/feed'),
+                    ),
+                  ]);
+                  return null;
+                },
+              ),
+              NavigateDashboardIntent: CallbackAction<NavigateDashboardIntent>(onInvoke: (_) { context.go('/supervisor/dashboard'); return null; }),
+              NavigateStudentsIntent: CallbackAction<NavigateStudentsIntent>(onInvoke: (_) { context.go('/supervisor/students'); return null; }),
+              NavigateMapIntent: CallbackAction<NavigateMapIntent>(onInvoke: (_) { context.go('/supervisor/map'); return null; }),
+              NavigateFeedIntent: CallbackAction<NavigateFeedIntent>(onInvoke: (_) { context.go('/supervisor/feed'); return null; }),
+            },
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
     );
   }
 }

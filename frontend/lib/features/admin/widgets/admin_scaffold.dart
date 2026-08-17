@@ -4,6 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/features/admin/widgets/admin_top_header.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/widgets/error_boundary.dart';
 
 class AdminScaffold extends StatefulWidget {
@@ -156,6 +157,7 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                         activeItemIcon,
                         expanded,
                         isDrawer,
+                        shortcutHint: 'Alt+D',
                       ),
                       const SizedBox(height: 8),
                       _buildNavItem(
@@ -170,6 +172,7 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                         activeItemIcon,
                         expanded,
                         isDrawer,
+                        shortcutHint: 'Alt+U',
                       ),
                       const SizedBox(height: 8),
                       _buildNavItem(
@@ -282,6 +285,9 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                 ),
               ),
               const SizedBox(height: 24),
+
+              _buildLogoutItem(context, expanded, isDrawer),
+              const SizedBox(height: 16),
 
               // Avatar
               GestureDetector(
@@ -398,11 +404,15 @@ class _AdminScaffoldState extends State<AdminScaffold> {
     Color activeBg,
     Color activeIconColor,
     bool expanded,
-    bool isDrawer,
-  ) {
+    bool isDrawer, {
+    String? shortcutHint,
+  }) {
     final bool isSelected = index == selectedIndex;
+    final String tooltipMessage = shortcutHint != null ? '$label ($shortcutHint)' : label;
 
-    return GestureDetector(
+    return Tooltip(
+      message: tooltipMessage,
+      child: GestureDetector(
       onTap: () {
         if (isDrawer) Navigator.pop(context);
         if (!isSelected) context.go(route);
@@ -437,6 +447,54 @@ class _AdminScaffoldState extends State<AdminScaffold> {
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                     fontFamily: 'Inter', // Material 3 typography style
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ],
+        ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoutItem(BuildContext context, bool expanded, bool isDrawer) {
+    return GestureDetector(
+      onTap: () async {
+        if (isDrawer) Navigator.pop(context);
+        try {
+          // You must import 'package:fieldtrack/core/network/api_client.dart' for this to work
+          await ApiClient().dio.post('/auth/logout');
+        } catch (_) {}
+        ProviderScope.containerOf(context, listen: false).read(authProvider.notifier).logout();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        width: expanded ? 180 : 72,
+        height: 56,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              PhosphorIconsRegular.signOut,
+              color: Colors.white,
+              size: 24,
+            ),
+            if (expanded) ...[
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    fontFamily: 'Inter',
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),

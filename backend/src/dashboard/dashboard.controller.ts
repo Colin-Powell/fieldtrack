@@ -316,6 +316,20 @@ export async function getSupervisorDashboard(req: Request, res: Response) {
       }
     });
 
+    const approvedActivities = await prisma.fieldLog.count({
+      where: {
+        studentId: { in: assignedStudentIds },
+        status: 'APPROVED'
+      }
+    });
+
+    const needsRevision = await prisma.fieldLog.count({
+      where: {
+        studentId: { in: assignedStudentIds },
+        status: { in: ['REVISION_REQUESTED', 'REJECTED'] }
+      }
+    });
+
     const recentLogs = await prisma.fieldLog.findMany({
       where: { 
         studentId: { in: assignedStudentIds },
@@ -364,6 +378,8 @@ export async function getSupervisorDashboard(req: Request, res: Response) {
         checkedIn,
         studentsInField,
         pendingApprovals,
+        approvedActivities,
+        needsRevision,
         activitiesSubmitted: logsToday,
       },
       trend: {

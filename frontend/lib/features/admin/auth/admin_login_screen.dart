@@ -238,17 +238,9 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Icon(
-                PhosphorIcons.shieldCheck(PhosphorIconsStyle.fill),
-                color: Colors.white,
-                size: 48,
-              ),
+            Image.asset(
+              'lib/assets/Images/logo.png',
+              height: 48,
             ),
             const SizedBox(height: 32),
             const Text(
@@ -307,6 +299,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                     },
                     icon: Icon(PhosphorIcons.arrowLeft(), color: Colors.black),
                   ),
+
                   const SizedBox(height: 24),
 
                   // --- Header ---

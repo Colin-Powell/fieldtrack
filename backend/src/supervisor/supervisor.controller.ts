@@ -152,7 +152,7 @@ export const getStudentById = async (req: Request, res: Response): Promise<void>
         logs: {
           orderBy: { timestamp: 'desc' },
           take: 20,
-          include: { evidence: true }
+          include: { evidence: true, reviews: true }
         },
       }
     });
@@ -230,16 +230,16 @@ export const getStudentById = async (req: Request, res: Response): Promise<void>
           uploadedAt: e.createdAt?.toISOString() ?? new Date().toISOString(),
           uploadedBy: u.name,
         })),
-        review: null,
+        review: (l.reviews && l.reviews.length > 0) ? l.reviews[0] : null,
       })),
       statistics: {
         totalFieldDays: sessions.length,
         totalActivities: logs.length,
-        totalReports: 0,
+        totalReports: logs.length,
         totalEvidence: logs.reduce((acc: number, l: any) => acc + (l.evidence?.length ?? 0), 0),
-        totalImages: logs.reduce((acc: number, l: any) => acc + (l.evidence?.length ?? 0), 0),
-        totalVideos: 0,
-        totalDocuments: 0,
+        totalImages: logs.reduce((acc: number, l: any) => acc + (l.evidence?.filter((e: any) => e.mimeType?.startsWith('image/')).length ?? 0), 0),
+        totalVideos: logs.reduce((acc: number, l: any) => acc + (l.evidence?.filter((e: any) => e.mimeType?.startsWith('video/')).length ?? 0), 0),
+        totalDocuments: logs.reduce((acc: number, l: any) => acc + (l.evidence?.filter((e: any) => e.mimeType?.startsWith('application/') || e.mimeType?.startsWith('text/')).length ?? 0), 0),
         totalDistanceTravelled: sessions.reduce((acc: number, s: any) => acc + (s.distanceTravelled ?? 0), 0),
         totalTimeInField: sessions.reduce((acc: number, s: any) => acc + (s.durationSeconds ?? 0), 0),
         firstCheckIn: sessions.length > 0 ? sessions[sessions.length - 1].checkInTime.toISOString() : new Date().toISOString(),
@@ -442,7 +442,7 @@ export const getStudentActivities = async (req: Request, res: Response): Promise
       take: limit,
       skip: skip,
       orderBy: { timestamp: 'desc' },
-      include: { evidence: true }
+      include: { evidence: true, reviews: true, user: true }
     });
     
     // Map to FieldActivity JSON format as expected by frontend
@@ -476,9 +476,9 @@ export const getStudentActivities = async (req: Request, res: Response): Promise
         url: e.storagePath ?? '',
         sizeMB: (e.fileSize ?? 0) / (1024 * 1024),
         uploadedAt: e.uploadedAt?.toISOString() ?? new Date().toISOString(),
-        uploadedBy: 'Student', // Ideally fetched via user table
+        uploadedBy: l.user?.name ?? 'Student',
       })),
-      review: null,
+      review: (l.reviews && l.reviews.length > 0) ? l.reviews[0] : null,
     }));
     
     res.json(mapped);
@@ -685,8 +685,14 @@ export const getStudentTimeline = async (req: Request, res: Response): Promise<v
 export const getStudentNotifications = async (req: Request, res: Response): Promise<void> => {
   try {
     const studentId = req.params.id as string;
-    // Just return empty for now, or you can query actual notifications table if available
-    res.json([]);
+    
+    const notifications = await prisma.notification.findMany({
+      where: { recipientId: studentId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    
+    res.json(notifications);
   } catch (error) {
     console.error('getStudentNotifications Error:', error);
     res.status(500).json({ error: 'Internal Server Error' });

@@ -155,7 +155,13 @@
         }
       });
 
-      if (localStorage.getItem(AUTH_TOKEN_KEY)) {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('expired')) {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        document.cookie = `${AUTH_TOKEN_KEY}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; SameSite=Lax;`;
+        setStatus('Session expired. Please sign in again.', true);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (localStorage.getItem(AUTH_TOKEN_KEY)) {
         window.location.href = '/developer-dashboard';
       }
     </script>

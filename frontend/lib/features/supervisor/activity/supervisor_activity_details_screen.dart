@@ -291,14 +291,20 @@ class _SupervisorActivityDetailsScreenState
         final status = activity['status'] ?? 'DRAFT';
         final isReviewed = status == 'APPROVED' || status == 'REJECTED' || status == 'REVISION' || hasReview;
         
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildTabPill('Overview', 0, isCompleted: true),
-            _buildTabPill('Evidence', 1, isCompleted: isReviewed),
-            _buildTabPill('Location', 2, isCompleted: isReviewed),
-            _buildTabPill('Review', 3, isCompleted: isReviewed),
-          ],
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              _buildTabPill('Overview', 0, isCompleted: true),
+              const SizedBox(width: 8),
+              _buildTabPill('Evidence', 1, isCompleted: isReviewed),
+              const SizedBox(width: 8),
+              _buildTabPill('Location', 2, isCompleted: isReviewed),
+              const SizedBox(width: 8),
+              _buildTabPill('Review', 3, isCompleted: isReviewed),
+            ],
+          ),
         );
       },
     );
@@ -312,7 +318,7 @@ class _SupervisorActivityDetailsScreenState
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isActive ? _C.green : Colors.white,
           borderRadius: BorderRadius.circular(40),

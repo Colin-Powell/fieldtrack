@@ -7,6 +7,7 @@ import 'package:fieldtrack/features/activities/providers/student_activities_prov
 import 'package:fieldtrack/core/network/api_result.dart';
 import 'package:fieldtrack/core/network/api_result_builder.dart';
 import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
+import 'package:fieldtrack/shared/widgets/timeline_skeleton_loader.dart';
 import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
 import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
@@ -63,14 +64,14 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
   }
 
   Widget _buildBody(BuildContext context, WidgetRef ref) {
-    final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider({'studentId': studentId}));
+    final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider((studentId: studentId, page: null, limit: null, status: null, search: null)));
 
     return ApiResultBuilder<List<dynamic>>(
       asyncValue: activitiesAsync,
-      onRetry: () => ref.refresh(studentActivitiesByStudentIdProvider({'studentId': studentId})),
+      onRetry: () => ref.refresh(studentActivitiesByStudentIdProvider((studentId: studentId, page: null, limit: null, status: null, search: null))),
       customLoading: const Padding(
         padding: EdgeInsets.all(24.0),
-        child: ListSkeletonLoader(itemCount: 4, itemHeight: 120),
+        child: TimelineSkeletonLoader(itemCount: 4),
       ),
       onData: (activities) {
         // Resolve student name: prefer passed prop, fallback to first activity's user name
@@ -93,16 +94,7 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
         final List<Widget> timelineItems = [];
         final List<Widget> activityItems = [];
         
-        timelineItems.add(
-          _buildTimelineItem(
-            context,
-            time: '08:00 AM', // Mock checkin time
-            title: 'Checked In',
-            subtitle: 'Field Location',
-            iconWidget: _buildSolidIcon(PhosphorIconsBold.check, _C.green),
-            isLast: false,
-          )
-        );
+        // No longer injecting mocked Checked In timeline item
 
         int evidenceCount = 0;
         for (int i = 0; i < activities.length; i++) {
@@ -139,7 +131,7 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
               subtitle: title,
               evidenceCount: evidenceList.length,
               imgUrl: imageUrl != null ? ImageUtils.getFullImageUrl(imageUrl) : 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
-              isLast: false,
+              isLast: i == activities.length - 1,
               activityId: activity['id'] ?? '',
             )
           );
@@ -160,16 +152,10 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
           );
         }
 
-        timelineItems.add(
-          _buildTimelineItem(
-            context,
-            time: '05:00 PM', // Mock checkout time
-            title: 'Checked Out',
-            subtitle: 'Field Location',
-            iconWidget: _buildSolidIcon(PhosphorIconsBold.check, const Color(0xFF3B82F6)),
-            isLast: true,
-          )
-        );
+        // Set isLast true for the last actual activity item
+        if (activityItems.isNotEmpty) {
+           // We'll pass isLast directly in the loop instead.
+        }
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(32.0),

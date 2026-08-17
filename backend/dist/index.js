@@ -8,7 +8,7 @@ import { redis } from './utils/redis.js';
 import morgan from 'morgan';
 import { appLogger } from './utils/logger.js';
 import { prisma } from './db.js';
-import { authenticate } from './auth/auth.middleware.js';
+import { authenticate, authenticateDashboard } from './auth/auth.middleware.js';
 import authRoutes from './auth/auth.routes.js';
 import adminRoutes from './admins/admins.routes.js';
 import dashboardRoutes from './dashboard/dashboard.routes.js';
@@ -201,10 +201,7 @@ app.use('/api/v1/system', systemRoutes);
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
 });
-app.get(/^\/developer-dashboard(\/.*)?$/, authenticate, async (req, res) => {
-    if (req.user?.role !== 'ADMIN') {
-        return res.status(403).json({ error: 'Access denied.' });
-    }
+app.get(/^\/developer-dashboard(\/.*)?$/, authenticateDashboard, async (req, res) => {
     res.sendFile(path.resolve(process.cwd(), 'src/developer/developer.html'));
 });
 app.get('/developer-login', (_req, res) => {

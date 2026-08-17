@@ -769,7 +769,7 @@ class _StudentTableRow extends ConsumerWidget {
                 child: Builder(
                   builder: (context) {
                     final activitiesAsync = ref.watch(
-                      studentActivitiesByStudentIdProvider({'studentId': student.id}),
+                      studentActivitiesByStudentIdProvider((studentId: student.id, page: null, limit: null, status: null, search: null)),
                     );
 
                     return activitiesAsync.when(

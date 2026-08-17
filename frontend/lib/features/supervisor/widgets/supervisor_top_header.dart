@@ -300,7 +300,8 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
               ),
               const SizedBox(width: 16),
             ],
-            if (!(_isSearchExpanded && narrow))
+            if (!(_isSearchExpanded && narrow)) ...[
+
               Flexible(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,6 +333,7 @@ class _SupervisorTopHeaderState extends ConsumerState<SupervisorTopHeader> {
                   ],
                 ),
               ),
+            ],
           ],
         );
 

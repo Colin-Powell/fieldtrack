@@ -931,9 +931,16 @@ class _SupervisorSettingsScreenState
                       'Two-Factor Authentication',
                       'Require 2FA verification on new devices',
                       _twoFactorAuth,
-                      (v) {
+                      (v) async {
                         setState(() => _twoFactorAuth = v);
-                        // TODO(API): Ping API to setup 2FA
+                        try {
+                          await ApiClient().dio.put('/settings/security', data: {'twoFactorEnabled': v});
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update 2FA setting')));
+                            setState(() => _twoFactorAuth = !v);
+                          }
+                        }
                       },
                     ),
                   ],
@@ -1401,9 +1408,16 @@ class _SupervisorSettingsScreenState
                       'Login Alerts',
                       'Email me when a new device logs in.',
                       _secLoginAlerts,
-                      (v) {
+                      (v) async {
                         setState(() => _secLoginAlerts = v);
-                        // TODO(API): Toggle login alert setting in backend
+                        try {
+                          await ApiClient().dio.put('/settings/security', data: {'loginAlertsEnabled': v});
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update Login Alerts setting')));
+                            setState(() => _secLoginAlerts = !v);
+                          }
+                        }
                       },
                     ),
                     const Padding(

@@ -258,17 +258,9 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Icon(
-                PhosphorIcons.graduationCap(PhosphorIconsStyle.fill),
-                color: Colors.white,
-                size: 48,
-              ),
+            Image.asset(
+              'lib/assets/Images/logo.png',
+              height: 48,
             ),
             const SizedBox(height: 32),
             const Text(
@@ -327,6 +319,7 @@ class _SupervisorLoginScreenState extends ConsumerState<SupervisorLoginScreen> {
                     },
                     icon: Icon(PhosphorIcons.arrowLeft(), color: Colors.black),
                   ),
+
                   const SizedBox(height: 24),
 
                   // --- Header ---

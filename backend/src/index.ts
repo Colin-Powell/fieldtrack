@@ -269,10 +269,7 @@ import { authorizeRole } from './auth/auth.middleware.js';
 
 
 
-// ── Student Routes ──
-app.post('/api/v1/student/location', async (req: Request, res: Response) => {
-  res.status(501).json({ error: 'Not Implemented. Migrated to LocationPing.' });
-});
+
 
 // NOTE: The admin users endpoint lives in admins.routes.ts (protected with authenticate + authorizeRole(['ADMIN']))
 // The duplicate unprotected route has been intentionally removed.

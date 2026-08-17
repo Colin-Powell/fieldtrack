@@ -239,7 +239,7 @@ class _SupervisorReviewScreenState
                 // Invalidate providers so the activity status refreshes on return
                 ref.invalidate(activityDetailsProvider(widget.activityId));
                 ref.invalidate(
-                  studentActivitiesByStudentIdProvider({'studentId': widget.studentId}),
+                  studentActivitiesByStudentIdProvider((studentId: widget.studentId, page: null, limit: null, status: null, search: null)),
                 );
                 // Navigate back to student profile (don't use Navigator.pop — we're embedded in a tab)
                 context.go('/supervisor/student/${widget.studentId}');
@@ -559,14 +559,16 @@ class _SupervisorReviewScreenState
           children: [
             // Metadata Card
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               decoration: BoxDecoration(
                 color: _Colors.white,
                 borderRadius: BorderRadius.circular(_Colors.cornerRadius),
                 border: Border.all(color: _Colors.border),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 16,
+                runSpacing: 16,
                 children: [
                   _buildMetaColumn('Submitted by:', finalStudentName),
                   _buildMetaColumn('Submission Time', subTime),
@@ -603,15 +605,17 @@ class _SupervisorReviewScreenState
             const SizedBox(height: 24),
 
             // Action Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 16,
+              runSpacing: 16,
               children: [
                 OutlinedButton(
                   onPressed: () {},
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 48,
-                      vertical: 22,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 24 : 48,
+                      vertical: isMobile ? 16 : 22,
                     ),
                     side: const BorderSide(color: _Colors.red, width: 1),
                     shape: RoundedRectangleBorder(
@@ -628,14 +632,13 @@ class _SupervisorReviewScreenState
                     ),
                   ),
                 ),
-                const SizedBox(width: 24),
                 ElevatedButton(
                   onPressed: _isSubmitting ? null : _submitFeedback,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _Colors.primaryGreen,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 48,
-                      vertical: 22,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 24 : 48,
+                      vertical: isMobile ? 16 : 22,
                     ),
                     elevation: 0,
                     shape: RoundedRectangleBorder(

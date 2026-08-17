@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:fieldtrack/core/shortcuts/app_intents.dart';
+import 'package:fieldtrack/shared/widgets/command_palette.dart';
 import 'package:fieldtrack/core/app_setup.dart';
 import 'package:fieldtrack/core/router/admin_router.dart';
 import 'package:fieldtrack/core/theme/app_theme.dart';
@@ -54,6 +59,60 @@ class AdminApp extends ConsumerWidget {
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       theme: AppTheme.lightTheme(),
       routerConfig: router,
+      builder: (context, child) {
+        return Shortcuts(
+          shortcuts: <LogicalKeySet, Intent>{
+            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyK): const SearchIntent(),
+            LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyK): const SearchIntent(),
+            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyD): const NavigateDashboardIntent(),
+            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyU): const NavigateUsersIntent(),
+            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyP): const NavigateProjectsIntent(),
+            LogicalKeySet(LogicalKeyboardKey.alt, LogicalKeyboardKey.keyR): const NavigateReportsIntent(),
+          },
+          child: Actions(
+            actions: <Type, Action<Intent>>{
+              SearchIntent: CallbackAction<SearchIntent>(
+                onInvoke: (intent) {
+                  CommandPalette.show(context, commands: [
+                    CommandItem(
+                      title: 'Go to Dashboard',
+                      icon: PhosphorIconsRegular.squaresFour,
+                      onSelect: () => context.go('/admin/dashboard'),
+                    ),
+                    CommandItem(
+                      title: 'Manage Users',
+                      subtitle: 'View and edit students and supervisors',
+                      icon: PhosphorIconsRegular.users,
+                      onSelect: () => context.go('/admin/users'),
+                    ),
+                    CommandItem(
+                      title: 'Manage Departments',
+                      icon: PhosphorIconsRegular.buildings,
+                      onSelect: () => context.go('/admin/departments'),
+                    ),
+                    CommandItem(
+                      title: 'Manage Projects',
+                      icon: PhosphorIconsRegular.folder,
+                      onSelect: () => context.go('/admin/projects'),
+                    ),
+                    CommandItem(
+                      title: 'Reports & Analytics',
+                      icon: PhosphorIconsRegular.chartLineUp,
+                      onSelect: () => context.go('/admin/reports'),
+                    ),
+                  ]);
+                  return null;
+                },
+              ),
+              NavigateDashboardIntent: CallbackAction<NavigateDashboardIntent>(onInvoke: (_) { context.go('/admin/dashboard'); return null; }),
+              NavigateUsersIntent: CallbackAction<NavigateUsersIntent>(onInvoke: (_) { context.go('/admin/users'); return null; }),
+              NavigateProjectsIntent: CallbackAction<NavigateProjectsIntent>(onInvoke: (_) { context.go('/admin/projects'); return null; }),
+              NavigateReportsIntent: CallbackAction<NavigateReportsIntent>(onInvoke: (_) { context.go('/admin/reports'); return null; }),
+            },
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
     );
   }
 }

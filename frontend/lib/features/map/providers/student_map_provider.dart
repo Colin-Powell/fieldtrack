@@ -51,9 +51,12 @@ class StudentMapNotifier extends StateNotifier<StudentMapState> {
   }
 
   void _init() {
-    // 1. Mock Supervisor Location (e.g. Kilifi area near Pwani Uni)
-    // In a real app, this would subscribe to a WebSocket or periodic API pull
-    state = state.copyWith(supervisorLocation: const LatLng(-3.6350, 39.8470));
+    // 1. Listen to device location for supervisor location (per implementation plan)
+    _ref.listen(locationProvider, (previous, next) {
+      if (!next.isLocating && next.error == null) {
+        state = state.copyWith(supervisorLocation: LatLng(next.latitude, next.longitude));
+      }
+    });
 
     // 2. Listen to activities to pull activity locations and map the route
     _ref.listen(studentActivitiesProvider(const {}), (previous, next) {
