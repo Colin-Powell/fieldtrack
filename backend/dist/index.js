@@ -228,10 +228,6 @@ app.use('/storage', express.static(BASE_STORAGE_DIR, {
 }));
 // 404 and Error handlers moved to end of file
 import { ensureEnvAdminAccount } from './admin-sync.js';
-// ── Student Routes ──
-app.post('/api/v1/student/location', async (req, res) => {
-    res.status(501).json({ error: 'Not Implemented. Migrated to LocationPing.' });
-});
 // NOTE: The admin users endpoint lives in admins.routes.ts (protected with authenticate + authorizeRole(['ADMIN']))
 // The duplicate unprotected route has been intentionally removed.
 app.use((req, res) => {

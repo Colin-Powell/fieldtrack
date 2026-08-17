@@ -262,7 +262,7 @@ export async function getAdminReports(req, res) {
             filters: {
                 departments: ['All Departments', ...departments],
                 supervisors: [{ id: 'All Supervisors', name: 'All Supervisors' }, ...supervisors.map(s => ({ id: s.id, name: s.name }))],
-                counties: ['All Counties', 'Nairobi', 'Mombasa', 'Kisumu', 'Other'],
+                counties: ['All Counties', ...Object.keys(countyDistribution)],
             },
             logSummary: logSummaryAll.slice(offset, offset + limit),
             total: logSummaryAll.length,

@@ -48,19 +48,23 @@ export async function authenticate(req, res, next) {
 export async function authenticateDashboard(req, res, next) {
     const cookies = parseCookieHeader(req.headers.cookie);
     const token = cookies.fieldtrack_developer_token?.trim();
+    const clearCookieAndRedirect = () => {
+        res.clearCookie('fieldtrack_developer_token', { path: '/' });
+        return res.redirect('/developer-login?expired=1');
+    };
     if (!token) {
-        return res.redirect('/developer-login');
+        return clearCookieAndRedirect();
     }
     try {
         const payload = verifyToken(token);
         if (payload.role !== 'ADMIN') {
-            return res.redirect('/developer-login');
+            return clearCookieAndRedirect();
         }
         req.user = payload;
         next();
     }
     catch (err) {
-        return res.redirect('/developer-login');
+        return clearCookieAndRedirect();
     }
 }
 export function authorizeRole(roles) {
