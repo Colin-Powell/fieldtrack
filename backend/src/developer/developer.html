@@ -10,7 +10,41 @@
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    window.__chartScriptLoaded = false;
+    function loadChartJs() {
+      const urls = [
+        'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js',
+        'https://unpkg.com/chart.js@4.4.3/dist/chart.umd.min.js'
+      ];
+      let index = 0;
+
+      const tryNext = () => {
+        if (typeof window.Chart !== 'undefined') {
+          window.__chartScriptLoaded = true;
+          return;
+        }
+
+        if (index >= urls.length) {
+          console.warn('Chart.js failed to load from all configured CDNs.');
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.src = urls[index++];
+        script.async = false;
+        script.onload = () => {
+          window.__chartScriptLoaded = true;
+        };
+        script.onerror = tryNext;
+        document.head.appendChild(script);
+      };
+
+      tryNext();
+    }
+
+    loadChartJs();
+  </script>
 
   <style>
     /* Design Tokens */

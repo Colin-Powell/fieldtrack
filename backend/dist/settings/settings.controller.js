@@ -23,7 +23,7 @@ export const getSettingsInfo = async (req, res) => {
                     answer: 'Ensure you have an active internet connection and that Offline Sync is enabled in settings.',
                 },
             ],
-            supportEmail: 'support@fieldtrack.com',
+            supportEmail: 'support@fieldtrack.top',
             privacyPolicy: 'FieldTrack Privacy Policy\n\nLast Updated: October 2024\n\n1. Information Collection\nWe collect location data and field metrics you input to assist in environmental research. Your personal information (Name, ID, Email) is used strictly for authentication and academic tracking.\n\n2. Data Usage\nAll geographic and analytical data collected is synced to university servers and may be used in aggregated research studies. Individual user tracking is kept confidential.\n\n3. Offline Data\nData stored locally on your device remains encrypted until a secure connection is established for syncing.\n\n(This is a sample privacy policy for demonstration purposes. In a real application, place your full legal terms here.)',
             about: {
                 title: 'FieldTrack',

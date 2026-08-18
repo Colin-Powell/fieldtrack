@@ -3,28 +3,36 @@ import { prisma } from '../db.js';
 
 export const getSystemVersion = async (req: Request, res: Response) => {
   try {
+    const envData = {
+      latestVersion: process.env.APP_LATEST_VERSION || '1.0.1',
+      requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.1',
+      updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update.html',
+    };
+
     let setting = await prisma.systemSetting.findUnique({ where: { key: 'APP_VERSION_CONFIG' } });
 
     if (!setting) {
-      const defaultData = {
-        latestVersion: process.env.APP_LATEST_VERSION || '1.0.1',
-        requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.1',
-        updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update.html',
-      };
-      
       try {
         setting = await prisma.systemSetting.create({
           data: {
             key: 'APP_VERSION_CONFIG',
-            value: defaultData
+            value: envData
           }
         });
       } catch (e) {
-        return res.json(defaultData);
+        return res.json(envData);
       }
+      return res.json(setting.value);
     }
 
-    res.json(setting!.value);
+    const dbValue = setting.value as { latestVersion?: string; requiredVersion?: string; updateUrl?: string } | null;
+    const responseData = {
+      latestVersion: envData.latestVersion || dbValue?.latestVersion || '1.0.1',
+      requiredVersion: envData.requiredVersion || dbValue?.requiredVersion || '1.0.1',
+      updateUrl: envData.updateUrl || dbValue?.updateUrl || 'https://fieldtrack.top/update.html',
+    };
+
+    res.json(responseData);
   } catch (error) {
     console.error('Get system version error:', error);
     res.status(500).json({ error: 'Internal Server Error' });

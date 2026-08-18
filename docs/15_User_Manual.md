@@ -205,6 +205,6 @@ flutter run -d chrome   # or your preferred device
 
 ## Part F — Support & Feedback
 
-- **Support email:** as configured by your institution (default: `support@fieldtrack.com`).
+- **Support email:** as configured by your institution (default: `support@fieldtrack.top`).
 - Report bugs or suggest features to your system administrator.
 
