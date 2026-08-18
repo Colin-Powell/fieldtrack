@@ -230,6 +230,7 @@ model Notification {
   type        NotificationType
   entityType  String?          // "FIELD_SESSION", "FIELD_LOG", etc.
   entityId    String?
+  actionUrl   String?          // URL to open when notification is tapped (e.g., for UPDATE_AVAILABLE)
   priority    Int              @default(0) // 0: Normal, 1: High
   isRead      Boolean          @default(false)
   createdAt   DateTime         @default(now())
@@ -261,6 +262,7 @@ enum NotificationType {
   SYSTEM_ALERT
   NEW_SUBMISSION
   SUPERVISOR_MESSAGE
+  UPDATE_AVAILABLE
 }
 
 enum Role {

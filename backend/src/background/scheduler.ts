@@ -328,6 +328,69 @@ export async function sendDailySupervisorSummaries() {
   }
 }
 
+async function checkAppVersionUpdate() {
+  try {
+    const envLatestVersion = process.env.APP_LATEST_VERSION || '1.0.1';
+    const envUpdateUrl = process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update.html';
+
+    // Get the last recorded version from system settings
+    const lastVersionSetting = await prisma.systemSetting.findUnique({
+      where: { key: 'LAST_NOTIFIED_APP_VERSION' }
+    });
+
+    const lastNotifiedVersion = (lastVersionSetting?.value as any)?.version as string | null;
+
+    // Check if version has changed since last notification
+    if (lastNotifiedVersion && lastNotifiedVersion === envLatestVersion) {
+      return; // No new version to notify about
+    }
+
+    // Get all active users
+    const allUsers = await prisma.user.findMany({
+      where: {
+        role: { in: ['STUDENT', 'SUPERVISOR'] },
+        status: 'ACTIVE',
+        isActive: true,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (allUsers.length === 0) return;
+
+    const title = 'App Update Available';
+    const message = `A new version of the FieldTrack app is available. Please update to get the latest features and improvements.`;
+
+    // Send update notification to all users
+    const { notificationQueue } = await import('../utils/queue.js');
+    await notificationQueue.add('bulkNotification', {
+      recipientIds: allUsers.map(u => u.id),
+      title,
+      message,
+      type: 'UPDATE_AVAILABLE',
+      actionUrl: envUpdateUrl,
+    });
+
+    // Record that we've notified users about this version
+    await prisma.systemSetting.upsert({
+      where: { key: 'LAST_NOTIFIED_APP_VERSION' },
+      create: { 
+        key: 'LAST_NOTIFIED_APP_VERSION', 
+        value: { version: envLatestVersion },
+        updatedBy: 'system'
+      },
+      update: { 
+        value: { version: envLatestVersion },
+        updatedBy: 'system'
+      }
+    });
+
+    console.log(`[scheduler] App version update notification sent for version ${envLatestVersion} to ${allUsers.length} users`);
+  } catch (error) {
+    console.error('[scheduler] App version check failed:', error);
+  }
+}
+
 export function startScheduler() {
   console.log('[scheduler] Starting background scheduler.');
 
@@ -382,6 +445,15 @@ export function startScheduler() {
       await sendDailySupervisorSummaries();
     } catch (error) {
       console.error('[scheduler] Daily summary job failed:', error);
+    }
+  });
+
+  cron.schedule('0 */6 * * *', async () => {
+    console.log('[scheduler] Checking for app version updates.');
+    try {
+      await checkAppVersionUpdate();
+    } catch (error) {
+      console.error('[scheduler] App version check job failed:', error);
     }
   });
 }

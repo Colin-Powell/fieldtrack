@@ -9,9 +9,10 @@ export class NotificationService {
     senderId?: string;
     title: string;
     message: string;
-    type: 'CHECKED_IN' | 'CHECKED_OUT' | 'REVIEW_RECEIVED' | 'REVISION_REQUESTED' | 'ACTIVITY_APPROVED' | 'SYSTEM_ALERT' | 'NEW_SUBMISSION' | 'SUPERVISOR_MESSAGE';
+    type: 'CHECKED_IN' | 'CHECKED_OUT' | 'REVIEW_RECEIVED' | 'REVISION_REQUESTED' | 'ACTIVITY_APPROVED' | 'SYSTEM_ALERT' | 'NEW_SUBMISSION' | 'SUPERVISOR_MESSAGE' | 'UPDATE_AVAILABLE';
     entityType?: string;
     entityId?: string;
+    actionUrl?: string;
     priority?: number;
   }) {
     const recipient = await prisma.user.findUnique({
@@ -37,6 +38,7 @@ export class NotificationService {
         type: data.type,
         entityType: data.entityType,
         entityId: data.entityId,
+        actionUrl: data.actionUrl,
         priority: data.priority || 0,
       }
     });
@@ -79,6 +81,7 @@ export class NotificationService {
             notificationType: data.type,
             entityType: data.entityType ?? '',
             entityId: data.entityId ?? '',
+            actionUrl: data.actionUrl ?? '',
           },
         });
         console.log(`[NOTIFICATION] ✓ FCM push sent successfully`);
@@ -152,6 +155,7 @@ export async function processBulkNotifications(data: {
   title: string;
   message: string;
   type: any;
+  actionUrl?: string;
 }) {
   const service = new NotificationService();
   const results = { success: 0, failed: 0 };
@@ -163,7 +167,8 @@ export async function processBulkNotifications(data: {
         senderId: data.senderId,
         title: data.title,
         message: data.message,
-        type: data.type
+        type: data.type,
+        actionUrl: data.actionUrl,
       });
       results.success++;
     } catch (error) {

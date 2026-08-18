@@ -872,6 +872,60 @@ export async function broadcastNotification(req: Request, res: Response) {
   }
 }
 
+export async function sendUpdateNotification(req: Request, res: Response) {
+  try {
+    const actorId = req.user?.userId as string;
+    const { title, message, updateUrl } = req.body;
+
+    if (!title || !message || !updateUrl) {
+      return res.status(400).json({ error: 'Title, message, and updateUrl are required' });
+    }
+
+    // Get all active users to notify
+    const allUsers = await prisma.user.findMany({
+      where: {
+        role: { in: ['STUDENT', 'SUPERVISOR'] },
+        status: 'ACTIVE',
+        isActive: true,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    // Extract just the user IDs for the background job
+    const recipientIds = allUsers.map(u => u.id);
+
+    // Using BullMQ for background processing
+    const { notificationQueue } = await import('../utils/queue.js');
+    await notificationQueue.add('bulkNotification', {
+      recipientIds,
+      senderId: actorId,
+      title,
+      message,
+      type: 'UPDATE_AVAILABLE',
+      actionUrl: updateUrl,
+    });
+
+    if (actorId) {
+      await AuditLogService.log({
+        actorId,
+        action: 'UPDATE_NOTIFICATION_SENT',
+        details: { title, updateUrl, recipientCount: allUsers.length },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: `Update notification sent to ${allUsers.length} users`,
+    });
+  } catch (error) {
+    console.error('Send update notification error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 export async function getSettings(req: Request, res: Response) {
   try {
     // Default settings

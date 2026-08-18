@@ -4,7 +4,7 @@ import {
   getUserById, updateUser, updateUserStatus,
   reassignSupervisor, resetUserPassword, deleteUser,
   getDepartments, createDepartment, getDepartmentDetails, globalSearch, getProjects, getAuditLogs,
-  getNotifications, broadcastNotification,
+  getNotifications, broadcastNotification, sendUpdateNotification,
   getSettings, updateSettings, getSettingsHistory,
   manualBackup, getMapData
 } from './admins.controller.js';
@@ -43,6 +43,7 @@ router.get('/audit-logs', getAuditLogs);
 // Notification routes
 router.get('/notifications', getNotifications);
 router.post('/notifications/broadcast', broadcastNotification);
+router.post('/notifications/update', sendUpdateNotification);
 
 // Settings routes
 router.get('/settings', getSettings);

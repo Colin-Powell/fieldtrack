@@ -2,10 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_constants.dart';
 
 @pragma('vm:entry-point')
@@ -67,7 +67,8 @@ class NotificationService {
         await _localNotificationsPlugin.initialize(
           settings: initializationSettings,
           onDidReceiveNotificationResponse: (details) {
-            // Handle notification tap
+            // Handle notification tap - open actionUrl if present
+            _handleNotificationTap(details);
           },
         );
 
@@ -97,12 +98,14 @@ class NotificationService {
               notification?.body ??
               message.data['body'] ??
               'You have a new update';
+          final actionUrl = message.data['actionUrl'] ?? '';
 
           if (notification != null && android != null) {
             _localNotificationsPlugin.show(
               id: notification.hashCode,
               title: title,
               body: body,
+              payload: actionUrl,
               notificationDetails: NotificationDetails(
                 android: AndroidNotificationDetails(
                   channel.id,
@@ -121,6 +124,7 @@ class NotificationService {
               id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
               title: title,
               body: body,
+              payload: actionUrl,
               notificationDetails: NotificationDetails(
                 android: AndroidNotificationDetails(
                   channel.id,
@@ -215,6 +219,25 @@ class NotificationService {
       }
     } catch (e) {
       debugPrint('⚠ Failed to sync FCM token: $e');
+    }
+  }
+
+  Future<void> _handleNotificationTap(NotificationResponse details) async {
+    try {
+      debugPrint('[FCM] Notification tapped with payload: ${details.payload}');
+      
+      final actionUrl = details.payload;
+      if (actionUrl != null && actionUrl.isNotEmpty) {
+        debugPrint('[FCM] Opening URL: $actionUrl');
+        final uri = Uri.parse(actionUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          debugPrint('[FCM] Could not launch URL: $actionUrl');
+        }
+      }
+    } catch (e) {
+      debugPrint('[FCM] Error handling notification tap: $e');
     }
   }
 }
