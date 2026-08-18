@@ -75,7 +75,8 @@ class NotificationService {
         const AndroidNotificationChannel channel = AndroidNotificationChannel(
           'high_importance_channel_v2',
           'Urgent Alerts',
-          description: 'This channel is used for high priority alerts that vibrate and ring.',
+          description:
+              'This channel is used for high priority alerts that vibrate and ring.',
           importance: Importance.max,
           enableVibration: true,
           playSound: true,
@@ -225,7 +226,7 @@ class NotificationService {
   Future<void> _handleNotificationTap(NotificationResponse details) async {
     try {
       debugPrint('[FCM] Notification tapped with payload: ${details.payload}');
-      
+
       final actionUrl = details.payload;
       if (actionUrl != null && actionUrl.isNotEmpty) {
         debugPrint('[FCM] Opening URL: $actionUrl');
