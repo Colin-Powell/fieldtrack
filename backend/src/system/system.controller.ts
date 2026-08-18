@@ -7,9 +7,9 @@ export const getSystemVersion = async (req: Request, res: Response) => {
 
     if (!setting) {
       const defaultData = {
-        latestVersion: process.env.APP_LATEST_VERSION || '1.0.0',
-        requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.0',
-        updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update',
+        latestVersion: process.env.APP_LATEST_VERSION || '1.0.1',
+        requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.1',
+        updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update.html.html',
       };
       
       try {

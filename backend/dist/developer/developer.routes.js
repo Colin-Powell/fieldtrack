@@ -679,7 +679,7 @@ router.get('/modules/:moduleKey', async (req, res) => {
                 return res.json({
                     latestVersion: process.env.APP_LATEST_VERSION || '1.0.0',
                     requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.0',
-                    updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update',
+                    updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update.html',
                 });
             }
             return res.json(setting.value);

@@ -724,9 +724,9 @@ router.get('/modules/:moduleKey', async (req: Request, res: Response) => {
       const setting = await prisma.systemSetting.findUnique({ where: { key: 'APP_VERSION_CONFIG' } });
       if (!setting) {
         return res.json({
-          latestVersion: process.env.APP_LATEST_VERSION || '1.0.0',
-          requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.0',
-          updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update',
+          latestVersion: process.env.APP_LATEST_VERSION || '1.0.1',
+          requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.1',
+          updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update.html.html',
         });
       }
       return res.json(setting.value);

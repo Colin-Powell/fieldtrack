@@ -1,5 +1,6 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
+import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class VersionCheckService {
@@ -15,7 +16,13 @@ class VersionCheckService {
       final currentVersion = packageInfo.version;
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final response = await _dio.get('/system/version?_t=$timestamp');
+      final response = await _dio.get(
+        '/system/version?_t=$timestamp',
+        options: CacheOptions(
+          policy: CachePolicy.noCache,
+          store: MemCacheStore(),
+        ).toOptions(),
+      );
       final data = response.data;
 
       if (data == null) {
@@ -44,7 +51,7 @@ class VersionCheckService {
       };
     } catch (e) {
       // If version check fails (network issue), we don't force update to avoid blocking users offline.
-      print('Version check failed: $e');
+      debugPrint('Version check failed: $e');
       return {'updateRequired': false, 'updateAvailable': false};
     }
   }

@@ -6,7 +6,7 @@ export const getSystemVersion = async (req, res) => {
             const defaultData = {
                 latestVersion: process.env.APP_LATEST_VERSION || '1.0.0',
                 requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.0',
-                updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update',
+                updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update.html',
             };
             try {
                 setting = await prisma.systemSetting.create({
