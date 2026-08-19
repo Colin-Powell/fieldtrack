@@ -59,7 +59,7 @@ class StudentMapNotifier extends StateNotifier<StudentMapState> {
     });
 
     // 2. Listen to activities to pull activity locations and map the route
-    _ref.listen(studentActivitiesProvider(const {}), (previous, next) {
+    _ref.listen(studentActivitiesProvider(const (page: 1, limit: 50, status: null, search: null)), (previous, next) {
       next?.whenData((activitiesResult) {
         if (activitiesResult is Success) {
           final activities = (activitiesResult as Success).data as List<dynamic>;

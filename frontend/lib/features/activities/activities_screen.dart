@@ -64,15 +64,15 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
             child: RefreshIndicator(
               color: const Color(0xFF1BA654),
               onRefresh: () async {
-                final params = <String, dynamic>{
-                  'page': _currentPage + 1,
-                  'limit': _activitiesPerPage,
-                };
-                final status = _getStatusString(_selectedFilterIndex);
-                if (status.isNotEmpty) params['status'] = status;
-                if (_searchQuery.isNotEmpty) params['search'] = _searchQuery;
+                  final status = _getStatusString(_selectedFilterIndex);
+                  final params = (
+                    page: _currentPage + 1,
+                    limit: _activitiesPerPage,
+                    status: status.isNotEmpty ? status : null,
+                    search: _searchQuery.isNotEmpty ? _searchQuery : null,
+                  );
 
-                ref.invalidate(studentActivitiesProvider);
+                  ref.invalidate(studentActivitiesProvider);
                 await ref.read(studentActivitiesProvider(params).future);
               },
               child: SingleChildScrollView(
@@ -221,13 +221,13 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   }
 
   Widget _buildContent() {
-    final params = <String, dynamic>{
-      'page': _currentPage + 1,
-      'limit': _activitiesPerPage,
-    };
     final status = _getStatusString(_selectedFilterIndex);
-    if (status.isNotEmpty) params['status'] = status;
-    if (_searchQuery.isNotEmpty) params['search'] = _searchQuery;
+    final params = (
+      page: _currentPage + 1,
+      limit: _activitiesPerPage,
+      status: status.isNotEmpty ? status : null,
+      search: _searchQuery.isNotEmpty ? _searchQuery : null,
+    );
 
     final activitiesAsync = ref.watch(studentActivitiesProvider(params));
 

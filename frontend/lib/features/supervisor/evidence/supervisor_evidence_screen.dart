@@ -157,8 +157,13 @@ class _SupervisorEvidenceScreenState
                                   ),
                               itemBuilder: (context, index) {
                                 final ev = images[index];
+                                final rawPath =
+                                    ev['storagePath'] ??
+                                    ev['url'] ??
+                                    ev['storedName'] ??
+                                    ev['originalName'];
                                 final url = ImageUtils.getFullImageUrl(
-                                  ev['storagePath'],
+                                  rawPath as String?,
                                 );
                                 final time = submittedDateStr;
                                 return _buildImageCard(

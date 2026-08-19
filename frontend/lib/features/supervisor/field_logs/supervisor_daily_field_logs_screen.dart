@@ -81,7 +81,9 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
                 ? (activities.first['user']?['name'] as String? ?? 'Student')
                 : 'Student');
 
-        if (activities.isEmpty) {
+        final filteredActivities = activities.where((a) => a['status'] != 'DRAFT').toList();
+
+        if (filteredActivities.isEmpty) {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(32.0),
@@ -93,12 +95,10 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
         // Generate timeline items
         final List<Widget> timelineItems = [];
         final List<Widget> activityItems = [];
-        
-        // No longer injecting mocked Checked In timeline item
 
         int evidenceCount = 0;
-        for (int i = 0; i < activities.length; i++) {
-          final activity = activities[i];
+        for (int i = 0; i < filteredActivities.length; i++) {
+          final activity = filteredActivities[i];
           final title = activity['title'] ?? 'Untitled Activity';
           final status = activity['status'] ?? 'DRAFT';
           
@@ -115,9 +115,9 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
           for (final ev in evidenceList) {
             final mimeType = ev['mimeType'] as String? ?? '';
             if (mimeType.startsWith('image/')) {
-              final path = ev['storagePath'];
-              if (path != null) {
-                imageUrl = path;
+              final rawPath = ev['storagePath'] ?? ev['url'] ?? ev['storedName'] ?? ev['originalName'];
+              if (rawPath != null) {
+                imageUrl = rawPath as String?;
                 break;
               }
             }
@@ -131,7 +131,7 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
               subtitle: title,
               evidenceCount: evidenceList.length,
               imgUrl: imageUrl != null ? ImageUtils.getFullImageUrl(imageUrl) : 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
-              isLast: i == activities.length - 1,
+              isLast: i == filteredActivities.length - 1,
               activityId: activity['id'] ?? '',
             )
           );

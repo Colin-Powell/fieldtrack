@@ -3,7 +3,9 @@ import 'package:fieldtrack/core/providers/auth_provider.dart';
 import 'package:fieldtrack/core/providers/activity_provider.dart';
 import 'package:fieldtrack/core/network/api_result.dart';
 
-final studentActivitiesProvider = FutureProvider.family.autoDispose<ApiResult<List<dynamic>>, Map<String, dynamic>>((ref, params) async {
+typedef StudentActivitiesFilter = ({int? page, int? limit, String? status, String? search});
+
+final studentActivitiesProvider = FutureProvider.family.autoDispose<ApiResult<List<dynamic>>, StudentActivitiesFilter>((ref, params) async {
   final authState = ref.watch(authProvider);
   final studentId = authState.user?.id;
   
@@ -14,10 +16,10 @@ final studentActivitiesProvider = FutureProvider.family.autoDispose<ApiResult<Li
   final service = ref.read(activityServiceProvider);
   return await service.getStudentActivities(
     studentId, 
-    page: params['page'] ?? 1, 
-    limit: params['limit'] ?? 50,
-    status: params['status'],
-    search: params['search'],
+    page: params.page ?? 1, 
+    limit: params.limit ?? 50,
+    status: params.status,
+    search: params.search,
   );
 });
 
