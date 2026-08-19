@@ -69,5 +69,18 @@ class EmailService {
             throw new Error('Failed to send OTP email');
         }
     }
+    async sendNewDeviceAlert(data) {
+        const device = data.deviceName || data.platform || 'Unknown device';
+        const location = data.latitude !== undefined && data.longitude !== undefined
+            ? `${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`
+            : 'Location unavailable; IP: ' + (data.ipAddress || 'unknown');
+        await this.sendEmail(data.email, 'FieldTrack: New device sign-in detected', `<div style="font-family:Arial,sans-serif;color:#333;padding:20px">
+        <h2 style="color:#16A34A">New FieldTrack sign-in</h2>
+        <p>Hello ${data.name},</p>
+        <p>A new device signed in to your FieldTrack account.</p>
+        <p><strong>Device:</strong> ${device}<br><strong>Location:</strong> ${location}</p>
+        <p>If this was you, no action is needed. If you do not recognize it, change your password and sign out the device from your security settings.</p>
+      </div>`);
+    }
 }
 export const emailService = new EmailService();

@@ -5,6 +5,30 @@ import { AuditLogService } from '../services/audit-log.service.js';
 import { authLogger } from '../utils/logger.js';
 import { prisma } from '../db.js';
 
+function parseOptionalNumber(value: string | string[] | undefined): number | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+async function sendNewDeviceAlert(data: {
+  email: string;
+  name: string;
+  deviceName?: string;
+  platform?: string;
+  ipAddress?: string;
+  latitude?: number;
+  longitude?: number;
+}) {
+  try {
+    const { emailService } = await import('./email.service.js');
+    await emailService.sendNewDeviceAlert(data);
+  } catch (error) {
+    authLogger.error('New device email alert failed', { error, email: data.email });
+  }
+}
+
 export async function login(req: Request, res: Response) {
   try {
     const { email, registrationNo, password } = req.body;
@@ -14,6 +38,9 @@ export async function login(req: Request, res: Response) {
     const deviceName = req.headers['x-device-model'] as string | undefined;
     const platform = req.headers['x-platform'] as string | undefined;
     const osVersion = req.headers['x-os-version'] as string | undefined;
+    const latitude = parseOptionalNumber(req.headers['x-location-latitude']);
+    const longitude = parseOptionalNumber(req.headers['x-location-longitude']);
+    const accuracy = parseOptionalNumber(req.headers['x-location-accuracy']);
     
     authLogger.info('Login attempt received', {
       ipAddress,
@@ -112,6 +139,7 @@ export async function login(req: Request, res: Response) {
     });
 
     // Enforce device limits if device telemetry provided
+    let isNewDevice = false;
     if (deviceId) {
       const activeDevices = await prisma.deviceSession.findMany({
         where: { userId: user.id, isActive: true },
@@ -129,6 +157,7 @@ export async function login(req: Request, res: Response) {
       const existingSession = await prisma.deviceSession.findFirst({
         where: { userId: user.id, deviceId },
       });
+      isNewDevice = !existingSession;
 
       if (existingSession) {
         await prisma.deviceSession.update({
@@ -156,6 +185,34 @@ export async function login(req: Request, res: Response) {
       }
     }
 
+    await prisma.loginEvent.create({
+      data: {
+        userId: user.id,
+        deviceId,
+        deviceName,
+        platform,
+        osVersion,
+        ipAddress,
+        userAgent,
+        latitude,
+        longitude,
+        accuracy,
+        isNewDevice,
+      },
+    });
+
+    if (isNewDevice && user.loginAlertsEnabled) {
+      void sendNewDeviceAlert({
+        email: user.email,
+        name: user.name,
+        deviceName,
+        platform,
+        ipAddress,
+        latitude,
+        longitude,
+      });
+    }
+
     const token = generateToken({
       userId: user.id,
       role: user.role,
@@ -171,6 +228,9 @@ export async function login(req: Request, res: Response) {
         token: refreshToken,
         userId: user.id,
         expiresAt,
+        deviceId,
+        ipAddress,
+        userAgent,
       },
     });
 
@@ -217,6 +277,11 @@ export async function refresh(req: Request, res: Response) {
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
 
+    const requestDeviceId = req.headers['x-device-id'] as string | undefined;
+    if (savedToken.deviceId && savedToken.deviceId !== requestDeviceId) {
+      return res.status(401).json({ error: 'Refresh token is bound to another device' });
+    }
+
     // Verify token cryptographic validity
     try {
       verifyToken(refreshToken);
@@ -227,6 +292,18 @@ export async function refresh(req: Request, res: Response) {
     const user = savedToken.user;
     if (user.status !== 'ACTIVE' || !user.isActive) {
       return res.status(403).json({ error: 'Account is not active' });
+    }
+
+    await prisma.refreshToken.update({
+      where: { id: savedToken.id },
+      data: { lastUsedAt: new Date() },
+    });
+
+    if (requestDeviceId) {
+      await prisma.deviceSession.updateMany({
+        where: { userId: user.id, deviceId: requestDeviceId, isActive: true },
+        data: { lastActiveAt: new Date() },
+      });
     }
 
     const token = generateToken({
@@ -251,6 +328,9 @@ export async function refresh(req: Request, res: Response) {
         token: newRefreshToken,
         userId: user.id,
         expiresAt,
+        deviceId: savedToken.deviceId ?? requestDeviceId,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
       },
     });
 

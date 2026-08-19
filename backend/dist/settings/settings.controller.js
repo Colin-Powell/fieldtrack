@@ -63,7 +63,50 @@ export const getProfileSettings = async (req, res) => {
                 supervisorProfile: true,
                 studentProfile: true,
                 preferences: true,
-                refreshTokens: true,
+                refreshTokens: {
+                    where: { revokedAt: null, expiresAt: { gt: new Date() } },
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        deviceId: true,
+                        deviceInfo: true,
+                        ipAddress: true,
+                        userAgent: true,
+                        lastUsedAt: true,
+                        createdAt: true,
+                        expiresAt: true,
+                    },
+                },
+                deviceSessions: {
+                    where: { isActive: true },
+                    orderBy: { lastActiveAt: 'desc' },
+                    select: {
+                        id: true,
+                        deviceId: true,
+                        deviceName: true,
+                        platform: true,
+                        osVersion: true,
+                        lastActiveAt: true,
+                        createdAt: true,
+                    },
+                },
+                loginEvents: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 20,
+                    select: {
+                        id: true,
+                        deviceId: true,
+                        deviceName: true,
+                        platform: true,
+                        osVersion: true,
+                        ipAddress: true,
+                        latitude: true,
+                        longitude: true,
+                        isNewDevice: true,
+                        success: true,
+                        createdAt: true,
+                    },
+                },
             },
         });
         if (!userData) {
@@ -199,6 +242,10 @@ export const logoutOtherSessions = async (req, res) => {
         }
         await prisma.refreshToken.deleteMany({
             where: { userId: user.userId },
+        });
+        await prisma.deviceSession.updateMany({
+            where: { userId: user.userId },
+            data: { isActive: false },
         });
         res.json({ success: true, message: 'All other sessions invalidated' });
     }
@@ -371,8 +418,16 @@ export const revokeSession = async (req, res) => {
             return;
         }
         const sessionId = req.params.id;
-        await prisma.refreshToken.delete({
-            where: { id: sessionId },
+        const session = await prisma.refreshToken.findFirst({
+            where: { id: sessionId, userId: user.userId },
+        });
+        if (!session) {
+            res.status(404).json({ success: false, message: 'Session not found' });
+            return;
+        }
+        await prisma.refreshToken.update({
+            where: { id: session.id },
+            data: { revokedAt: new Date() },
         });
         res.json({ success: true, message: 'Session revoked' });
     }

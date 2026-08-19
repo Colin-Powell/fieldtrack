@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -404,22 +405,14 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   PhosphorIconsFill.videoCamera,
                   color: Color(0xFF1BA654),
                 ),
-                title: const Text('Record Video'),
-                onTap: () async {
+                title: const Text('Record Video (Not Supported)'),
+                onTap: () {
                   Navigator.pop(context);
-                  final picked = await picker.pickVideo(
-                    source: ImageSource.camera,
-                    maxDuration: const Duration(seconds: 30),
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Video recording is not currently supported.'),
+                    ),
                   );
-                  if (picked != null) {
-                    _addEvidenceItem(
-                      _EvidenceItem(
-                        type: EvidenceType.video,
-                        path: picked.path,
-                        name: picked.name,
-                      ),
-                    );
-                  }
                 },
               ),
               ListTile(
@@ -471,6 +464,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
 
     String? recordPath;
     bool isRecording = await _audioRecorder.isRecording();
+    StreamSubscription<Amplitude>? amplitudeSub;
+    double currentAmplitude = 0.0;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -534,8 +529,12 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                     const SizedBox(height: 32),
 
                     // Recording Indicator / Button
-                    GestureDetector(
-                      onTap: () async {
+                    SizedBox(
+                      height: 160,
+                      width: 160,
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: () async {
                         if (!isRecording) {
                           final directory = await getTemporaryDirectory();
                           final outputPath =
@@ -550,10 +549,25 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                             ),
                             path: outputPath,
                           );
-                          setModalState(() => isRecording = true);
+                          setModalState(() {
+                            isRecording = true;
+                            currentAmplitude = 0.0;
+                          });
+                          amplitudeSub = _audioRecorder.onAmplitudeChanged(const Duration(milliseconds: 100)).listen((amp) {
+                            setModalState(() {
+                               double val = (amp.current + 50) / 50.0;
+                               if (val < 0) val = 0;
+                               if (val > 1) val = 1;
+                               currentAmplitude = val;
+                            });
+                          });
                         } else {
+                          await amplitudeSub?.cancel();
                           await _audioRecorder.stop();
-                          setModalState(() => isRecording = false);
+                          setModalState(() {
+                            isRecording = false;
+                            currentAmplitude = 0.0;
+                          });
                           if (recordPath != null) {
                             _addEvidenceItem(
                               _EvidenceItem(
@@ -569,9 +583,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                         }
                       },
                       child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        width: 120,
-                        height: 120,
+                        duration: const Duration(milliseconds: 100),
+                        width: 120 + (currentAmplitude * 40),
+                        height: 120 + (currentAmplitude * 40),
                         decoration: BoxDecoration(
                           color: isRecording
                               ? const Color(0xFFFEE2E2)
@@ -583,8 +597,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                                 color: const Color(
                                   0xFFEF4444,
                                 ).withValues(alpha: 0.4),
-                                blurRadius: 30,
-                                spreadRadius: 10,
+                                blurRadius: 30 + (currentAmplitude * 20),
+                                spreadRadius: 10 + (currentAmplitude * 10),
                               ),
                           ],
                         ),
@@ -610,6 +624,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                         ),
                       ),
                     ),
+                  ),
+                ),
                     const SizedBox(height: 24),
                     Text(
                       isRecording

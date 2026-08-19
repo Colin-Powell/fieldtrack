@@ -15,31 +15,29 @@ class DeviceFingerprintInterceptor extends Interceptor {
   DeviceFingerprintInterceptor({required this.secureStorage});
 
   Future<void> init() async {
-    // 1. Get or Generate Device ID
-    _deviceId = await secureStorage.read(key: 'device_id');
-    if (_deviceId == null) {
-      _deviceId = const Uuid().v4();
-      await secureStorage.write(key: 'device_id', value: _deviceId);
-    }
-
-    // 2. Extract Device Info
     final deviceInfoPlugin = DeviceInfoPlugin();
+    String? hardwareId;
+
+    // 1. Extract Hardware Device Info
     try {
       if (kIsWeb) {
         final webBrowserInfo = await deviceInfoPlugin.webBrowserInfo;
         _platform = 'Web';
         _deviceModel = webBrowserInfo.browserName.name;
         _osVersion = webBrowserInfo.appVersion;
+        // Web has no hardware ID
       } else if (Platform.isAndroid) {
         final androidInfo = await deviceInfoPlugin.androidInfo;
         _platform = 'Android';
         _deviceModel = androidInfo.model;
         _osVersion = androidInfo.version.release;
+        hardwareId = androidInfo.id; // Strict hardware ID
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfoPlugin.iosInfo;
         _platform = 'iOS';
         _deviceModel = iosInfo.utsname.machine;
         _osVersion = iosInfo.systemVersion;
+        hardwareId = iosInfo.identifierForVendor; // Strict hardware ID
       } else {
         _platform = Platform.operatingSystem;
         _deviceModel = 'Unknown Model';
@@ -49,6 +47,20 @@ class DeviceFingerprintInterceptor extends Interceptor {
       _platform = 'Unknown';
       _deviceModel = 'Unknown';
       _osVersion = 'Unknown';
+    }
+
+    // 2. Assign Device ID (Strict > Fallback)
+    if (hardwareId != null && hardwareId.isNotEmpty) {
+      _deviceId = hardwareId;
+      // Optionally store it, but we always rely on the OS now
+      await secureStorage.write(key: 'device_id', value: _deviceId!);
+    } else {
+      // Fallback for Web or failures
+      _deviceId = await secureStorage.read(key: 'device_id');
+      if (_deviceId == null) {
+        _deviceId = const Uuid().v4();
+        await secureStorage.write(key: 'device_id', value: _deviceId!);
+      }
     }
   }
 

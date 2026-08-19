@@ -35,6 +35,7 @@ model User {
   preferences       UserPreferences?
   logs              FieldLog[]
   refreshTokens     RefreshToken[]
+  loginEvents       LoginEvent[]
   auditLogs         AuditLog[] @relation("AuditLogUser")
   auditActions      AuditLog[] @relation("AuditLogActor")
   fieldSessions     FieldSession[]
@@ -291,6 +292,9 @@ model RefreshToken {
   token     String   @unique
   deviceInfo String?
   ipAddress  String?
+  userAgent  String?
+  deviceId   String?
+  lastUsedAt DateTime?
   userId    String
   expiresAt DateTime
   revokedAt DateTime?
@@ -299,6 +303,29 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+model LoginEvent {
+  id            String   @id @default(uuid())
+  userId        String
+  deviceId      String?
+  deviceName    String?
+  platform      String?
+  osVersion     String?
+  ipAddress     String?
+  userAgent     String?
+  latitude      Float?
+  longitude     Float?
+  accuracy      Float?
+  isNewDevice   Boolean  @default(false)
+  success       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([deviceId])
+  @@index([ipAddress])
 }
 
 model AuditLog {
