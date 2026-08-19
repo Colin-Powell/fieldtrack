@@ -206,6 +206,9 @@ export class ActivityService {
     if (activity.studentId !== studentId) {
       throw new Error('Unauthorized');
     }
+    if (activity.status !== 'DRAFT') {
+      throw new Error('Only draft activities can be deleted');
+    }
 
     // Delete associated evidence, reviews, etc.
     // Assuming cascade delete is set up in Prisma or we do it manually.

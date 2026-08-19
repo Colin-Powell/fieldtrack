@@ -120,6 +120,9 @@ export class ActivityController {
             if (error.message.includes('not found') || error.message.includes('Unauthorized')) {
                 return res.status(403).json({ error: error.message });
             }
+            if (error.message.includes('Only draft activities')) {
+                return res.status(409).json({ error: error.message });
+            }
             console.error('[deleteActivity]', error);
             res.status(500).json({ error: 'Internal Server Error' });
         }

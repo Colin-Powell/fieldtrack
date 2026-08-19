@@ -314,7 +314,14 @@ class _SupervisorEvidenceScreenState
                                 ev['originalName'] ??
                                     ev['fileName'] ??
                                     'Doc_$index',
-                                ImageUtils.getFullImageUrl(ev['storagePath']),
+                                ImageUtils.getFullImageUrl(
+                                  ev['url'] ??
+                                      ev['firebaseUrl'] ??
+                                      ev['downloadUrl'] ??
+                                      ev['storedName'] ??
+                                      ev['originalName'] ??
+                                      ev['storagePath'],
+                                ),
                                 ev['fileExtension'] ?? '',
                                 studentName,
                               ),
@@ -768,9 +775,14 @@ class _SupervisorEvidenceScreenState
           IconButton(
             onPressed: () async {
               if (url.isNotEmpty) {
-                final uri = Uri.parse(url);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                try {
+                  final uri = Uri.parse(url);
+                  final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  if (!launched) {
+                    debugPrint('Could not open the document.');
+                  }
+                } catch (e) {
+                  debugPrint('Error launching document url: $e');
                 }
               }
             },
