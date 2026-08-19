@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import '../providers/auth_provider.dart';
+import '../providers/checkin_provider.dart';
 import '../utils/toast_service.dart';
 import 'package:fieldtrack/shared/screens/router_error_screen.dart';
 import 'package:fieldtrack/shared/screens/not_found_screen.dart';
@@ -44,6 +45,7 @@ class _RouterNotifier extends ChangeNotifier {
   _RouterNotifier(this._ref) {
     // Listen to authProvider and notify GoRouter whenever it changes
     _ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
+    _ref.listen<CheckInState>(checkInProvider, (_, __) => notifyListeners());
   }
 
   final Ref _ref;
@@ -95,6 +97,14 @@ class _RouterNotifier extends ChangeNotifier {
     // 5. Non-admins can't access /admin
     if (isAuth && user?.role != 'ADMIN' && path.startsWith('/admin')) {
       return '/login';
+    }
+
+    // 6. Prevent starting a field session if not checked in
+    if (isAuth && user?.role == 'STUDENT' && path.startsWith('/field-session')) {
+      final checkInState = _ref.read(checkInProvider);
+      if (!checkInState.isCheckedIn) {
+        return '/checkin';
+      }
     }
 
     return null;

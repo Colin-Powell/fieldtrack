@@ -84,11 +84,14 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
                 children: [
                   if (expanded) const SizedBox(width: 8),
                   Image.asset(
-                    'assets/images/logo.png',
+                    'lib/assets/Images/logo.png',
                     width: expanded ? 32 : 40,
                     height: expanded ? 32 : 40,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Icon(PhosphorIconsFill.leaf, color: Colors.white, size: expanded ? 32 : 40),
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      PhosphorIconsFill.leaf,
+                      color: Colors.white,
+                      size: expanded ? 32 : 40,
+                    ),
                   ),
                   if (expanded) ...[
                     const SizedBox(width: 12),

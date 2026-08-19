@@ -410,7 +410,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Video recording is not currently supported.'),
+                      content: Text(
+                        'Video recording is not currently supported.',
+                      ),
                     ),
                   );
                 },
@@ -535,97 +537,101 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                       child: Center(
                         child: GestureDetector(
                           onTap: () async {
-                        if (!isRecording) {
-                          final directory = await getTemporaryDirectory();
-                          final outputPath =
-                              '${directory.path}/voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
-                          recordPath = outputPath;
-                          await _audioRecorder.start(
-                            const RecordConfig(
-                              encoder: AudioEncoder.aacLc,
-                              bitRate: 128000,
-                              sampleRate: 44100,
-                              numChannels: 1,
-                            ),
-                            path: outputPath,
-                          );
-                          setModalState(() {
-                            isRecording = true;
-                            currentAmplitude = 0.0;
-                          });
-                          amplitudeSub = _audioRecorder.onAmplitudeChanged(const Duration(milliseconds: 100)).listen((amp) {
-                            setModalState(() {
-                               double val = (amp.current + 50) / 50.0;
-                               if (val < 0) val = 0;
-                               if (val > 1) val = 1;
-                               currentAmplitude = val;
-                            });
-                          });
-                        } else {
-                          await amplitudeSub?.cancel();
-                          await _audioRecorder.stop();
-                          setModalState(() {
-                            isRecording = false;
-                            currentAmplitude = 0.0;
-                          });
-                          if (recordPath != null) {
-                            _addEvidenceItem(
-                              _EvidenceItem(
-                                type: EvidenceType.voice,
-                                path: recordPath!,
-                                name:
-                                    'Voice Note ${DateTime.now().toIso8601String()}.m4a',
-                              ),
-                            );
-                          }
-                          if (Navigator.canPop(sheetContext))
-                            Navigator.pop(sheetContext);
-                        }
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 100),
-                        width: 120 + (currentAmplitude * 40),
-                        height: 120 + (currentAmplitude * 40),
-                        decoration: BoxDecoration(
-                          color: isRecording
-                              ? const Color(0xFFFEE2E2)
-                              : const Color(0xFFE6F5EC),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            if (isRecording)
-                              BoxShadow(
-                                color: const Color(
-                                  0xFFEF4444,
-                                ).withValues(alpha: 0.4),
-                                blurRadius: 30 + (currentAmplitude * 20),
-                                spreadRadius: 10 + (currentAmplitude * 10),
-                              ),
-                          ],
-                        ),
-                        child: Center(
+                            if (!isRecording) {
+                              final directory = await getTemporaryDirectory();
+                              final outputPath =
+                                  '${directory.path}/voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+                              recordPath = outputPath;
+                              await _audioRecorder.start(
+                                const RecordConfig(
+                                  encoder: AudioEncoder.aacLc,
+                                  bitRate: 128000,
+                                  sampleRate: 44100,
+                                  numChannels: 1,
+                                ),
+                                path: outputPath,
+                              );
+                              setModalState(() {
+                                isRecording = true;
+                                currentAmplitude = 0.0;
+                              });
+                              amplitudeSub = _audioRecorder
+                                  .onAmplitudeChanged(
+                                    const Duration(milliseconds: 100),
+                                  )
+                                  .listen((amp) {
+                                    setModalState(() {
+                                      double val = (amp.current + 50) / 50.0;
+                                      if (val < 0) val = 0;
+                                      if (val > 1) val = 1;
+                                      currentAmplitude = val;
+                                    });
+                                  });
+                            } else {
+                              await amplitudeSub?.cancel();
+                              await _audioRecorder.stop();
+                              setModalState(() {
+                                isRecording = false;
+                                currentAmplitude = 0.0;
+                              });
+                              if (recordPath != null) {
+                                _addEvidenceItem(
+                                  _EvidenceItem(
+                                    type: EvidenceType.voice,
+                                    path: recordPath!,
+                                    name:
+                                        'Voice Note ${DateTime.now().toIso8601String()}.m4a',
+                                  ),
+                                );
+                              }
+                              if (Navigator.canPop(sheetContext))
+                                Navigator.pop(sheetContext);
+                            }
+                          },
                           child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            width: isRecording ? 60 : 80,
-                            height: isRecording ? 60 : 80,
+                            duration: const Duration(milliseconds: 100),
+                            width: 120 + (currentAmplitude * 40),
+                            height: 120 + (currentAmplitude * 40),
                             decoration: BoxDecoration(
                               color: isRecording
-                                  ? const Color(0xFFEF4444)
-                                  : const Color(0xFF1BA654),
+                                  ? const Color(0xFFFEE2E2)
+                                  : const Color(0xFFE6F5EC),
                               shape: BoxShape.circle,
+                              boxShadow: [
+                                if (isRecording)
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFFEF4444,
+                                    ).withValues(alpha: 0.4),
+                                    blurRadius: 30 + (currentAmplitude * 20),
+                                    spreadRadius: 10 + (currentAmplitude * 10),
+                                  ),
+                              ],
                             ),
-                            child: Icon(
-                              isRecording
-                                  ? PhosphorIconsFill.stop
-                                  : PhosphorIconsFill.microphone,
-                              color: Colors.white,
-                              size: 36,
+                            child: Center(
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                width: isRecording ? 60 : 80,
+                                height: isRecording ? 60 : 80,
+                                decoration: BoxDecoration(
+                                  color: isRecording
+                                      ? const Color(0xFFEF4444)
+                                      : const Color(0xFF1BA654),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  isRecording
+                                      ? PhosphorIconsFill.stop
+                                      : PhosphorIconsFill.microphone,
+                                  color: Colors.white,
+                                  size: 36,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
                     const SizedBox(height: 24),
                     Text(
                       isRecording
