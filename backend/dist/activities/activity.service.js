@@ -1,5 +1,7 @@
 import { prisma } from '../db.js';
 import { reverseGeocode } from '../utils/geocoder.js';
+import { NotificationService } from '../notifications/notification.service.js';
+const notificationService = new NotificationService();
 export class ActivityService {
     /**
      * Create a new draft activity

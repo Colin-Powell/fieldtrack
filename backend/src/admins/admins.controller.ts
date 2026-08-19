@@ -614,7 +614,7 @@ export async function getDepartmentDetails(req: Request, res: Response) {
 
     const studentIds = students.map(s => s.userId);
     const fieldLogs = await prisma.fieldLog.findMany({
-      where: { studentId: { in: studentIds } },
+      where: { studentId: { in: studentIds }, status: { not: 'DRAFT' } },
       include: { evidence: true, user: true }
     });
     
@@ -716,7 +716,7 @@ export async function getProjects(req: Request, res: Response) {
     const projects = await Promise.all(
       studentProfiles.map(async (sp) => {
         const activityCount = await prisma.fieldLog.count({
-          where: { studentId: sp.userId },
+          where: { studentId: sp.userId, status: { not: 'DRAFT' } },
         });
         const totalActivities = activityCount;
         const progress = totalActivities > 0 ? Math.min(100, Math.round((totalActivities / 10) * 100)) : 0;

@@ -130,7 +130,8 @@ export class StorageService {
             where: { id: evidenceId },
             select: { storedName: true, originalName: true, mimeType: true, fileSize: true },
         });
-        const filePath = jobData.filePath ?? jobData.file?.path;
+        const firebaseTempPath = jobData.firebaseTempPath;
+        let filePath = jobData.filePath ?? jobData.file?.path;
         const filename = jobData.filename ?? evidence?.storedName;
         const mimetype = jobData.mimetype ?? evidence?.mimeType ?? 'application/octet-stream';
         const originalname = jobData.originalname ?? evidence?.originalName ?? filename;
@@ -140,8 +141,20 @@ export class StorageService {
             : mimetype.startsWith('image/')
                 ? 'images'
                 : 'documents');
-        if (!filePath || !filename) {
-            throw new Error(`Media job ${jobData.evidenceId} has no source file or filename`);
+        if (!firebaseTempPath && !filePath) {
+            throw new Error(`Media job ${jobData.evidenceId} has no source file`);
+        }
+        if (!filename) {
+            throw new Error(`Media job ${jobData.evidenceId} has no filename`);
+        }
+        let downloadDest;
+        if (firebaseTempPath) {
+            downloadDest = path.join(os.tmpdir(), `dl_${uuidv4()}_${originalname}`);
+            const bucket = getStorageBucket();
+            if (!bucket)
+                throw new Error('Firebase Storage Bucket is not configured.');
+            await bucket.file(firebaseTempPath).download({ destination: downloadDest });
+            filePath = downloadDest;
         }
         const file = {
             path: filePath,
@@ -230,6 +243,14 @@ export class StorageService {
                 fs.unlinkSync(absTmpFilePath);
             if (compressedPath && fs.existsSync(compressedPath))
                 fs.unlinkSync(compressedPath);
+            if (downloadDest && fs.existsSync(downloadDest))
+                fs.unlinkSync(downloadDest);
+            if (firebaseTempPath) {
+                const bucket = getStorageBucket();
+                if (bucket) {
+                    bucket.file(firebaseTempPath).delete().catch(err => console.error('Failed to delete firebaseTempPath', err));
+                }
+            }
         }
     }
     compressVideo(inputPath, outputPath) {

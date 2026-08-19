@@ -2,6 +2,21 @@ import { prisma } from '../db.js';
 import { getApps } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 export class NotificationService {
+    /**
+     * Prevents sending duplicate notifications within a given timeframe for the same entity and type.
+     */
+    async hasRecentNotification(recipientId, title, entityId, hours = 24) {
+        const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+        const existing = await prisma.notification.findFirst({
+            where: {
+                recipientId,
+                title,
+                entityId,
+                createdAt: { gte: cutoff }
+            }
+        });
+        return !!existing;
+    }
     async sendNotification(data) {
         const recipient = await prisma.user.findUnique({
             where: { id: data.recipientId },

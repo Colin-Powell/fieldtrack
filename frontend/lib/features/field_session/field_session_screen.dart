@@ -78,17 +78,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   void initState() {
     super.initState();
 
-    if (widget.isDraft) {
-      _titleController.text = 'Mangrove Vegetation Survey';
-      _descController.text =
-          'Observed healthy growth of Rhicophors mucronate...';
-      _methodController.text = 'Transect and Quadrant Method';
-    }
-
     if (widget.activityId != null) {
       _loadActivityDetails();
-    } else {
-      _ensureDraftActivity();
     }
 
     // Location is now handled by the shared locationProvider (Riverpod)
@@ -153,12 +144,13 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
       final locationState = ref.read(locationProvider);
       if (user == null) return null;
 
+      final title = _titleController.text.trim();
+      if (title.isEmpty) return null;
+
       final activityService = ref.read(activityServiceProvider);
       final draftRes = await activityService.createDraftActivity(
         studentId: user.id,
-        title: _titleController.text.isNotEmpty
-            ? _titleController.text
-            : 'Draft Activity',
+        title: title,
         description: _descController.text,
         methodology: _methodController.text,
         latitude: locationState.latitude != 0 ? locationState.latitude : 0.0,

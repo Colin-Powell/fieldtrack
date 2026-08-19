@@ -5,11 +5,11 @@ export class ActivityController {
         try {
             const { title, description, latitude, longitude, gpsAccuracy, methodology, objectives, findings, remarks } = req.body;
             const studentId = req.user?.role === 'STUDENT' ? req.user.userId : req.body.studentId;
-            if (!studentId || !title) {
+            if (!studentId || typeof title !== 'string' || title.trim() === '') {
                 return res.status(400).json({ error: 'Missing required fields: studentId, title' });
             }
             const activity = await activityService.createDraft({
-                studentId, title, description, latitude, longitude, gpsAccuracy, methodology, objectives, findings, remarks
+                studentId, title: title.trim(), description, latitude, longitude, gpsAccuracy, methodology, objectives, findings, remarks
             });
             res.status(201).json(activity);
         }

@@ -79,9 +79,25 @@ router.post('/upload', authenticate, upload.single('file'), async (req: Request,
         ? 'images'
         : 'documents';
 
+    // Upload raw file to Firebase temporary directory so the Worker can download it
+    const { getStorageBucket } = await import('../firebase_admin.js');
+    const bucket = getStorageBucket();
+    if (!bucket) {
+      throw new Error('Firebase Storage Bucket is not configured.');
+    }
+    const tempFirebasePath = `temp_evidence/${evidence.id}_${file.originalname}`;
+    await bucket.upload(file.path, {
+      destination: tempFirebasePath,
+      metadata: { contentType: file.mimetype }
+    });
+
+    // Delete local temp file from API server
+    const fs = await import('fs/promises');
+    await fs.unlink(file.path).catch(err => uploadsLogger.error('Failed to delete temp file', { err }));
+
     const job = await mediaQueue.add('processUpload', {
       evidenceId: evidence.id,
-      filePath: file.path,
+      firebaseTempPath: tempFirebasePath,
       category,
       filename: evidence.storedName,
       activityId: activity.id,

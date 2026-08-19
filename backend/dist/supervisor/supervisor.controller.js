@@ -404,7 +404,7 @@ export const getStudentActivities = async (req, res) => {
         const skip = (page - 1) * limit;
         // For now we will just return logs. FieldActivity vs DailyFieldLog terminology might be mixed here.
         const logs = await prisma.fieldLog.findMany({
-            where: { studentId },
+            where: { studentId, status: { not: 'DRAFT' } },
             take: limit,
             skip: skip,
             orderBy: { timestamp: 'desc' },
@@ -464,7 +464,7 @@ export const getStudentActivityById = async (req, res) => {
             where: { id: activityId },
             include: { evidence: true }
         });
-        if (!l) {
+        if (!l || l.studentId !== studentId || l.status === 'DRAFT') {
             res.status(404).json({ error: 'Activity not found' });
             return;
         }
@@ -517,7 +517,7 @@ export const getStudentDailyLogs = async (req, res) => {
     try {
         const studentId = req.params.id;
         const logs = await prisma.fieldLog.findMany({
-            where: { studentId },
+            where: { studentId, status: { not: 'DRAFT' } },
             orderBy: { timestamp: 'desc' },
             include: { evidence: true }
         });
@@ -709,7 +709,7 @@ export const generateReport = async (req, res) => {
         const assignedStudentIds = supervisorProfile.assignedStudents.map(s => s.userId);
         // For this example, we generate a report of the last 100 activities
         const logs = await prisma.fieldLog.findMany({
-            where: { studentId: { in: assignedStudentIds } },
+            where: { studentId: { in: assignedStudentIds }, status: { not: 'DRAFT' } },
             take: 100,
             orderBy: { timestamp: 'desc' },
             include: { user: true }
@@ -751,7 +751,7 @@ export const exportLogs = async (req, res) => {
         }
         const assignedStudentIds = supervisorProfile.assignedStudents.map(s => s.userId);
         const logs = await prisma.fieldLog.findMany({
-            where: { studentId: { in: assignedStudentIds } },
+            where: { studentId: { in: assignedStudentIds }, status: { not: 'DRAFT' } },
             orderBy: { timestamp: 'desc' },
             include: { user: true }
         });
