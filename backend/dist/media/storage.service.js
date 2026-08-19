@@ -143,6 +143,8 @@ export class StorageService {
         let duration;
         const tmpDir = os.tmpdir();
         const absTmpFilePath = path.join(tmpDir, filename);
+        let compressedPath;
+        let completed = false;
         try {
             if (category === 'images') {
                 const imageInfo = await sharp(file.path)
@@ -165,7 +167,7 @@ export class StorageService {
             }
             else if (category === 'videos') {
                 const compressedFilename = `${path.basename(filename, path.extname(filename))}.mp4`;
-                const compressedPath = path.join(tmpDir, compressedFilename);
+                compressedPath = path.join(tmpDir, compressedFilename);
                 await this.compressVideo(file.path, compressedPath);
                 const meta = await this.getVideoMetadata(compressedPath);
                 duration = meta.duration;
@@ -179,8 +181,6 @@ export class StorageService {
                 thumbnailPath = await this.uploadToFirebase(absThumbTmpFilePath, firebaseThumbPath, 'image/jpeg');
                 if (fs.existsSync(absThumbTmpFilePath))
                     fs.unlinkSync(absThumbTmpFilePath);
-                if (fs.existsSync(compressedPath))
-                    fs.unlinkSync(compressedPath);
             }
             else {
                 fs.copyFileSync(file.path, absTmpFilePath);
@@ -197,6 +197,7 @@ export class StorageService {
                     uploadStatus: 'SUCCESS',
                 }
             });
+            completed = true;
         }
         catch (error) {
             console.error('Error processing upload:', error);
@@ -207,10 +208,12 @@ export class StorageService {
             throw new Error('Failed to process and store media file');
         }
         finally {
-            if (filePath && fs.existsSync(filePath))
+            if (completed && filePath && fs.existsSync(filePath))
                 fs.unlinkSync(filePath);
             if (fs.existsSync(absTmpFilePath))
                 fs.unlinkSync(absTmpFilePath);
+            if (compressedPath && fs.existsSync(compressedPath))
+                fs.unlinkSync(compressedPath);
         }
     }
     compressVideo(inputPath, outputPath) {

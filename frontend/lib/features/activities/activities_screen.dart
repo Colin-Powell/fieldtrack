@@ -58,7 +58,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 16.0),
+        padding: const EdgeInsets.only(bottom: 100.0), // 16 (default) + 100 = 116px (24 + 72 + 20)
         child: _buildFab(),
       ),
       body: SafeArea(

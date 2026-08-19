@@ -146,7 +146,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
       }
       return _draftActivityId;
     }
-    
+
     _isCreatingDraft = true;
     try {
       final user = ref.read(authProvider).user;
@@ -156,7 +156,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
       final activityService = ref.read(activityServiceProvider);
       final draftRes = await activityService.createDraftActivity(
         studentId: user.id,
-        title: _titleController.text.isNotEmpty ? _titleController.text : 'Draft Activity',
+        title: _titleController.text.isNotEmpty
+            ? _titleController.text
+            : 'Draft Activity',
         description: _descController.text,
         methodology: _methodController.text,
         latitude: locationState.latitude != 0 ? locationState.latitude : 0.0,
@@ -466,7 +468,11 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     final hasPermission = await _audioRecorder.hasPermission();
     if (!hasPermission) {
       scaffoldMessenger.showSnackBar(
-        const SnackBar(content: Text('Microphone permission is required to record voice notes.')),
+        const SnackBar(
+          content: Text(
+            'Microphone permission is required to record voice notes.',
+          ),
+        ),
       );
       return;
     }
@@ -483,11 +489,22 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           builder: (context, setModalState) {
             final sheetContext = context;
             return Container(
-              padding: const EdgeInsets.only(left: 24, right: 24, top: 12, bottom: 40),
+              padding: const EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 12,
+                bottom: 40,
+              ),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -5))],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 20,
+                    offset: Offset(0, -5),
+                  ),
+                ],
               ),
               child: SafeArea(
                 child: Column(
@@ -497,23 +514,48 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                     Container(
                       width: 40,
                       height: 5,
-                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    const Text('Voice Note', style: TextStyle(fontFamily: 'Roboto', fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF111827))),
+                    const Text(
+                      'Voice Note',
+                      style: TextStyle(
+                        fontFamily: 'Roboto',
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
                     const SizedBox(height: 8),
-                    const Text('Capture environmental sounds or field observations', textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Roboto', fontSize: 14, color: Color(0xFF6B7280))),
+                    const Text(
+                      'Capture environmental sounds or field observations',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Roboto',
+                        fontSize: 14,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
                     const SizedBox(height: 32),
-                    
+
                     // Recording Indicator / Button
                     GestureDetector(
                       onTap: () async {
                         if (!isRecording) {
                           final directory = await getTemporaryDirectory();
-                          final outputPath = '${directory.path}/voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+                          final outputPath =
+                              '${directory.path}/voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
                           recordPath = outputPath;
                           await _audioRecorder.start(
-                            const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100, numChannels: 1),
+                            const RecordConfig(
+                              encoder: AudioEncoder.aacLc,
+                              bitRate: 128000,
+                              sampleRate: 44100,
+                              numChannels: 1,
+                            ),
                             path: outputPath,
                           );
                           setModalState(() => isRecording = true);
@@ -521,9 +563,17 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                           await _audioRecorder.stop();
                           setModalState(() => isRecording = false);
                           if (recordPath != null) {
-                            _addEvidenceItem(_EvidenceItem(type: EvidenceType.voice, path: recordPath!, name: 'Voice Note ${DateTime.now().toIso8601String()}.m4a'));
+                            _addEvidenceItem(
+                              _EvidenceItem(
+                                type: EvidenceType.voice,
+                                path: recordPath!,
+                                name:
+                                    'Voice Note ${DateTime.now().toIso8601String()}.m4a',
+                              ),
+                            );
                           }
-                          if (Navigator.canPop(sheetContext)) Navigator.pop(sheetContext);
+                          if (Navigator.canPop(sheetContext))
+                            Navigator.pop(sheetContext);
                         }
                       },
                       child: AnimatedContainer(
@@ -531,11 +581,19 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                         width: 120,
                         height: 120,
                         decoration: BoxDecoration(
-                          color: isRecording ? const Color(0xFFFEE2E2) : const Color(0xFFE6F5EC),
+                          color: isRecording
+                              ? const Color(0xFFFEE2E2)
+                              : const Color(0xFFE6F5EC),
                           shape: BoxShape.circle,
                           boxShadow: [
                             if (isRecording)
-                              BoxShadow(color: const Color(0xFFEF4444).withValues(alpha: 0.4), blurRadius: 30, spreadRadius: 10),
+                              BoxShadow(
+                                color: const Color(
+                                  0xFFEF4444,
+                                ).withValues(alpha: 0.4),
+                                blurRadius: 30,
+                                spreadRadius: 10,
+                              ),
                           ],
                         ),
                         child: Center(
@@ -544,40 +602,66 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                             width: isRecording ? 60 : 80,
                             height: isRecording ? 60 : 80,
                             decoration: BoxDecoration(
-                              color: isRecording ? const Color(0xFFEF4444) : const Color(0xFF1BA654),
+                              color: isRecording
+                                  ? const Color(0xFFEF4444)
+                                  : const Color(0xFF1BA654),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(isRecording ? PhosphorIconsFill.stop : PhosphorIconsFill.microphone, color: Colors.white, size: 36),
+                            child: Icon(
+                              isRecording
+                                  ? PhosphorIconsFill.stop
+                                  : PhosphorIconsFill.microphone,
+                              color: Colors.white,
+                              size: 36,
+                            ),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      isRecording ? 'Recording in progress...' : 'Tap to start recording',
+                      isRecording
+                          ? 'Recording in progress...'
+                          : 'Tap to start recording',
                       style: TextStyle(
                         fontFamily: 'Roboto',
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: isRecording ? const Color(0xFFEF4444) : const Color(0xFF374151),
+                        color: isRecording
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF374151),
                       ),
                     ),
                     const SizedBox(height: 40),
-                    
+
                     // Import Audio button
                     SizedBox(
                       width: double.infinity,
                       child: TextButton.icon(
-                        icon: const Icon(PhosphorIconsRegular.folder, color: Color(0xFF6B7280)),
-                        label: const Text('Import from storage', style: TextStyle(fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF4B5563))),
+                        icon: const Icon(
+                          PhosphorIconsRegular.folder,
+                          color: Color(0xFF6B7280),
+                        ),
+                        label: const Text(
+                          'Import from storage',
+                          style: TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF4B5563),
+                          ),
+                        ),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           backgroundColor: const Color(0xFFF3F4F6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                         onPressed: () async {
                           if (isRecording) await _audioRecorder.stop();
-                          if (Navigator.canPop(sheetContext)) Navigator.pop(sheetContext);
+                          if (Navigator.canPop(sheetContext))
+                            Navigator.pop(sheetContext);
                           await _importAudioFile();
                         },
                       ),
@@ -588,9 +672,18 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                       child: TextButton(
                         onPressed: () async {
                           if (isRecording) await _audioRecorder.stop();
-                          if (Navigator.canPop(sheetContext)) Navigator.pop(sheetContext);
+                          if (Navigator.canPop(sheetContext))
+                            Navigator.pop(sheetContext);
                         },
-                        child: const Text('Cancel', style: TextStyle(fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF9CA3AF))),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -634,7 +727,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     try {
       final user = ref.read(authProvider).user;
       final locationState = ref.read(locationProvider);
-      
+
       if (user == null) {
         throw Exception('User data is missing');
       }
@@ -651,7 +744,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           description: _descController.text,
           methodology: _methodController.text,
         );
-        if (updateRes is Failure) throw Exception((updateRes as Failure).message);
+        if (updateRes is Failure)
+          throw Exception((updateRes as Failure).message);
         activityId = widget.activityId!;
       } else if (_draftActivityId != null) {
         final updateRes = await activityService.updateActivity(
@@ -661,7 +755,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           description: _descController.text,
           methodology: _methodController.text,
         );
-        if (updateRes is Failure) throw Exception((updateRes as Failure).message);
+        if (updateRes is Failure)
+          throw Exception((updateRes as Failure).message);
         activityId = _draftActivityId!;
       } else {
         // 1. Create Draft Activity
@@ -685,17 +780,25 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
 
       // 2. Background uploads are already handling evidence!
       // We just need to check if any are still pending/uploading, or failed.
-      final isUploading = _evidenceItems.any((e) => e.uploadStatus == UploadStatus.uploading);
+      final isUploading = _evidenceItems.any(
+        (e) => e.uploadStatus == UploadStatus.uploading,
+      );
       if (isUploading) {
         // Wait for uploads to complete
-        while (_evidenceItems.any((e) => e.uploadStatus == UploadStatus.uploading)) {
+        while (_evidenceItems.any(
+          (e) => e.uploadStatus == UploadStatus.uploading,
+        )) {
           await Future.delayed(const Duration(milliseconds: 500));
         }
       }
 
-      final hasFailedUploads = _evidenceItems.any((e) => e.uploadStatus == UploadStatus.failed);
+      final hasFailedUploads = _evidenceItems.any(
+        (e) => e.uploadStatus == UploadStatus.failed,
+      );
       if (hasFailedUploads) {
-        throw Exception('Some evidence items failed to upload. Please remove them and try again.');
+        throw Exception(
+          'Some evidence items failed to upload. Please remove them and try again.',
+        );
       }
 
       // 3. Submit Activity
@@ -730,7 +833,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     try {
       final user = ref.read(authProvider).user;
       final locationState = ref.read(locationProvider);
-      
+
       if (user == null) {
         throw Exception('User data is missing');
       }
@@ -746,7 +849,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           description: _descController.text,
           methodology: _methodController.text,
         );
-        if (updateRes is Failure) throw Exception((updateRes as Failure).message);
+        if (updateRes is Failure)
+          throw Exception((updateRes as Failure).message);
         activityId = widget.activityId!;
       } else if (_draftActivityId != null) {
         final updateRes = await activityService.updateActivity(
@@ -756,7 +860,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           description: _descController.text,
           methodology: _methodController.text,
         );
-        if (updateRes is Failure) throw Exception((updateRes as Failure).message);
+        if (updateRes is Failure)
+          throw Exception((updateRes as Failure).message);
         activityId = _draftActivityId!;
       } else {
         final draftRes = await activityService.createDraftActivity(
@@ -774,12 +879,18 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         _draftActivityId = activityId;
       }
 
-      while (_evidenceItems.any((item) => item.uploadStatus == UploadStatus.uploading)) {
+      while (_evidenceItems.any(
+        (item) => item.uploadStatus == UploadStatus.uploading,
+      )) {
         await Future.delayed(const Duration(milliseconds: 500));
       }
 
-      if (_evidenceItems.any((item) => item.uploadStatus == UploadStatus.failed)) {
-        throw Exception('Some evidence items failed to upload. Please remove them and try again.');
+      if (_evidenceItems.any(
+        (item) => item.uploadStatus == UploadStatus.failed,
+      )) {
+        throw Exception(
+          'Some evidence items failed to upload. Please remove them and try again.',
+        );
       }
 
       if (mounted) {
@@ -802,7 +913,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save draft: ${ErrorHandler.getFriendlyErrorMessage(e)}'),
+            content: Text(
+              'Failed to save draft: ${ErrorHandler.getFriendlyErrorMessage(e)}',
+            ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
@@ -1770,7 +1883,6 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     return const SizedBox.shrink();
   }
 
-
   // --- STEP 3: REVIEW & SUBMIT ---
   Widget _buildStep3Review() {
     return Column(
@@ -2147,4 +2259,3 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     );
   }
 }
-
