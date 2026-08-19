@@ -221,9 +221,18 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   }
 
   Widget _buildContent() {
+    return Column(
+      children: [
+        for (int i = 0; i <= _currentPage; i++) 
+           _buildPage(i, isLastPage: i == _currentPage),
+      ],
+    );
+  }
+
+  Widget _buildPage(int pageIndex, {required bool isLastPage}) {
     final status = _getStatusString(_selectedFilterIndex);
     final params = (
-      page: _currentPage + 1,
+      page: pageIndex + 1,
       limit: _activitiesPerPage,
       status: status.isNotEmpty ? status : null,
       search: _searchQuery.isNotEmpty ? _searchQuery : null,
@@ -239,15 +248,14 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
         child: ListSkeletonLoader(itemCount: 4, itemHeight: 120),
       ),
       onData: (activities) {
-        if (activities.isEmpty) {
+        if (activities.isEmpty && pageIndex == 0) {
           return _buildEmptyState();
         }
 
-        // Server-side filtered and paginated activities
         final paginatedActivities = activities;
         final bool hasMore = paginatedActivities.length == _activitiesPerPage;
-        
-        if (paginatedActivities.isEmpty && _currentPage == 0) {
+
+        if (paginatedActivities.isEmpty && pageIndex == 0) {
           return _buildEmptyState();
         }
 
@@ -287,7 +295,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
               String timeStr = '';
               if (activity['timestamp'] != null) {
                 final dt = DateTime.parse(activity['timestamp']).toLocal();
-                timeStr = DateFormat('dd MMM yyyy – hh:mm a').format(dt);
+                timeStr = DateFormat('dd MMM yyyy \u2014 hh:mm a').format(dt);
               }
 
               String? imageUrl;
@@ -322,67 +330,26 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
               );
             }).toList(),
               // Pagination controls
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
+              if (isLastPage && hasMore)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 24,
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () => setState(() => _currentPage++),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1BA654),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(48),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                    ),
+                    child: const Text('Load More', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _currentPage > 0
-                          ? () => setState(() => _currentPage--)
-                          : null,
-                      icon: Icon(PhosphorIconsRegular.arrowLeft, size: 16),
-                      label: const Text('Previous'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _currentPage > 0
-                            ? const Color(0xFF1BA654)
-                            : Colors.grey[300],
-                        foregroundColor: _currentPage > 0
-                            ? Colors.white
-                            : Colors.grey[600],
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(48),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      'Page ${_currentPage + 1}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: hasMore
-                          ? () => setState(() => _currentPage++)
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: hasMore
-                            ? const Color(0xFF1BA654)
-                            : Colors.grey[300],
-                        foregroundColor: hasMore
-                            ? Colors.white
-                            : Colors.grey[600],
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(48),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('Next'),
-                          const SizedBox(width: 8),
-                          Icon(PhosphorIconsRegular.arrowRight, size: 16),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
           ],
         );
       },
