@@ -1,5 +1,8 @@
 import { prisma } from '../db.js';
 import { reverseGeocode } from '../utils/geocoder.js';
+import { ReadinessService } from './readiness.service.js';
+import { NotificationService } from '../notifications/notification.service.js';
+const notificationService = new NotificationService();
 
 export class ActivityService {
   /**
@@ -213,3 +216,5 @@ export class ActivityService {
     return prisma.fieldLog.delete({ where: { id } });
   }
 }
+
+

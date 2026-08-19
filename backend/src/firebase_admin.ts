@@ -2,6 +2,9 @@ import admin from 'firebase-admin';
 import { cert } from 'firebase-admin/app';
 import { getStorage } from 'firebase-admin/storage';
 import { getMessaging } from 'firebase-admin/messaging';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export const firebaseAdmin = admin as any;
 

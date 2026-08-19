@@ -4,6 +4,22 @@ import { getApps } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 
 export class NotificationService {
+
+  /**
+   * Prevents sending duplicate notifications within a given timeframe for the same entity and type.
+   */
+  async hasRecentNotification(recipientId: string, title: string, entityId: string, hours: number = 24): Promise<boolean> {
+    const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+    const existing = await prisma.notification.findFirst({
+      where: {
+        recipientId,
+        title,
+        entityId,
+        createdAt: { gte: cutoff }
+      }
+    });
+    return !!existing;
+  }
   async sendNotification(data: {
     recipientId: string;
     senderId?: string;
@@ -180,3 +196,4 @@ export async function processBulkNotifications(data: {
   console.log(`Bulk Notification Background Job Completed`, results);
   return results;
 }
+

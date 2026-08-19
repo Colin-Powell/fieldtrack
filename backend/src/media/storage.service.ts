@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
@@ -28,23 +29,20 @@ export class StorageService {
       throw new Error('Firebase Storage Bucket is not configured.');
     }
     
+    const token = crypto.randomUUID();
+
     await bucket.upload(localPath, {
       destination,
       metadata: {
         contentType,
         cacheControl: 'public, max-age=31536000',
+        metadata: {
+          firebaseStorageDownloadTokens: token,
+        },
       }
     });
 
-    const file = bucket.file(destination);
-    
-    // Generate a long-lived signed URL to bypass Firebase Security Rules
-    const [url] = await file.getSignedUrl({
-      action: 'read',
-      expires: '01-01-2100'
-    });
-    
-    return url;
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(destination)}?alt=media&token=${token}`;
   }
 
   public async processUpload(
@@ -153,7 +151,28 @@ export class StorageService {
 
   // Called by BullMQ worker
   public async processMediaUploadJob(jobData: any) {
-    const { evidenceId, filePath, category, filename, mimetype, originalname, size } = jobData;
+    const evidenceId = jobData.evidenceId;
+    const evidence = await prisma.evidence.findUnique({
+      where: { id: evidenceId },
+      select: { storedName: true, originalName: true, mimeType: true, fileSize: true },
+    });
+    const filePath = jobData.filePath ?? jobData.file?.path;
+    const filename = jobData.filename ?? evidence?.storedName;
+    const mimetype = jobData.mimetype ?? evidence?.mimeType ?? 'application/octet-stream';
+    const originalname = jobData.originalname ?? evidence?.originalName ?? filename;
+    const size = jobData.size ?? evidence?.fileSize ?? 0;
+    const category = jobData.category ?? (
+      mimetype.startsWith('video/')
+        ? 'videos'
+        : mimetype.startsWith('image/')
+          ? 'images'
+          : 'documents'
+    );
+
+    if (!filePath || !filename) {
+      throw new Error(`Media job ${jobData.evidenceId} has no source file or filename`);
+    }
+
     const file = {
       path: filePath,
       mimetype,

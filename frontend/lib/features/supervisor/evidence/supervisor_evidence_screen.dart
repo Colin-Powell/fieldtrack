@@ -3,10 +3,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
-import 'package:fieldtrack/core/constants/app_constants.dart';
-import 'package:fieldtrack/core/network/api_result.dart';
 import 'package:fieldtrack/core/network/api_result_builder.dart';
-import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
 import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,12 +15,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 // ==========================================
 class _C {
   static const green = Color(0xFF1BA654);
-  static const greenLight = Color(0xFFE6F5EC);
   static const textDark = Color(0xFF111827);
   static const textBody = Color(0xFF6B7280);
   static const textFaint = Color(0xFF9CA3AF);
   static const border = Color(0xFFE5E7EB);
-  static const red = Color(0xFFEF4444);
   static const orange = Color(0xFFF97316);
   static const orangeLight = Color(0xFFFFEDD5);
   static const blue = Color(0xFF3B82F6);
@@ -117,7 +112,7 @@ class _SupervisorEvidenceScreenState
         return LayoutBuilder(
           builder: (context, constraints) {
             final isMobile = constraints.maxWidth < 800;
-            
+
             final leftColumn = Container(
               padding: EdgeInsets.all(isMobile ? 16 : 32),
               decoration: BoxDecoration(
@@ -130,151 +125,151 @@ class _SupervisorEvidenceScreenState
                 children: [
                   // --- IMAGES ---
                   if (images.isNotEmpty) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8.0),
-                              child: Text(
-                                'Images (${images.length})',
-                                style: const TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: _C.textDark,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Text(
+                        'Images (${images.length})',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: _C.textDark,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-                            GridView.builder(
-                              itemCount: images.length,
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: isMobile ? 3 : 6,
-                                    crossAxisSpacing: 16,
-                                    mainAxisSpacing: 16,
-                                    childAspectRatio: 0.75,
-                                  ),
-                              itemBuilder: (context, index) {
-                                final ev = images[index];
-                                final rawPath =
-                                    ev['storagePath'] ??
-                                    ev['url'] ??
-                                    ev['firebaseUrl'] ??
-                                    ev['downloadUrl'] ??
+                    GridView.builder(
+                      itemCount: images.length,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: isMobile ? 3 : 6,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 0.75,
+                      ),
+                      itemBuilder: (context, index) {
+                        final ev = images[index];
+                        final rawPath =
+                            ev['storagePath'] ??
+                            ev['url'] ??
+                            ev['firebaseUrl'] ??
+                            ev['downloadUrl'] ??
+                            ev['storedName'] ??
+                            ev['originalName'];
+                        final url = ImageUtils.getFullImageUrl(
+                          rawPath as String?,
+                        );
+                        final time = submittedDateStr;
+                        return _buildImageCard(
+                          context,
+                          ev['fileName'] ?? 'Image_$index.jpg',
+                          time,
+                          accuracy,
+                          url,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+
+                  // --- VIDEOS ---
+                  if (videos.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Text(
+                        'Videos (${videos.length})',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: _C.textDark,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    GridView.builder(
+                      itemCount: videos.length,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: isMobile ? 1 : 3,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.2,
+                      ),
+                      itemBuilder: (context, index) {
+                        final ev = videos[index];
+                        final rawPath =
+                            ev['storagePath'] ??
+                            ev['url'] ??
+                            ev['firebaseUrl'] ??
+                            ev['downloadUrl'] ??
+                            ev['storedName'] ??
+                            ev['originalName'];
+                        final url = ImageUtils.getFullImageUrl(
+                          rawPath as String?,
+                        );
+                        final thumbnailUrl = ImageUtils.getFullImageUrl(
+                          ev['thumbnailPath'] as String?,
+                        );
+                        debugPrint(
+                          'SupervisorEvidence: resolved video URL: $url',
+                        );
+                        final time = submittedDateStr;
+                        final title =
+                            (ev['fileName'] ??
+                                    ev['originalName'] ??
                                     ev['storedName'] ??
-                                    ev['originalName'];
-                                final url = ImageUtils.getFullImageUrl(
-                                  rawPath as String?,
-                                );
-                                final time = submittedDateStr;
-                                return _buildImageCard(
-                                  context,
-                                  ev['fileName'] ?? 'Image_$index.jpg',
-                                  time,
-                                  accuracy,
-                                  url,
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 32),
-                          ],
+                                    'Video_$index.mp4')
+                                as String;
+                        return _buildVideoCard(
+                          context,
+                          title,
+                          time,
+                          'N/A',
+                          url,
+                          thumbnailUrl,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 32),
+                  ],
 
-                          // --- VIDEOS ---
-                          if (videos.isNotEmpty) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8.0),
-                              child: Text(
-                                'Videos (${videos.length})',
-                                style: const TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: _C.textDark,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            GridView.builder(
-                              itemCount: videos.length,
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: isMobile ? 1 : 3,
-                                    crossAxisSpacing: 16,
-                                    mainAxisSpacing: 16,
-                                    childAspectRatio: 1.2,
-                                  ),
-                              itemBuilder: (context, index) {
-                                final ev = videos[index];
-                                final rawPath =
-                                    ev['storagePath'] ??
-                                    ev['url'] ??
-                                    ev['firebaseUrl'] ??
-                                    ev['downloadUrl'] ??
-                                    ev['storedName'] ??
-                                    ev['originalName'];
-                                final url = ImageUtils.getFullImageUrl(
-                                  rawPath as String?,
-                                );
-                                debugPrint(
-                                  'SupervisorEvidence: resolved video URL: $url',
-                                );
-                                final time = submittedDateStr;
-                                final title =
-                                    (ev['fileName'] ??
-                                            ev['originalName'] ??
-                                            ev['storedName'] ??
-                                            'Video_$index.mp4')
-                                        as String;
-                                return _buildVideoCard(
-                                  context,
-                                  title,
-                                  time,
-                                  'N/A',
-                                  url,
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 32),
-                          ],
-
-                          // --- VOICE NOTES ---
-                          if (audios.isNotEmpty) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8.0),
-                              child: Text(
-                                'Voice Notes (${audios.length})',
-                                style: const TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: _C.textDark,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ListView.builder(
-                              itemCount: audios.length,
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemBuilder: (context, index) {
-                                final ev = audios[index];
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12.0),
-                                  child: _buildVoiceNoteCard(
-                                    context,
-                                    ev['fileName'] ?? 'Audio_$index.mp3',
-                                    ImageUtils.getFullImageUrl(
-                                      ev['storagePath'],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                  // --- VOICE NOTES ---
+                  if (audios.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Text(
+                        'Voice Notes (${audios.length})',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: _C.textDark,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListView.builder(
+                      itemCount: audios.length,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemBuilder: (context, index) {
+                        final ev = audios[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: _buildVoiceNoteCard(
+                            context,
+                            ev['fileName'] ?? 'Audio_$index.mp3',
+                            ImageUtils.getFullImageUrl(ev['storagePath']),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             );
@@ -284,68 +279,62 @@ class _SupervisorEvidenceScreenState
               children: [
                 // Documents Section
                 if (docs.isNotEmpty) ...[
-                          Container(
-                            padding: const EdgeInsets.all(32),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(
-                                _C.cardRadius,
-                              ),
-                              border: Border.all(color: _C.border),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 8.0),
-                                  child: Text(
-                                    'Documents (${docs.length})',
-                                    style: const TextStyle(
-                                      fontFamily: 'Poppins',
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: _C.textDark,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                ListView.builder(
-                                  itemCount: docs.length,
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemBuilder: (context, index) {
-                                    final ev = docs[index];
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 12.0,
-                                      ),
-                                      child: _buildDocumentCard(
-                                        ev['originalName'] ??
-                                            ev['fileName'] ??
-                                            'Doc_$index',
-                                        ImageUtils.getFullImageUrl(
-                                          ev['storagePath'],
-                                        ),
-                                        ev['fileExtension'] ?? '',
-                                        studentName,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(_C.cardRadius),
+                      border: Border.all(color: _C.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: Text(
+                            'Documents (${docs.length})',
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: _C.textDark,
                             ),
                           ),
-                          const SizedBox(height: 24),
-                        ],
-
-                        _buildEvidenceSummaryCard(
-                          images.length,
-                          videos.length,
-                          audios.length,
-                          docs.length,
                         ),
-                        const SizedBox(height: 24),
-                        _buildSubmissionInfoCard(submittedDateStr, accuracy),
+                        const SizedBox(height: 16),
+                        ListView.builder(
+                          itemCount: docs.length,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemBuilder: (context, index) {
+                            final ev = docs[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: _buildDocumentCard(
+                                ev['originalName'] ??
+                                    ev['fileName'] ??
+                                    'Doc_$index',
+                                ImageUtils.getFullImageUrl(ev['storagePath']),
+                                ev['fileExtension'] ?? '',
+                                studentName,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                _buildEvidenceSummaryCard(
+                  images.length,
+                  videos.length,
+                  audios.length,
+                  docs.length,
+                ),
+                const SizedBox(height: 24),
+                _buildSubmissionInfoCard(submittedDateStr, accuracy),
               ],
             );
 
@@ -496,6 +485,7 @@ class _SupervisorEvidenceScreenState
     String time,
     String duration,
     String url,
+    String thumbnailUrl,
   ) {
     return GestureDetector(
       onTap: () => _showVideoPlayer(context, url, title),
@@ -516,16 +506,13 @@ class _SupervisorEvidenceScreenState
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(_C.innerCardRadius),
                     ),
-                    child: Container(
-                      color: Colors.black12,
-                      child: const Center(
-                        child: Icon(
-                          PhosphorIconsFill.videoCamera,
-                          size: 48,
-                          color: Colors.black26,
-                        ),
-                      ),
-                    ),
+                    child: thumbnailUrl.isNotEmpty
+                        ? Image.network(
+                            thumbnailUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => _videoPlaceholder(),
+                          )
+                        : _videoPlaceholder(),
                   ),
                   const Center(
                     child: CircleAvatar(
@@ -597,6 +584,19 @@ class _SupervisorEvidenceScreenState
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _videoPlaceholder() {
+    return Container(
+      color: Colors.black12,
+      child: const Center(
+        child: Icon(
+          PhosphorIconsFill.videoCamera,
+          size: 48,
+          color: Colors.black26,
         ),
       ),
     );
@@ -1219,12 +1219,6 @@ class _SupervisorEvidenceScreenState
         );
       },
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
   }
 
   void _showAudioPlayer(BuildContext context, String title, String url) {
