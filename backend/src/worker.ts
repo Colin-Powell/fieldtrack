@@ -26,15 +26,15 @@ export const csvImportWorker = new Worker('csvImportQueue', async job => {
   }
 }, { connection, concurrency: 2 });
 
-// Media processing is CPU/IO heavy � limit concurrency tightly
+// Media processing is CPU/IO heavy — limit concurrency tightly to prevent OOM
 export const mediaWorker = new Worker('mediaQueue', async job => {
   if (job.name === 'processUpload') {
     const { processMediaUpload } = await import('./media/storage.service.js');
     await processMediaUpload(job.data);
   }
-}, { connection, concurrency: 5 });
+}, { connection, concurrency: 1 });
 
-// Audit logging is lightweight DB writes � allow high throughput
+// Audit logging is lightweight DB writes  allow high throughput
 export const auditWorker = new Worker('auditQueue', async job => {
   if (job.name === 'logAudit') {
     const { processAuditLog } = await import('./services/audit-log.service.js');
