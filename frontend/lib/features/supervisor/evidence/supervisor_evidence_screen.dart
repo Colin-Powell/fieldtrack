@@ -160,6 +160,8 @@ class _SupervisorEvidenceScreenState
                                 final rawPath =
                                     ev['storagePath'] ??
                                     ev['url'] ??
+                                    ev['firebaseUrl'] ??
+                                    ev['downloadUrl'] ??
                                     ev['storedName'] ??
                                     ev['originalName'];
                                 final url = ImageUtils.getFullImageUrl(
@@ -210,6 +212,8 @@ class _SupervisorEvidenceScreenState
                                 final rawPath =
                                     ev['storagePath'] ??
                                     ev['url'] ??
+                                    ev['firebaseUrl'] ??
+                                    ev['downloadUrl'] ??
                                     ev['storedName'] ??
                                     ev['originalName'];
                                 final url = ImageUtils.getFullImageUrl(

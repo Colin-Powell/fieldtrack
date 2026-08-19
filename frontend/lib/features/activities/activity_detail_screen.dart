@@ -60,7 +60,7 @@ class ActivityDetailScreen extends ConsumerWidget {
           for (final ev in evidenceList) {
             final mimeType = ev['mimeType'] as String? ?? '';
             if (mimeType.startsWith('image/')) {
-              final rawPath = ev['storagePath'] ?? ev['url'] ?? ev['storedName'] ?? ev['originalName'];
+              final rawPath = ev['storagePath'] ?? ev['url'] ?? ev['firebaseUrl'] ?? ev['downloadUrl'] ?? ev['storedName'] ?? ev['originalName'];
               if (rawPath != null) {
                 imageUrl = rawPath as String?;
                 break;
