@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createStudent, createSupervisor, getAllUsers, getUserById, updateUser, updateUserStatus, reassignSupervisor, resetUserPassword, deleteUser, getDepartments, createDepartment, getDepartmentDetails, globalSearch, getProjects, getAuditLogs, getNotifications, broadcastNotification, getSettings, updateSettings, getSettingsHistory, manualBackup, getMapData } from './admins.controller.js';
+import { createStudent, createSupervisor, getAllUsers, getUserById, updateUser, updateUserStatus, reassignSupervisor, resetUserPassword, deleteUser, getDepartments, createDepartment, getDepartmentDetails, globalSearch, getProjects, getAuditLogs, getNotifications, broadcastNotification, sendUpdateNotification, getSettings, updateSettings, getSettingsHistory, manualBackup, getMapData } from './admins.controller.js';
 import { authenticate, authorizeRole } from '../auth/auth.middleware.js';
 import multer from 'multer';
 import { importUsersCsv, exportUsersCsv } from './admins.csv.js';
@@ -30,6 +30,7 @@ router.get('/audit-logs', getAuditLogs);
 // Notification routes
 router.get('/notifications', getNotifications);
 router.post('/notifications/broadcast', broadcastNotification);
+router.post('/notifications/update', sendUpdateNotification);
 // Settings routes
 router.get('/settings', getSettings);
 router.put('/settings', updateSettings);

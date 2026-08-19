@@ -674,15 +674,18 @@ router.get('/modules/:moduleKey', async (req, res) => {
             });
         }
         if (moduleKey === 'app-version') {
+            const envData = {
+                latestVersion: process.env.APP_LATEST_VERSION || '1.0.1',
+                requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.1',
+                updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update.html',
+            };
             const setting = await prisma.systemSetting.findUnique({ where: { key: 'APP_VERSION_CONFIG' } });
-            if (!setting) {
-                return res.json({
-                    latestVersion: process.env.APP_LATEST_VERSION || '1.0.0',
-                    requiredVersion: process.env.APP_REQUIRED_VERSION || '1.0.0',
-                    updateUrl: process.env.APP_UPDATE_URL || 'https://fieldtrack.top/update.html',
-                });
-            }
-            return res.json(setting.value);
+            const dbValue = setting?.value;
+            return res.json({
+                latestVersion: envData.latestVersion || dbValue?.latestVersion || '1.0.1',
+                requiredVersion: envData.requiredVersion || dbValue?.requiredVersion || '1.0.1',
+                updateUrl: envData.updateUrl || dbValue?.updateUrl || 'https://fieldtrack.top/update.html',
+            });
         }
         if (moduleKey === 'background-jobs') {
             const [pendingUploads, pendingReviews, unreadNotifications, activeSessions] = await Promise.all([

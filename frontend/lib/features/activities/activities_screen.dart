@@ -57,42 +57,38 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          // Main Scrollable Content
-          SafeArea(
-            child: RefreshIndicator(
-              color: const Color(0xFF1BA654),
-              onRefresh: () async {
-                  final status = _getStatusString(_selectedFilterIndex);
-                  final params = (
-                    page: _currentPage + 1,
-                    limit: _activitiesPerPage,
-                    status: status.isNotEmpty ? status : null,
-                    search: _searchQuery.isNotEmpty ? _searchQuery : null,
-                  );
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 16.0),
+        child: _buildFab(),
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: const Color(0xFF1BA654),
+          onRefresh: () async {
+            final status = _getStatusString(_selectedFilterIndex);
+            final params = (
+              page: _currentPage + 1,
+              limit: _activitiesPerPage,
+              status: status.isNotEmpty ? status : null,
+              search: _searchQuery.isNotEmpty ? _searchQuery : null,
+            );
 
-                  ref.invalidate(studentActivitiesProvider);
-                await ref.read(studentActivitiesProvider(params).future);
-              },
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 100),
-                child: Column(
-                  children: [
-                    _buildHeaderTitle(),
-                    _buildSearchBar(),
-                    _buildFilters(),
-                    _buildContent(), // Displays Loading, Empty State, or List
-                  ],
-                ),
-              ),
+            ref.invalidate(studentActivitiesProvider);
+            await ref.read(studentActivitiesProvider(params).future);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 100),
+            child: Column(
+              children: [
+                _buildHeaderTitle(),
+                _buildSearchBar(),
+                _buildFilters(),
+                _buildContent(), // Displays Loading, Empty State, or List
+              ],
             ),
           ),
-
-          // Floating Action Button
-          Positioned(bottom: 110, right: 24, child: _buildFab()),
-        ],
+        ),
       ),
     );
   }

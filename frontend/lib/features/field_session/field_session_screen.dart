@@ -774,16 +774,12 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         _draftActivityId = activityId;
       }
 
-      for (final item in _evidenceItems) {
-        await activityService.uploadEvidence(
-          activityId: activityId,
-          uploaderId: user.id,
-          filePath: item.path,
-          latitude: locationState.latitude,
-          longitude: locationState.longitude,
-          gpsAccuracy: locationState.accuracy,
-          evidenceType: item.type.name,
-        );
+      while (_evidenceItems.any((item) => item.uploadStatus == UploadStatus.uploading)) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+
+      if (_evidenceItems.any((item) => item.uploadStatus == UploadStatus.failed)) {
+        throw Exception('Some evidence items failed to upload. Please remove them and try again.');
       }
 
       if (mounted) {

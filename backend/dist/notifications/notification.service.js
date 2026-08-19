@@ -19,6 +19,7 @@ export class NotificationService {
                 type: data.type,
                 entityType: data.entityType,
                 entityId: data.entityId,
+                actionUrl: data.actionUrl,
                 priority: data.priority || 0,
             }
         });
@@ -59,6 +60,7 @@ export class NotificationService {
                         notificationType: data.type,
                         entityType: data.entityType ?? '',
                         entityId: data.entityId ?? '',
+                        actionUrl: data.actionUrl ?? '',
                     },
                 });
                 console.log(`[NOTIFICATION] ✓ FCM push sent successfully`);
@@ -130,7 +132,8 @@ export async function processBulkNotifications(data) {
                 senderId: data.senderId,
                 title: data.title,
                 message: data.message,
-                type: data.type
+                type: data.type,
+                actionUrl: data.actionUrl,
             });
             results.success++;
         }

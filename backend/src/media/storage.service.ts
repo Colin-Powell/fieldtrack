@@ -153,7 +153,13 @@ export class StorageService {
 
   // Called by BullMQ worker
   public async processMediaUploadJob(jobData: any) {
-    const { evidenceId, file, category, filename } = jobData;
+    const { evidenceId, filePath, category, filename, mimetype, originalname, size } = jobData;
+    const file = {
+      path: filePath,
+      mimetype,
+      originalname,
+      size,
+    } as Express.Multer.File;
     const date = new Date();
     
     const relDir = this.getRelativeStoragePath(date, category);
@@ -195,23 +201,31 @@ export class StorageService {
         if (fs.existsSync(absThumbTmpFilePath)) fs.unlinkSync(absThumbTmpFilePath);
 
       } else if (category === 'videos') {
-        fs.copyFileSync(file.path, absTmpFilePath);
+        const compressedFilename = `${path.basename(filename, path.extname(filename))}.mp4`;
+        const compressedPath = path.join(tmpDir, compressedFilename);
+
+        await this.compressVideo(file.path, compressedPath);
         
-        const meta = await this.getVideoMetadata(absTmpFilePath);
+        const meta = await this.getVideoMetadata(compressedPath);
         duration = meta.duration;
         width = meta.width;
         height = meta.height;
 
-        storagePath = await this.uploadToFirebase(absTmpFilePath, firebasePath, file.mimetype);
+        storagePath = await this.uploadToFirebase(
+          compressedPath,
+          path.posix.join(relDir, compressedFilename),
+          'video/mp4',
+        );
 
         const thumbName = `thumb_${uuidv4()}.jpg`;
         const absThumbTmpFilePath = path.join(tmpDir, thumbName);
         
-        await this.generateVideoThumbnail(absTmpFilePath, tmpDir, thumbName);
+        await this.generateVideoThumbnail(compressedPath, tmpDir, thumbName);
         const firebaseThumbPath = path.posix.join(relDir, thumbName);
         thumbnailPath = await this.uploadToFirebase(absThumbTmpFilePath, firebaseThumbPath, 'image/jpeg');
         
         if (fs.existsSync(absThumbTmpFilePath)) fs.unlinkSync(absThumbTmpFilePath);
+        if (fs.existsSync(compressedPath)) fs.unlinkSync(compressedPath);
 
       } else {
         fs.copyFileSync(file.path, absTmpFilePath);
@@ -238,9 +252,28 @@ export class StorageService {
       });
       throw new Error('Failed to process and store media file');
     } finally {
-      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
       if (fs.existsSync(absTmpFilePath)) fs.unlinkSync(absTmpFilePath);
     }
+  }
+
+  private compressVideo(inputPath: string, outputPath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .videoCodec('libx264')
+        .audioCodec('aac')
+        .outputOptions([
+          '-preset veryfast',
+          '-crf 28',
+          '-maxrate 2500k',
+          '-bufsize 5000k',
+          '-movflags +faststart',
+          '-vf scale=w=1280:h=1280:force_original_aspect_ratio=decrease',
+        ])
+        .on('end', () => resolve())
+        .on('error', reject)
+        .save(outputPath);
+    });
   }
 
   private getVideoMetadata(filePath: string): Promise<{ duration?: number, width?: number, height?: number }> {

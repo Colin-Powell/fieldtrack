@@ -53,9 +53,16 @@ router.post('/upload', authenticate, upload.single('file'), async (req, res) => 
         // Create a placeholder evidence record immediately so the client has an ID to track
         const evidence = await storageService.createPendingEvidence(file, activity.id, userId, gpsLatitude ? parseFloat(gpsLatitude) : undefined, gpsLongitude ? parseFloat(gpsLongitude) : undefined, gpsAccuracy ? parseFloat(gpsAccuracy) : undefined, capturedAt ? new Date(capturedAt) : undefined, evidenceType);
         // Enqueue the heavy processing job (FFmpeg, Sharp, Firebase upload) 
+        const category = evidenceType === 'video' || file.mimetype.startsWith('video/')
+            ? 'videos'
+            : evidenceType === 'photo' || file.mimetype.startsWith('image/')
+                ? 'images'
+                : 'documents';
         const job = await mediaQueue.add('processUpload', {
             evidenceId: evidence.id,
             filePath: file.path,
+            category,
+            filename: evidence.storedName,
             activityId: activity.id,
             userId,
             mimetype: file.mimetype,
