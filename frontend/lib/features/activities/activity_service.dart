@@ -79,10 +79,6 @@ class ActivityService {
   }) async {
     try {
       final file = File(filePath);
-      if (!await file.exists()) {
-        return Failure(message: 'File not found locally');
-      }
-
       String fileName = file.path.split('/').last;
 
       FormData formData = FormData.fromMap({
