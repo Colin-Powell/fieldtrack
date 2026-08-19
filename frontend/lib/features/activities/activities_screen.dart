@@ -354,6 +354,32 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                       'Page ${_currentPage + 1}',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
+                    const SizedBox(width: 16),
+                    ElevatedButton(
+                      onPressed: hasMore
+                          ? () => setState(() => _currentPage++)
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: hasMore
+                            ? const Color(0xFF1BA654)
+                            : Colors.grey[300],
+                        foregroundColor: hasMore
+                            ? Colors.white
+                            : Colors.grey[600],
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(48),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Next'),
+                          const SizedBox(width: 8),
+                          Icon(PhosphorIconsRegular.arrowRight, size: 16),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
