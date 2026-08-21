@@ -7,7 +7,7 @@ export class ActivityController {
   
   async create(req: Request, res: Response) {
     try {
-      const { title, description, latitude, longitude, gpsAccuracy, methodology, objectives, findings, remarks } = req.body;
+      const { localId, title, description, latitude, longitude, gpsAccuracy, methodology, objectives, findings, remarks } = req.body;
       
       const studentId = req.user?.role === 'STUDENT' ? req.user.userId : req.body.studentId;
 
@@ -16,7 +16,7 @@ export class ActivityController {
       }
 
       const activity = await activityService.createDraft({
-        studentId, title: title.trim(), description, latitude, longitude, gpsAccuracy, methodology, objectives, findings, remarks
+        studentId, localId, title: title.trim(), description, latitude, longitude, gpsAccuracy, methodology, objectives, findings, remarks
       });
 
       res.status(201).json(activity);

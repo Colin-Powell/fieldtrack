@@ -4,12 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-W9QWBP9LBE"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-W9QWBP9LBE');
+        </script>
+
     <title>FieldTrack | Connected Postgraduate Fieldwork</title>
     <meta name="description" content="Connect students in the field with their supervisors. Track activities, verify locations, and approve evidence remotely with FieldTrack.">
     <meta name="keywords" content="fieldwork tracking, student research, postgraduate fieldwork, university fieldwork, remote supervision, GPS check-in, field research app, Pwani University, FieldTrack">
     <meta name="author" content="FieldTrack">
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
     <link rel="canonical" href="https://fieldtrack.top/">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:image:alt" content="FieldTrack fieldwork supervision platform">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
@@ -25,6 +37,7 @@
     <meta name="twitter:title" content="FieldTrack | Connected Postgraduate Fieldwork">
     <meta name="twitter:description" content="Connect students in the field with their supervisors. Track activities, verify locations, and approve evidence remotely.">
     <meta name="twitter:image" content="https://fieldtrack.top/assets/logo.png">
+    <meta name="twitter:image:alt" content="FieldTrack fieldwork supervision platform">
     
     <!-- Google Search Verification -->
     <meta name="google-site-verification" content="9pHBqXO26th2CPv6hbKf2wS_n5bkY0YqcInzQk9R538" />
@@ -34,6 +47,28 @@
     <link rel="apple-touch-icon" href="assets/logo.png">
     <link rel="manifest" href="site.webmanifest">
     <meta name="theme-color" content="#1BA654">
+
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "Organization",
+                    "@id": "https://fieldtrack.top/#organization",
+                    "name": "FieldTrack",
+                    "url": "https://fieldtrack.top/",
+                    "logo": "https://fieldtrack.top/assets/logo.png"
+                },
+                {
+                    "@type": "WebSite",
+                    "@id": "https://fieldtrack.top/#website",
+                    "name": "FieldTrack",
+                    "url": "https://fieldtrack.top/",
+                    "publisher": { "@id": "https://fieldtrack.top/#organization" }
+                }
+            ]
+        }
+        </script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -439,9 +474,10 @@
             </div>
             
             <div>
-                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Downloads</h4>
+                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Downloads & Support</h4>
                 <ul class="space-y-4 text-sm text-gray-400 font-medium">
                     <li><a href="/Fieldtrack.apk" class="hover:text-white transition-colors">Download Android App</a></li>
+                    <li><a href="user_guide.html" class="hover:text-white transition-colors">User Guide</a></li>
                     <li><a href="/setup-guide.html" class="hover:text-white transition-colors">Setup Guide</a></li>
                     <li><a href="/help-center.html" class="hover:text-white transition-colors">Help Center</a></li>
                 </ul>

@@ -10,6 +10,7 @@ export class ActivityService {
    */
   async createDraft(data: {
     studentId: string;
+    localId?: string;
     title: string;
     description?: string;
     latitude?: number;
@@ -20,6 +21,11 @@ export class ActivityService {
     findings?: string;
     remarks?: string;
   }) {
+    if (data.localId) {
+      const existing = await prisma.fieldLog.findUnique({ where: { localId: data.localId } });
+      if (existing) return existing;
+    }
+
     let locationName = null;
     let county = null;
     if (data.latitude && data.longitude) {
@@ -31,6 +37,7 @@ export class ActivityService {
     return prisma.fieldLog.create({
       data: {
         studentId: data.studentId,
+        localId: data.localId,
         title: data.title,
         description: data.description,
         latitude: data.latitude,

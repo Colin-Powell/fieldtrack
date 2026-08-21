@@ -11,6 +11,7 @@ router.post('/checkin',  authenticate, authorizeRole(['STUDENT']), controller.ch
 router.patch('/checkout', authenticate, authorizeRole(['STUDENT']), controller.checkOut.bind(controller));
 router.get('/active',    authenticate, authorizeRole(['STUDENT']), controller.getActive.bind(controller));
 router.post('/ping',     authenticate, authorizeRole(['STUDENT']), controller.logPing.bind(controller));
+router.post('/batch-pings', authenticate, authorizeRole(['STUDENT']), controller.logBatchPings.bind(controller));
 
 // ── Supervisor-only read access ────────────────────────────────────────────
 // Only a SUPERVISOR may view a student's location ping history.

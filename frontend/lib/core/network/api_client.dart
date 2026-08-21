@@ -47,7 +47,6 @@ class ApiClient {
     } else {
       final dir = await getApplicationDocumentsDirectory();
       final hiveStore = HiveCacheStore(dir.path);
-      await hiveStore.clean(); // Temporary fix to clear corrupt caches
       cacheStore = hiveStore;
     }
     _cacheOptions = CacheOptions(

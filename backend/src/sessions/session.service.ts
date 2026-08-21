@@ -7,6 +7,7 @@ export class SessionService {
    */
   async checkIn(data: {
     studentId: string;
+    localId?: string;
     latitude: number;
     longitude: number;
     accuracy: number;
@@ -14,6 +15,11 @@ export class SessionService {
     networkType?: string;
     deviceModel?: string;
   }) {
+    if (data.localId) {
+      const existing = await prisma.fieldSession.findUnique({ where: { localId: data.localId } });
+      if (existing) return existing;
+    }
+
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
@@ -74,6 +80,7 @@ export class SessionService {
     const session = await prisma.fieldSession.create({
       data: {
         studentId: data.studentId,
+        localId: data.localId,
         startLatitude: data.latitude,
         startLongitude: data.longitude,
         startAccuracy: data.accuracy,
@@ -192,6 +199,24 @@ export class SessionService {
         speed: data.speed,
         heading: data.heading,
       }
+    });
+  }
+
+  async logBatchLocationPings(sessionId: string, pings: Array<{ latitude: number, longitude: number, accuracy: number, altitude?: number, speed?: number, heading?: number, timestamp?: string }>) {
+    const dataToInsert = pings.map(ping => ({
+      sessionId,
+      latitude: ping.latitude,
+      longitude: ping.longitude,
+      accuracy: ping.accuracy,
+      altitude: ping.altitude,
+      speed: ping.speed,
+      heading: ping.heading,
+      timestamp: ping.timestamp ? new Date(ping.timestamp) : new Date(),
+    }));
+
+    return prisma.locationPing.createMany({
+      data: dataToInsert,
+      skipDuplicates: true,
     });
   }
 

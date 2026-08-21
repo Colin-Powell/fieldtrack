@@ -3,6 +3,9 @@ import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:fieldtrack/core/network/api_result.dart';
 import 'dart:io';
 import 'package:fieldtrack/core/network/error_handler.dart';
+import 'package:uuid/uuid.dart';
+import 'package:fieldtrack/core/network/offline_queue_service.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ActivityService {
   final ApiClient _apiClient = ApiClient();
@@ -16,26 +19,37 @@ class ActivityService {
     required double longitude,
     required double gpsAccuracy,
   }) async {
+    final localId = const Uuid().v4();
+    final data = {
+      'localId': localId,
+      'studentId': studentId,
+      'title': title,
+      'description': description,
+      'methodology': methodology,
+      'latitude': latitude,
+      'longitude': longitude,
+      'gpsAccuracy': gpsAccuracy,
+    };
+
     try {
-      final response = await _apiClient.dio.post(
-        '/activities',
-        data: {
-          'studentId': studentId,
-          'title': title,
-          'description': description,
-          'methodology': methodology,
-          'latitude': latitude,
-          'longitude': longitude,
-          'gpsAccuracy': gpsAccuracy,
-        },
-      );
+      final response = await _apiClient.dio.post('/activities', data: data);
       return Success(response.data);
-    } on DioException catch (e) {
-      return Failure(
-        message: ErrorHandler.getFriendlyErrorMessage(e),
-        exception: e,
-      );
     } catch (e) {
+      if (e is DioException && (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError)) {
+        await OfflineQueueService().enqueueRequest(
+          operation: 'CREATE_ACTIVITY',
+          endpoint: '/activities',
+          method: 'POST',
+          data: data,
+          localEntityId: localId,
+        );
+        return Success({
+          'id': localId,
+          'status': 'DRAFT',
+          'syncStatus': 'pending',
+          ...data,
+        });
+      }
       return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
     }
   }
@@ -58,12 +72,28 @@ class ActivityService {
         },
       );
       return Success(response.data);
-    } on DioException catch (e) {
-      return Failure(
-        message: ErrorHandler.getFriendlyErrorMessage(e),
-        exception: e,
-      );
     } catch (e) {
+      if (e is DioException && (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError)) {
+        await OfflineQueueService().enqueueRequest(
+          operation: 'UPDATE_ACTIVITY',
+          endpoint: '/activities/$activityId',
+          method: 'PUT',
+          data: {
+            'studentId': studentId,
+            'title': title,
+            'description': description,
+            'methodology': methodology,
+          },
+          dependencies: [activityId], // Only if it's a local ID it will wait
+        );
+        return Success({
+          'id': activityId,
+          'status': 'DRAFT',
+          'syncStatus': 'pending',
+          'title': title,
+          'description': description,
+        });
+      }
       return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
     }
   }
@@ -77,36 +107,71 @@ class ActivityService {
     required double gpsAccuracy,
     required String evidenceType,
   }) async {
-    try {
-      final file = File(filePath);
-      String fileName = file.path.split('/').last;
+    final localId = const Uuid().v4();
+    final file = File(filePath);
+    String fileName = file.path.split('/').last;
+    final capturedAt = DateTime.now().toIso8601String();
 
+    try {
       FormData formData = FormData.fromMap({
+        'localId': localId,
         'activityId': activityId,
         'uploaderId': uploaderId,
         'gpsLatitude': latitude.toString(),
         'gpsLongitude': longitude.toString(),
         'gpsAccuracy': gpsAccuracy.toString(),
-        'capturedAt': DateTime.now().toIso8601String(),
+        'capturedAt': capturedAt,
         'evidenceType': evidenceType,
-        'file': await MultipartFile.fromFile(
-          file.path,
-          filename: fileName,
-        ),
+        'file': await MultipartFile.fromFile(file.path, filename: fileName),
       });
 
-      final response = await _apiClient.dio.post(
-        '/media/upload',
-        data: formData,
-      );
-      
+      final response = await _apiClient.dio.post('/media/upload', data: formData);
       return Success(response.data);
-    } on DioException catch (e) {
-      return Failure(
-        message: ErrorHandler.getFriendlyErrorMessage(e),
-        exception: e,
-      );
     } catch (e) {
+      if (e is DioException && (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError)) {
+        // Copy file to offline media dir
+        final dir = await getApplicationDocumentsDirectory();
+        final offlineMediaDir = Directory('${dir.path}/offline_media');
+        if (!await offlineMediaDir.exists()) await offlineMediaDir.create(recursive: true);
+        final copiedFile = await file.copy('${offlineMediaDir.path}/${const Uuid().v4()}_$fileName');
+
+        final payload = {
+          '__isFormData__': true,
+          'fields': {
+            'localId': localId,
+            'activityId': activityId,
+            'uploaderId': uploaderId,
+            'gpsLatitude': latitude.toString(),
+            'gpsLongitude': longitude.toString(),
+            'gpsAccuracy': gpsAccuracy.toString(),
+            'capturedAt': capturedAt,
+            'evidenceType': evidenceType,
+          },
+          'files': [
+            {
+              'fieldName': 'file',
+              'path': copiedFile.path,
+              'filename': fileName,
+            }
+          ]
+        };
+
+        await OfflineQueueService().enqueueRequest(
+          operation: 'UPLOAD_EVIDENCE',
+          endpoint: '/media/upload',
+          method: 'POST',
+          data: payload,
+          localEntityId: localId,
+          dependencies: [activityId], // Wait for this activityId to resolve
+        );
+        
+        return Success({
+          'id': localId,
+          'status': 'pending',
+          'syncStatus': 'pending',
+          'originalName': fileName,
+        });
+      }
       return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
     }
   }
@@ -115,20 +180,26 @@ class ActivityService {
     required String activityId,
     required String studentId,
   }) async {
+    final data = {
+      'studentId': studentId,
+    };
     try {
       await _apiClient.dio.post(
         '/activities/$activityId/submit',
-        data: {
-          'studentId': studentId,
-        },
+        data: data,
       );
       return const Success(null);
-    } on DioException catch (e) {
-      return Failure(
-        message: ErrorHandler.getFriendlyErrorMessage(e),
-        exception: e,
-      );
     } catch (e) {
+      if (e is DioException && (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError)) {
+        await OfflineQueueService().enqueueRequest(
+          operation: 'SUBMIT_ACTIVITY',
+          endpoint: '/activities/$activityId/submit',
+          method: 'POST',
+          data: data,
+          dependencies: [activityId],
+        );
+        return const Success(null); // Optimistic success
+      }
       return Failure(message: ErrorHandler.getFriendlyErrorMessage(e));
     }
   }

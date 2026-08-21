@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:fieldtrack/core/network/error_handler.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
 import '../services/location_naming_service.dart';
+import '../network/local_id_resolver.dart';
 import 'checkin_provider.dart';
 
 /// Holds the current GPS location state shared across the entire app.
@@ -135,24 +138,58 @@ class LocationNotifier extends StateNotifier<LocationState> {
     // Async ping without awaiting
     Future.microtask(() async {
       try {
-        // Guard against hot-reload where _ref may be stale
         if (!mounted) return;
         final checkInState = _ref.read(checkInProvider);
         if (checkInState.isCheckedIn && checkInState.sessionId != null) {
-          await _apiClient.dio.post(ApiEndpoints.sessionLocationPing, data: {
-            'sessionId': checkInState.sessionId,
+          final ping = {
             'latitude': position.latitude,
             'longitude': position.longitude,
             'accuracy': position.accuracy,
             'altitude': position.altitude,
             'speed': position.speed,
             'heading': position.heading,
-          });
+            'timestamp': DateTime.now().toIso8601String(),
+          };
+
+          // Store in offline queue
+          await _storeLocationPing(checkInState.sessionId!, ping);
         }
       } catch (e) {
-        // Silently swallow — ping is best-effort
+        // Silent failure for background ping
       }
     });
+  }
+
+  Future<void> _storeLocationPing(String sessionId, Map<String, dynamic> ping) async {
+    final box = await Hive.openBox<String>('location_pings_queue');
+    
+    List<dynamic> pings = [];
+    final jsonStr = box.get(sessionId);
+    if (jsonStr != null) {
+      pings = jsonDecode(jsonStr);
+    }
+    pings.add(ping);
+    await box.put(sessionId, jsonEncode(pings));
+
+    // Batch trigger sync if more than 5 pings
+    if (pings.length >= 5) {
+      _syncPings(sessionId, pings, box);
+    }
+  }
+
+  Future<void> _syncPings(String sessionId, List<dynamic> pings, Box<String> box) async {
+    try {
+      final actualSessionId = localIdResolver.getServerId(sessionId) ?? sessionId;
+      
+      await _apiClient.dio.post('/sessions/batch-pings', data: {
+        'sessionId': actualSessionId,
+        'pings': pings,
+      });
+      // Clear from queue on success
+      await box.delete(sessionId);
+    } catch (e) {
+      // Keep in queue for next time
+    }
   }
 
   Future<void> refresh() async {

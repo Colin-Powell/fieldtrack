@@ -13,6 +13,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fieldtrack/firebase_options.dart';
 import 'package:fieldtrack/core/services/notification_service.dart';
+import 'package:fieldtrack/core/services/analytics_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,12 @@ void main() async {
     }
   } catch (error, stackTrace) {
     debugPrint('Firebase.initializeApp() failed: $error');
+    debugPrint(stackTrace.toString());
+  }
+  try {
+    await AnalyticsService.initialize(appArea: 'supervisor');
+  } catch (error, stackTrace) {
+    debugPrint('Firebase Analytics initialization failed: $error');
     debugPrint(stackTrace.toString());
   }
   try {
@@ -62,49 +69,79 @@ class SupervisorApp extends ConsumerWidget {
       builder: (context, child) {
         return Shortcuts(
           shortcuts: <ShortcutActivator, Intent>{
-            const SingleActivator(LogicalKeyboardKey.keyK, control: true): const SearchIntent(),
-            const SingleActivator(LogicalKeyboardKey.keyK, meta: true): const SearchIntent(),
-            const SingleActivator(LogicalKeyboardKey.digit1, alt: true): const NavigateDashboardIntent(),
-            const SingleActivator(LogicalKeyboardKey.digit2, alt: true): const NavigateStudentsIntent(),
-            const SingleActivator(LogicalKeyboardKey.digit3, alt: true): const NavigateMapIntent(),
-            const SingleActivator(LogicalKeyboardKey.digit4, alt: true): const NavigateFeedIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+                const SearchIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+                const SearchIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit1, alt: true):
+                const NavigateDashboardIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit2, alt: true):
+                const NavigateStudentsIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit3, alt: true):
+                const NavigateMapIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit4, alt: true):
+                const NavigateFeedIntent(),
           },
           child: Actions(
             actions: <Type, Action<Intent>>{
               SearchIntent: CallbackAction<SearchIntent>(
                 onInvoke: (intent) {
-                  CommandPalette.show(context, commands: [
-                    CommandItem(
-                      title: 'Go to Dashboard',
-                      icon: PhosphorIconsRegular.squaresFour,
-                      onSelect: () => context.go('/supervisor/dashboard'),
-                    ),
-                    CommandItem(
-                      title: 'View Students',
-                      subtitle: 'List of all assigned students',
-                      icon: PhosphorIconsRegular.users,
-                      onSelect: () => context.go('/supervisor/students'),
-                    ),
-                    CommandItem(
-                      title: 'Live Map',
-                      subtitle: 'Real-time locations of students in the field',
-                      icon: PhosphorIconsRegular.mapTrifold,
-                      onSelect: () => context.go('/supervisor/map'),
-                    ),
-                    CommandItem(
-                      title: 'Activity Feed',
-                      subtitle: 'Recent field logs and submissions',
-                      icon: PhosphorIconsRegular.listDashes,
-                      onSelect: () => context.go('/supervisor/feed'),
-                    ),
-                  ]);
+                  CommandPalette.show(
+                    context,
+                    commands: [
+                      CommandItem(
+                        title: 'Go to Dashboard',
+                        icon: PhosphorIconsRegular.squaresFour,
+                        onSelect: () => context.go('/supervisor/dashboard'),
+                      ),
+                      CommandItem(
+                        title: 'View Students',
+                        subtitle: 'List of all assigned students',
+                        icon: PhosphorIconsRegular.users,
+                        onSelect: () => context.go('/supervisor/students'),
+                      ),
+                      CommandItem(
+                        title: 'Live Map',
+                        subtitle:
+                            'Real-time locations of students in the field',
+                        icon: PhosphorIconsRegular.mapTrifold,
+                        onSelect: () => context.go('/supervisor/map'),
+                      ),
+                      CommandItem(
+                        title: 'Activity Feed',
+                        subtitle: 'Recent field logs and submissions',
+                        icon: PhosphorIconsRegular.listDashes,
+                        onSelect: () => context.go('/supervisor/feed'),
+                      ),
+                    ],
+                  );
                   return null;
                 },
               ),
-              NavigateDashboardIntent: CallbackAction<NavigateDashboardIntent>(onInvoke: (_) { context.go('/supervisor/dashboard'); return null; }),
-              NavigateStudentsIntent: CallbackAction<NavigateStudentsIntent>(onInvoke: (_) { context.go('/supervisor/students'); return null; }),
-              NavigateMapIntent: CallbackAction<NavigateMapIntent>(onInvoke: (_) { context.go('/supervisor/map'); return null; }),
-              NavigateFeedIntent: CallbackAction<NavigateFeedIntent>(onInvoke: (_) { context.go('/supervisor/feed'); return null; }),
+              NavigateDashboardIntent: CallbackAction<NavigateDashboardIntent>(
+                onInvoke: (_) {
+                  context.go('/supervisor/dashboard');
+                  return null;
+                },
+              ),
+              NavigateStudentsIntent: CallbackAction<NavigateStudentsIntent>(
+                onInvoke: (_) {
+                  context.go('/supervisor/students');
+                  return null;
+                },
+              ),
+              NavigateMapIntent: CallbackAction<NavigateMapIntent>(
+                onInvoke: (_) {
+                  context.go('/supervisor/map');
+                  return null;
+                },
+              ),
+              NavigateFeedIntent: CallbackAction<NavigateFeedIntent>(
+                onInvoke: (_) {
+                  context.go('/supervisor/feed');
+                  return null;
+                },
+              ),
             },
             child: child ?? const SizedBox.shrink(),
           ),

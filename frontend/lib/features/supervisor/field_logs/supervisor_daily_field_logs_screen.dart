@@ -65,6 +65,7 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
 
   Widget _buildBody(BuildContext context, WidgetRef ref) {
     final activitiesAsync = ref.watch(studentActivitiesByStudentIdProvider((studentId: studentId, page: null, limit: null, status: null, search: null)));
+    final dailyLogAsync = ref.watch(_studentDailyLogProvider(studentId));
 
     return ApiResultBuilder<List<dynamic>>(
       asyncValue: activitiesAsync,
@@ -83,7 +84,9 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
 
         final filteredActivities = activities.where((a) => a['status'] != 'DRAFT').toList();
 
-        if (filteredActivities.isEmpty) {
+        final dailyLog = dailyLogAsync.valueOrNull;
+
+        if (filteredActivities.isEmpty && dailyLog == null) {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(32.0),
@@ -97,6 +100,22 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
         final List<Widget> activityItems = [];
 
         int evidenceCount = 0;
+        
+        // ADD CHECK-IN NODE
+        if (dailyLog != null) {
+          final checkInTimeStr = DateFormat('hh:mm a').format(dailyLog.checkIn.toLocal());
+          timelineItems.add(
+            _buildTimelineItem(
+              context,
+              time: checkInTimeStr,
+              title: 'Checked In',
+              subtitle: 'Active session started',
+              iconWidget: _buildSolidIcon(PhosphorIconsBold.check, _C.green),
+              isLast: filteredActivities.isEmpty && dailyLog.checkOut.year == 1970, // roughly if no checkout
+            )
+          );
+        }
+
         for (int i = 0; i < filteredActivities.length; i++) {
           final activity = filteredActivities[i];
           final title = activity['title'] ?? 'Untitled Activity';
@@ -123,6 +142,8 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
             }
           }
 
+          final bool isLastActivity = (i == filteredActivities.length - 1) && (dailyLog == null || dailyLog.checkOut.year == 1970 || dailyLog.checkOut.year == 1900); // Wait, checkOut might be dummy if not checked out
+
           timelineItems.add(
             _buildTimelineItem(
               context,
@@ -131,7 +152,7 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
               subtitle: title,
               evidenceCount: evidenceList.length,
               imgUrl: imageUrl != null ? ImageUtils.getFullImageUrl(imageUrl) : 'https://images.unsplash.com/photo-1627914041132-720da5d7df53?auto=format&fit=crop&w=150&q=80',
-              isLast: i == filteredActivities.length - 1,
+              isLast: isLastActivity,
               activityId: activity['id'] ?? '',
             )
           );
@@ -148,6 +169,23 @@ class SupervisorDailyFieldLogsScreen extends ConsumerWidget {
               imagesCount: '${evidenceList.where((e) => (e['mimeType'] as String? ?? '').startsWith('image/')).length}',
               filesCount: '${evidenceList.where((e) => !(e['mimeType'] as String? ?? '').startsWith('image/')).length}',
               activityId: activity['id'] ?? '',
+            )
+          );
+        }
+
+        // ADD CHECK-OUT NODE
+        if (dailyLog != null && dailyLog.checkOut.year > 2000) {
+          final checkOutTimeStr = DateFormat('hh:mm a').format(dailyLog.checkOut.toLocal());
+          final durStr = '${dailyLog.duration.inHours}h ${(dailyLog.duration.inMinutes % 60).toString().padLeft(2, '0')}m';
+          
+          timelineItems.add(
+            _buildTimelineItem(
+              context,
+              time: checkOutTimeStr,
+              title: 'Checked Out',
+              subtitle: 'Total Time: $durStr',
+              iconWidget: _buildSolidIcon(PhosphorIconsBold.check, Colors.blue),
+              isLast: true,
             )
           );
         }

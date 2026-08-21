@@ -13,6 +13,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fieldtrack/firebase_options.dart';
 import 'package:fieldtrack/core/services/notification_service.dart';
+import 'package:fieldtrack/core/services/analytics_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,12 @@ void main() async {
     }
   } catch (error, stackTrace) {
     debugPrint('Firebase.initializeApp() failed: $error');
+    debugPrint(stackTrace.toString());
+  }
+  try {
+    await AnalyticsService.initialize(appArea: 'admin');
+  } catch (error, stackTrace) {
+    debugPrint('Firebase Analytics initialization failed: $error');
     debugPrint(stackTrace.toString());
   }
   try {
@@ -62,52 +69,81 @@ class AdminApp extends ConsumerWidget {
       builder: (context, child) {
         return Shortcuts(
           shortcuts: <ShortcutActivator, Intent>{
-            const SingleActivator(LogicalKeyboardKey.keyK, control: true): const SearchIntent(),
-            const SingleActivator(LogicalKeyboardKey.keyK, meta: true): const SearchIntent(),
-            const SingleActivator(LogicalKeyboardKey.digit1, alt: true): const NavigateDashboardIntent(),
-            const SingleActivator(LogicalKeyboardKey.digit2, alt: true): const NavigateUsersIntent(),
-            const SingleActivator(LogicalKeyboardKey.digit3, alt: true): const NavigateProjectsIntent(),
-            const SingleActivator(LogicalKeyboardKey.digit4, alt: true): const NavigateReportsIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+                const SearchIntent(),
+            const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+                const SearchIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit1, alt: true):
+                const NavigateDashboardIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit2, alt: true):
+                const NavigateUsersIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit3, alt: true):
+                const NavigateProjectsIntent(),
+            const SingleActivator(LogicalKeyboardKey.digit4, alt: true):
+                const NavigateReportsIntent(),
           },
           child: Actions(
             actions: <Type, Action<Intent>>{
               SearchIntent: CallbackAction<SearchIntent>(
                 onInvoke: (intent) {
-                  CommandPalette.show(context, commands: [
-                    CommandItem(
-                      title: 'Go to Dashboard',
-                      icon: PhosphorIconsRegular.squaresFour,
-                      onSelect: () => context.go('/admin/dashboard'),
-                    ),
-                    CommandItem(
-                      title: 'Manage Users',
-                      subtitle: 'View and edit students and supervisors',
-                      icon: PhosphorIconsRegular.users,
-                      onSelect: () => context.go('/admin/users'),
-                    ),
-                    CommandItem(
-                      title: 'Manage Departments',
-                      icon: PhosphorIconsRegular.buildings,
-                      onSelect: () => context.go('/admin/departments'),
-                    ),
-                    CommandItem(
-                      title: 'Manage Projects',
-                      icon: PhosphorIconsRegular.folder,
-                      onSelect: () => context.go('/admin/projects'),
-                    ),
-                    CommandItem(
-                      title: 'Reports & Analytics',
-                      icon: PhosphorIconsRegular.chartLineUp,
-                      onSelect: () => context.go('/admin/reports'),
-                    ),
-                  ]);
+                  CommandPalette.show(
+                    context,
+                    commands: [
+                      CommandItem(
+                        title: 'Go to Dashboard',
+                        icon: PhosphorIconsRegular.squaresFour,
+                        onSelect: () => context.go('/admin/dashboard'),
+                      ),
+                      CommandItem(
+                        title: 'Manage Users',
+                        subtitle: 'View and edit students and supervisors',
+                        icon: PhosphorIconsRegular.users,
+                        onSelect: () => context.go('/admin/users'),
+                      ),
+                      CommandItem(
+                        title: 'Manage Departments',
+                        icon: PhosphorIconsRegular.buildings,
+                        onSelect: () => context.go('/admin/departments'),
+                      ),
+                      CommandItem(
+                        title: 'Manage Projects',
+                        icon: PhosphorIconsRegular.folder,
+                        onSelect: () => context.go('/admin/projects'),
+                      ),
+                      CommandItem(
+                        title: 'Reports & Analytics',
+                        icon: PhosphorIconsRegular.chartLineUp,
+                        onSelect: () => context.go('/admin/reports'),
+                      ),
+                    ],
+                  );
                   return null;
                 },
               ),
-              NavigateDashboardIntent: CallbackAction<NavigateDashboardIntent>(onInvoke: (_) { context.go('/admin/dashboard'); return null; }),
-              NavigateUsersIntent: CallbackAction<NavigateUsersIntent>(onInvoke: (_) { context.go('/admin/users'); return null; }),
-              NavigateProjectsIntent: CallbackAction<NavigateProjectsIntent>(onInvoke: (_) { context.go('/admin/projects'); return null; }),
-              NavigateReportsIntent: CallbackAction<NavigateReportsIntent>(onInvoke: (_) { context.go('/admin/reports'); return null; }),
+              NavigateDashboardIntent: CallbackAction<NavigateDashboardIntent>(
+                onInvoke: (_) {
+                  context.go('/admin/dashboard');
+                  return null;
+                },
+              ),
+              NavigateUsersIntent: CallbackAction<NavigateUsersIntent>(
+                onInvoke: (_) {
+                  context.go('/admin/users');
+                  return null;
+                },
+              ),
+              NavigateProjectsIntent: CallbackAction<NavigateProjectsIntent>(
+                onInvoke: (_) {
+                  context.go('/admin/projects');
+                  return null;
+                },
+              ),
+              NavigateReportsIntent: CallbackAction<NavigateReportsIntent>(
+                onInvoke: (_) {
+                  context.go('/admin/reports');
+                  return null;
+                },
+              ),
             },
             child: child ?? const SizedBox.shrink(),
           ),

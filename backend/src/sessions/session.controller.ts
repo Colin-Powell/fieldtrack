@@ -9,13 +9,14 @@ export class SessionController {
     try {
       // In a real app, studentId comes from the authenticated user token
       // e.g. req.user.id
-      const { studentId, latitude, longitude, accuracy, batteryLevelStart, networkType, deviceModel } = req.body;
+      const { localId, studentId, latitude, longitude, accuracy, batteryLevelStart, networkType, deviceModel } = req.body;
       
       if (!studentId || latitude === undefined || longitude === undefined || accuracy === undefined) {
         return res.status(400).json({ error: 'Missing required fields: studentId, latitude, longitude, accuracy' });
       }
 
       const session = await sessionService.checkIn({
+        localId,
         studentId,
         latitude,
         longitude,
@@ -98,6 +99,22 @@ export class SessionController {
       res.status(201).json(ping);
     } catch (error) {
       console.error('[logPing]', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
+  async logBatchPings(req: Request, res: Response) {
+    try {
+      const { sessionId, pings } = req.body;
+
+      if (!sessionId || !Array.isArray(pings)) {
+        return res.status(400).json({ error: 'Missing required fields: sessionId, pings array' });
+      }
+
+      const createdPings = await sessionService.logBatchLocationPings(sessionId, pings);
+      res.status(201).json({ success: true, count: createdPings.count });
+    } catch (error) {
+      console.error('[logBatchPings]', error);
       res.status(500).json({ error: 'Internal Server Error' });
     }
   }

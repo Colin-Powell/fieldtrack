@@ -584,7 +584,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             PhosphorIconsFill.article,
             const Color(0xFFC3DFCC),
             const Color(0xFF1BA654),
-            onTap: () => context.push('/field-session'),
+            onTap: () {
+              final checkInState = ref.read(checkInProvider);
+              if (!checkInState.isCheckedIn) {
+                ToastService.showError('You must check in first before logging an activity.');
+                return;
+              }
+              context.push('/field-session');
+            },
           ),
           _buildQuickActionBtn(
             'Feedback',

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../network/connectivity_service.dart';
+import '../network/offline_queue_service.dart';
+import '../network/api_client.dart';
 
 class OfflineBanner extends StatefulWidget implements PreferredSizeWidget {
   final Widget? child;
@@ -21,12 +23,16 @@ class _OfflineBannerState extends State<OfflineBanner> {
     super.initState();
     _sub = ConnectivityService().onStatusChange;
     _sub.listen((s) {
+      if (!mounted) return;
       setState(() => _status = s);
       if (s == ConnectionStatus.online) {
+        // Trigger background sync
+        OfflineQueueService().syncQueue(ApiClient().dio);
+
         // show temporary connected banner
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Connection restored. Refreshing latest data...'),
+            content: Text('Connection restored. Syncing offline data...'),
           ),
         );
       }
@@ -38,7 +44,7 @@ class _OfflineBannerState extends State<OfflineBanner> {
     if (_status == ConnectionStatus.online) return SizedBox.shrink();
 
     final message = _status == ConnectionStatus.offline
-        ? "You're offline. Showing previously synced data."
+        ? "You're offline. Saving data locally."
         : 'Network connection is unstable.';
 
     return Material(
@@ -56,8 +62,10 @@ class _OfflineBannerState extends State<OfflineBanner> {
                 child: Text(message, style: TextStyle(color: Colors.white)),
               ),
               TextButton(
-                onPressed: () {},
-                child: Text('Retry', style: TextStyle(color: Colors.white)),
+                onPressed: () {
+                  OfflineQueueService().syncQueue(ApiClient().dio);
+                },
+                child: Text('Sync Now', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),

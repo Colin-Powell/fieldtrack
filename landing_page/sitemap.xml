@@ -47,12 +47,68 @@
   </url>
   <url>
     <loc>https://fieldtrack.top/setup-guide.html</loc>
+    <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/logo.png</image:loc>
+      <image:title>FieldTrack Setup Guide</image:title>
+    </image:image>
   </url>
   <url>
     <loc>https://fieldtrack.top/help-center.html</loc>
+    <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/logo.png</image:loc>
+      <image:title>FieldTrack Help Center</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://fieldtrack.top/user_guide.html</loc>
+    <lastmod>2026-08-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/logo.png</image:loc>
+      <image:title>FieldTrack User Guide</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/guide/student_login.png</image:loc>
+      <image:title>FieldTrack Student Login</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/guide/student_dashboard.png</image:loc>
+      <image:title>FieldTrack Student Dashboard</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/guide/student_add_log.png</image:loc>
+      <image:title>FieldTrack Student Field Log</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/guide/student_upload_evidence.png</image:loc>
+      <image:title>FieldTrack Student Evidence Upload</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/guide/student_checkout.png</image:loc>
+      <image:title>FieldTrack Student Check Out</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/guide/supervisor_dashboard.png</image:loc>
+      <image:title>FieldTrack Supervisor Dashboard</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/guide/supervisor_map.png</image:loc>
+      <image:title>FieldTrack Supervisor Map</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/guide/supervisor_review_log.png</image:loc>
+      <image:title>FieldTrack Supervisor Review</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://fieldtrack.top/assets/guide/supervisor_feedback.png</image:loc>
+      <image:title>FieldTrack Supervisor Feedback</image:title>
+    </image:image>
   </url>
 </urlset>

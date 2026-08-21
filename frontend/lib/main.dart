@@ -9,7 +9,9 @@ import 'package:fieldtrack/core/app_setup.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:fieldtrack/core/services/notification_service.dart';
+import 'package:fieldtrack/core/services/analytics_service.dart';
 import 'package:fieldtrack/core/widgets/offline_banner.dart';
+import 'package:fieldtrack/core/providers/location_provider.dart';
 import 'package:fieldtrack/firebase_options.dart';
 
 Future<void> main() async {
@@ -37,6 +39,13 @@ Future<void> main() async {
   }
 
   try {
+    await AnalyticsService.initialize(appArea: 'student');
+  } catch (error, stackTrace) {
+    debugPrint('Firebase Analytics initialization failed: $error');
+    debugPrint(stackTrace.toString());
+  }
+
+  try {
     await ApiClient().init();
   } catch (error, stackTrace) {
     debugPrint('ApiClient init failed: $error');
@@ -58,6 +67,7 @@ class FieldTrackApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.read(locationProvider);
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(

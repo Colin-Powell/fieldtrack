@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
@@ -174,7 +175,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     try {
       final response = await _apiClient.dio.get('/auth/me');
-      final user = AuthUser.fromJson(response.data['user']);
+      final userJson = response.data['user'];
+      final user = AuthUser.fromJson(userJson);
+      
+      await _secureStorage.write(key: 'cached_user', value: jsonEncode(userJson));
+
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: true,
@@ -198,7 +203,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
         _startProfilePolling();
       }
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError || e.type == DioExceptionType.receiveTimeout) {
+        // Offline: Try to load from cache
+        final cachedUserStr = await _secureStorage.read(key: 'cached_user');
+        if (cachedUserStr != null && cachedUserStr.isNotEmpty) {
+          final user = AuthUser.fromJson(jsonDecode(cachedUserStr));
+          state = state.copyWith(
+            isLoading: false,
+            isAuthenticated: true,
+            user: user,
+          );
+          return;
+        }
+      }
+
       await _secureStorage.delete(key: 'jwt_token');
+      await _secureStorage.delete(key: 'cached_user');
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: false,
@@ -235,6 +255,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final user = AuthUser.fromJson(userJson);
 
         await _secureStorage.write(key: 'jwt_token', value: token);
+        await _secureStorage.write(key: 'cached_user', value: jsonEncode(userJson));
         if (refreshToken != null) {
           await _secureStorage.write(key: 'refresh_token', value: refreshToken);
         }

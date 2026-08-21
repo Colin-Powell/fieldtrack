@@ -6,6 +6,8 @@ import '../network/error_handler.dart';
 import 'auth_provider.dart';
 import 'location_provider.dart';
 import '../utils/toast_service.dart';
+import 'package:uuid/uuid.dart';
+import '../network/offline_queue_service.dart';
 
 class CheckInState {
   final bool isCheckedIn;
@@ -84,15 +86,19 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
 
     state = state.copyWith(isLoading: true);
 
+    final localId = const Uuid().v4();
+    final data = {
+      'localId': localId,
+      'studentId': user.id,
+      'latitude': location.latitude,
+      'longitude': location.longitude,
+      'accuracy': location.accuracy,
+    };
+
     try {
       final response = await _apiClient.dio.post(
         ApiEndpoints.sessionCheckIn,
-        data: {
-          'studentId': user.id,
-          'latitude': location.latitude,
-          'longitude': location.longitude,
-          'accuracy': location.accuracy,
-        },
+        data: data,
       );
 
       state = state.copyWith(
@@ -102,13 +108,25 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
         isLoading: false,
       );
       return true;
-    } on DioException catch (e) {
+    } catch (e) {
+      if (e is DioException && (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError)) {
+        await OfflineQueueService().enqueueRequest(
+          operation: 'CHECK_IN',
+          endpoint: ApiEndpoints.sessionCheckIn,
+          method: 'POST',
+          data: data,
+          localEntityId: localId,
+        );
+        state = state.copyWith(
+          isCheckedIn: true,
+          checkInTime: DateTime.now(),
+          sessionId: localId, // use local id until synced
+          isLoading: false,
+        );
+        return true;
+      }
       state = state.copyWith(isLoading: false);
       ToastService.showError(ErrorHandler.getFriendlyErrorMessage(e));
-      return false;
-    } catch (e) {
-      state = state.copyWith(isLoading: false);
-      ToastService.showError('An unexpected error occurred');
       return false;
     }
   }
@@ -121,15 +139,17 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
 
     state = state.copyWith(isLoading: true);
 
+    final data = {
+      'studentId': user.id,
+      'latitude': location.latitude,
+      'longitude': location.longitude,
+      'accuracy': location.accuracy,
+    };
+
     try {
       await _apiClient.dio.patch(
         ApiEndpoints.sessionCheckOut,
-        data: {
-          'studentId': user.id,
-          'latitude': location.latitude,
-          'longitude': location.longitude,
-          'accuracy': location.accuracy,
-        },
+        data: data,
       );
 
       state = CheckInState(
@@ -139,13 +159,25 @@ class CheckInNotifier extends StateNotifier<CheckInState> {
         isLoading: false,
       );
       return true;
-    } on DioException catch (e) {
+    } catch (e) {
+      if (e is DioException && (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError)) {
+        await OfflineQueueService().enqueueRequest(
+          operation: 'CHECK_OUT',
+          endpoint: ApiEndpoints.sessionCheckOut,
+          method: 'PATCH',
+          data: data,
+          dependencies: state.sessionId != null ? [state.sessionId!] : [],
+        );
+        state = CheckInState(
+          isCheckedIn: false,
+          checkInTime: null,
+          sessionId: null,
+          isLoading: false,
+        );
+        return true;
+      }
       state = state.copyWith(isLoading: false);
       ToastService.showError(ErrorHandler.getFriendlyErrorMessage(e));
-      return false;
-    } catch (e) {
-      state = state.copyWith(isLoading: false);
-      ToastService.showError('An unexpected error occurred');
       return false;
     }
   }

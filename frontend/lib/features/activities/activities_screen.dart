@@ -11,6 +11,8 @@ import 'package:fieldtrack/core/network/api_result_builder.dart';
 import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
 import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/providers/checkin_provider.dart';
+import 'package:fieldtrack/core/utils/toast_service.dart';
 
 class ActivitiesScreen extends ConsumerStatefulWidget {
   const ActivitiesScreen({super.key});
@@ -565,8 +567,15 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   }
 
   Widget _buildFab() {
+    final checkInState = ref.read(checkInProvider);
     return GestureDetector(
-      onTap: () => context.push('/field-session'),
+      onTap: () {
+        if (!checkInState.isCheckedIn) {
+          ToastService.showError('You must check in first before logging an activity.');
+          return;
+        }
+        context.push('/field-session');
+      },
       child: Container(
         padding: const EdgeInsets.only(left: 20, right: 8, top: 8, bottom: 8),
         decoration: BoxDecoration(

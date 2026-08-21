@@ -319,6 +319,22 @@ class _AdminMapScreenState extends ConsumerState<AdminMapScreen> {
                           style: TextStyle(
                               fontFamily: 'Poppins',
                               color: Color(0xFFEF4444))),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () => ref.refresh(mapMarkersProvider),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEF4444),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        icon: const Icon(PhosphorIconsRegular.arrowsClockwise, size: 18),
+                        label: const Text(
+                          'Retry',
+                          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600),
+                        ),
+                      ),
                     ],
                   ),
                 ),

@@ -4,9 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-W9QWBP9LBE"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-W9QWBP9LBE');
+        </script>
+
     <title>Setup Guide | FieldTrack</title>
-    <meta name="description" content="Step-by-step instructions on how to download, install, and set up the FieldTrack student app and supervisor portal.">
+    <meta name="description" content="FieldTrack Setup Guide: step-by-step instructions for downloading the Android app and configuring the student app and supervisor portal.">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
     <link rel="canonical" href="https://fieldtrack.top/setup-guide.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://fieldtrack.top/setup-guide.html">
+    <meta property="og:title" content="FieldTrack Setup Guide | Install the App">
+    <meta property="og:description" content="Step-by-step instructions for downloading the Android app and configuring the student app and supervisor portal.">
+    <meta property="og:image" content="https://fieldtrack.top/assets/logo.png">
+    <meta property="og:image:alt" content="FieldTrack Setup Guide">
+    <meta property="og:site_name" content="FieldTrack">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="FieldTrack Setup Guide | Install the App">
+    <meta name="twitter:description" content="Step-by-step instructions for downloading the Android app and configuring the student app and supervisor portal.">
+    <meta name="twitter:image" content="https://fieldtrack.top/assets/logo.png">
+    <meta name="twitter:image:alt" content="FieldTrack Setup Guide">
     
     <!-- Icons & Manifest -->
     <link rel="icon" type="image/png" href="assets/logo.png">
@@ -110,11 +133,13 @@
                 <div class="flex-shrink-0 w-8 h-8 rounded-full bg-surface text-text-muted font-bold flex items-center justify-center">3</div>
                 <div>
                     <h3 class="text-lg font-bold mb-2">Grant Required Permissions</h3>
-                    <p class="text-text-muted leading-relaxed mb-3">When you first open FieldTrack, you must grant permissions for it to work properly:</p>
+                    <p class="text-text-muted leading-relaxed mb-3">FieldTrack asks for these permissions as the app opens for the first time. Tap <strong>Allow</strong> whenever Android prompts you:</p>
                     <ul class="list-disc ml-5 text-sm text-text-muted space-y-1">
-                        <li><strong>Location:</strong> Required to verify your fieldwork site when checking in. Select "Allow while using the app".</li>
+                        <li><strong>Location:</strong> Required to verify your fieldwork site and record GPS check-ins. Select <strong>Allow while using the app</strong>, and keep your phone's <strong>Location/GPS turned on</strong> whenever you use FieldTrack.</li>
+                        <li><strong>Notifications:</strong> Select <strong>Allow</strong> so FieldTrack can alert you about activity updates and supervisor feedback.</li>
                         <li><strong>Camera & Storage:</strong> Required to upload photos and documents as evidence for your activities.</li>
                     </ul>
+                    <p class="text-text-muted leading-relaxed mt-3">If you denied a permission, open Android <strong>Settings &gt; Apps &gt; FieldTrack &gt; Permissions</strong> and enable it. If Location is turned off, enable it from the phone's Quick Settings before checking in.</p>
                 </div>
             </div>
             <div class="flex gap-4">
