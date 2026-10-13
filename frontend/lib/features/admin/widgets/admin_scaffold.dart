@@ -27,6 +27,7 @@ class _AdminScaffoldState extends State<AdminScaffold> {
   @override
   Widget build(BuildContext context) {
     int selectedIndex = 0;
+<<<<<<< HEAD
     if (widget.currentLocation.contains('/dashboard')) {
       selectedIndex = 0;
     } else if (widget.currentLocation.contains('/users')) {
@@ -46,6 +47,27 @@ class _AdminScaffoldState extends State<AdminScaffold> {
     } else if (widget.currentLocation.contains('/settings')) {
       selectedIndex = 8;
     } else if (widget.currentLocation.contains('/profile')) {
+=======
+    if (widget.currentLocation.startsWith('/admin/dashboard')) {
+      selectedIndex = 0;
+    } else if (widget.currentLocation.startsWith('/admin/users')) {
+      selectedIndex = 1;
+    } else if (widget.currentLocation.startsWith('/admin/departments')) {
+      selectedIndex = 2;
+    } else if (widget.currentLocation.startsWith('/admin/projects')) {
+      selectedIndex = 3;
+    } else if (widget.currentLocation.startsWith('/admin/reports')) {
+      selectedIndex = 4;
+    } else if (widget.currentLocation.startsWith('/admin/map')) {
+      selectedIndex = 5;
+    } else if (widget.currentLocation.startsWith('/admin/notifications')) {
+      selectedIndex = 6;
+    } else if (widget.currentLocation.startsWith('/admin/audit')) {
+      selectedIndex = 7;
+    } else if (widget.currentLocation.startsWith('/admin/settings')) {
+      selectedIndex = 8;
+    } else if (widget.currentLocation.startsWith('/admin/profile')) {
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
       selectedIndex = 9;
     }
 

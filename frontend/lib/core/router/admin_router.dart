@@ -57,6 +57,7 @@ class _AdminRouterNotifier extends ChangeNotifier {
     final isAuth = _auth.isAuthenticated;
     final user = _auth.user;
     final path = state.uri.path;
+<<<<<<< HEAD
     final isAuthRoute = path == '/login' ||
         path.startsWith('/admin/login') ||
         path == '/forgot-password' ||
@@ -68,10 +69,17 @@ class _AdminRouterNotifier extends ChangeNotifier {
 
     if (!isAuth && !isAuthRoute) {
       return '/login';
+=======
+    final isAuthRoute = path.startsWith('/admin/login') || path.startsWith('/admin/forgot-password') || path.startsWith('/admin/verify-otp') || path.startsWith('/admin/reset-password');
+
+    if (!isAuth && !isAuthRoute) {
+      return '/admin/login';
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
     }
 
     if (isAuth && isAuthRoute) {
       if (user?.role == 'ADMIN') {
+<<<<<<< HEAD
         return '/dashboard';
       }
     }
@@ -79,6 +87,15 @@ class _AdminRouterNotifier extends ChangeNotifier {
     if (isAuth && user?.role != 'ADMIN' && !isAuthRoute) {
       _ref.read(authProvider.notifier).logout();
       return '/login';
+=======
+        return '/admin/dashboard';
+      }
+    }
+
+    if (isAuth && user?.role != 'ADMIN' && path.startsWith('/admin') && !isAuthRoute) {
+      _ref.read(authProvider.notifier).logout();
+      return '/admin/login';
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
     }
 
     return null;
@@ -90,11 +107,16 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: ToastService.navigatorKey,
+<<<<<<< HEAD
     initialLocation: '/dashboard',
+=======
+    initialLocation: '/admin/login',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
     refreshListenable: notifier,
     redirect: notifier.redirect,
     errorBuilder: (context, state) => NotFoundScreen(
       location: state.uri.toString(),
+<<<<<<< HEAD
       homeRoute: '/dashboard',
     ),
     routes: [
@@ -124,12 +146,28 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/verify-otp',
+=======
+      homeRoute: '/admin/dashboard',
+    ),
+    routes: [
+      GoRoute(
+        path: '/admin/login',
+        builder: (context, state) => const AdminLoginScreen(),
+      ),
+      GoRoute(
+        path: '/admin/forgot-password',
+        builder: (context, state) => const AdminForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/admin/verify-otp',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
         builder: (context, state) {
           final email = state.extra as String? ?? '';
           return AdminOtpScreen(email: email);
         },
       ),
       GoRoute(
+<<<<<<< HEAD
         path: '/admin/verify-otp',
         redirect: (_, __) => '/verify-otp',
       ),
@@ -140,6 +178,10 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/reset-password',
         redirect: (_, __) => '/reset-password',
+=======
+        path: '/admin/reset-password',
+        builder: (context, state) => const AdminResetPasswordScreen(),
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
       ),
       ShellRoute(
         builder: (context, state, child) {
@@ -150,7 +192,11 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
         },
         routes: [
           GoRoute(
+<<<<<<< HEAD
             path: '/dashboard',
+=======
+            path: '/admin/dashboard',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -158,11 +204,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/dashboard',
             redirect: (_, __) => '/dashboard',
           ),
           GoRoute(
             path: '/users',
+=======
+            path: '/admin/users',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -170,11 +220,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/users',
             redirect: (_, __) => '/users',
           ),
           GoRoute(
             path: '/users/add',
+=======
+            path: '/admin/users/add',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -182,11 +236,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/users/add',
             redirect: (_, __) => '/users/add',
           ),
           GoRoute(
             path: '/users/profile/:id',
+=======
+            path: '/admin/users/profile/:id',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
               return _buildPageWithFadeTransition<void>(
@@ -197,11 +255,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/users/profile/:id',
             redirect: (context, state) => '/users/profile/${state.pathParameters['id']}',
           ),
           GoRoute(
             path: '/users/edit/:id',
+=======
+            path: '/admin/users/edit/:id',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
               return _buildPageWithFadeTransition<void>(
@@ -212,11 +274,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/users/edit/:id',
             redirect: (context, state) => '/users/edit/${state.pathParameters['id']}',
           ),
           GoRoute(
             path: '/departments',
+=======
+            path: '/admin/departments',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -224,11 +290,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/departments',
             redirect: (_, __) => '/departments',
           ),
           GoRoute(
             path: '/departments/add',
+=======
+            path: '/admin/departments/add',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -236,11 +306,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/departments/add',
             redirect: (_, __) => '/departments/add',
           ),
           GoRoute(
             path: '/departments/:id',
+=======
+            path: '/admin/departments/:id',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
               return _buildPageWithFadeTransition<void>(
@@ -251,11 +325,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/departments/:id',
             redirect: (context, state) => '/departments/${state.pathParameters['id']}',
           ),
           GoRoute(
             path: '/projects',
+=======
+            path: '/admin/projects',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -263,11 +341,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/projects',
             redirect: (_, __) => '/projects',
           ),
           GoRoute(
             path: '/reports',
+=======
+            path: '/admin/reports',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -275,11 +357,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/reports',
             redirect: (_, __) => '/reports',
           ),
           GoRoute(
             path: '/map',
+=======
+            path: '/admin/map',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -287,11 +373,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/map',
             redirect: (_, __) => '/map',
           ),
           GoRoute(
             path: '/notifications',
+=======
+            path: '/admin/notifications',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -299,11 +389,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/notifications',
             redirect: (_, __) => '/notifications',
           ),
           GoRoute(
             path: '/audit',
+=======
+            path: '/admin/audit',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -311,11 +405,15 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/audit',
             redirect: (_, __) => '/audit',
           ),
           GoRoute(
             path: '/settings',
+=======
+            path: '/admin/settings',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -323,21 +421,28 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+<<<<<<< HEAD
             path: '/admin/settings',
             redirect: (_, __) => '/settings',
           ),
           GoRoute(
             path: '/profile',
+=======
+            path: '/admin/profile',
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
               child: const AdminProfileScreen(),
             ),
           ),
+<<<<<<< HEAD
           GoRoute(
             path: '/admin/profile',
             redirect: (_, __) => '/profile',
           ),
+=======
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
         ],
       ),
     ],

@@ -127,6 +127,7 @@ export async function login(req, res) {
             });
             const isExistingDevice = activeDevices.some((d) => d.deviceId === deviceId);
             if (!isExistingDevice && activeDevices.length >= user.maxActiveDevices) {
+<<<<<<< HEAD
                 if (user.role === 'ADMIN') {
                     // Auto-evict oldest active sessions for admins so they are never locked out
                     const countToEvict = activeDevices.length - user.maxActiveDevices + 1;
@@ -149,6 +150,10 @@ export async function login(req, res) {
                     // Enforce limit: reject login
                     return res.status(403).json({ error: `Device limit reached (max ${user.maxActiveDevices}). Please log out from another device.` });
                 }
+=======
+                // Enforce limit: reject login
+                return res.status(403).json({ error: `Device limit reached (max ${user.maxActiveDevices}). Please log out from another device.` });
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             }
             // Upsert device session
             const existingSession = await prisma.deviceSession.findFirst({

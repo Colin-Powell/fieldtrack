@@ -1,0 +1,30 @@
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: admin@fieltrack.com, RegNo: N/A","timestamp":"2026-07-31T15:54:22.367Z"}
+{"level":"warn","message":"Login failed: User not found for email/registrationNo: admin@fieltrack.com","timestamp":"2026-07-31T15:54:22.907Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: admin@fieltrack.com, RegNo: N/A","timestamp":"2026-07-31T15:54:34.108Z"}
+{"level":"warn","message":"Login failed: User not found for email/registrationNo: admin@fieltrack.com","timestamp":"2026-07-31T15:54:34.319Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: admin@fieldtrack.com, RegNo: N/A","timestamp":"2026-07-31T15:54:42.980Z"}
+{"level":"info","message":"Login successful for user ffd7f128-1522-4afc-8816-156b3a2dfa27 (admin@fieldtrack.com)","timestamp":"2026-07-31T15:54:43.464Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: ochiengdavis062@gmail.com, RegNo: N/A","timestamp":"2026-07-31T16:05:11.965Z"}
+{"level":"warn","message":"Login failed: Incorrect password for user 6af194c3-153e-40ba-959b-b01dd6f235d0 (ochiengdavis062@gmail.com)","timestamp":"2026-07-31T16:05:12.423Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: ochiengdavis062@gmail.com, RegNo: N/A","timestamp":"2026-07-31T16:05:25.723Z"}
+{"level":"warn","message":"Login failed: Incorrect password for user 6af194c3-153e-40ba-959b-b01dd6f235d0 (ochiengdavis062@gmail.com)","timestamp":"2026-07-31T16:05:26.174Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: ochiengdavis062@gmail.com, RegNo: N/A","timestamp":"2026-07-31T16:05:42.867Z"}
+{"level":"info","message":"Login successful for user 6af194c3-153e-40ba-959b-b01dd6f235d0 (ochiengdavis062@gmail.com)","timestamp":"2026-07-31T16:05:43.355Z"}
+{"level":"info","message":"Login attempt from IP: 192.168.18.4 - Email: N/A, RegNo: MB21/PU/54323/22","timestamp":"2026-07-31T16:06:01.559Z"}
+{"level":"info","message":"Login successful for user f6f98619-b2b0-4c31-8a2f-43e5eed6ef5e (otienozilpah@gmail.com)","timestamp":"2026-07-31T16:06:01.876Z"}
+{"level":"info","message":"Login attempt from IP: 192.168.18.4 - Email: N/A, RegNo: MB21/PU/54323/22","timestamp":"2026-07-31T16:48:44.811Z"}
+{"level":"info","message":"Login successful for user f6f98619-b2b0-4c31-8a2f-43e5eed6ef5e (otienozilpah@gmail.com)","timestamp":"2026-07-31T16:48:46.434Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: admin@fieldtrack.com, RegNo: N/A","timestamp":"2026-07-31T17:06:05.731Z"}
+{"level":"info","message":"Login successful for user ffd7f128-1522-4afc-8816-156b3a2dfa27 (admin@fieldtrack.com)","timestamp":"2026-07-31T17:06:06.288Z"}
+{"level":"info","message":"Login attempt from IP: 192.168.18.4 - Email: N/A, RegNo: MB21/PU/54323/22","timestamp":"2026-07-31T17:41:12.858Z"}
+{"level":"info","message":"Login successful for user f6f98619-b2b0-4c31-8a2f-43e5eed6ef5e (otienozilpah@gmail.com)","timestamp":"2026-07-31T17:41:13.246Z"}
+{"level":"info","message":"Login attempt from IP: 192.168.18.2 - Email: N/A, RegNo: MB21/PU/54323/22","timestamp":"2026-07-31T18:36:55.973Z"}
+{"level":"info","message":"Login successful for user f6f98619-b2b0-4c31-8a2f-43e5eed6ef5e (otienozilpah@gmail.com)","timestamp":"2026-07-31T18:36:56.699Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: admin@fieldtrack.com, RegNo: N/A","timestamp":"2026-07-31T18:37:45.123Z"}
+{"level":"info","message":"Login successful for user ffd7f128-1522-4afc-8816-156b3a2dfa27 (admin@fieldtrack.com)","timestamp":"2026-07-31T18:37:46.098Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: ochiengdavis062@gmail.com, RegNo: N/A","timestamp":"2026-07-31T18:53:59.069Z"}
+{"level":"info","message":"Login successful for user 6af194c3-153e-40ba-959b-b01dd6f235d0 (ochiengdavis062@gmail.com)","timestamp":"2026-07-31T18:53:59.735Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: ochiengdavis062@gmail.com, RegNo: N/A","timestamp":"2026-07-31T19:28:31.620Z"}
+{"level":"warn","message":"Login failed: Incorrect password for user 6af194c3-153e-40ba-959b-b01dd6f235d0 (ochiengdavis062@gmail.com)","timestamp":"2026-07-31T19:28:34.252Z"}
+{"level":"info","message":"Login attempt from IP: 127.0.0.1 - Email: ochiengdavis062@gmail.com, RegNo: N/A","timestamp":"2026-07-31T19:28:49.060Z"}
+{"level":"info","message":"Login successful for user 6af194c3-153e-40ba-959b-b01dd6f235d0 (ochiengdavis062@gmail.com)","timestamp":"2026-07-31T19:28:49.904Z"}

@@ -29,6 +29,7 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
   @override
   Widget build(BuildContext context) {
     int selectedIndex = 0;
+<<<<<<< HEAD
     if (widget.currentLocation.contains('/student')) {
       selectedIndex = 1;
     } else if (widget.currentLocation.contains('/reports')) {
@@ -36,6 +37,16 @@ class _SupervisorScaffoldState extends ConsumerState<SupervisorScaffold> {
     } else if (widget.currentLocation.contains('/map')) {
       selectedIndex = 3;
     } else if (widget.currentLocation.contains('/settings')) {
+=======
+    if (widget.currentLocation.startsWith('/supervisor/students') ||
+        widget.currentLocation.startsWith('/supervisor/student/')) {
+      selectedIndex = 1;
+    } else if (widget.currentLocation.startsWith('/supervisor/reports')) {
+      selectedIndex = 2;
+    } else if (widget.currentLocation.startsWith('/supervisor/map')) {
+      selectedIndex = 3;
+    } else if (widget.currentLocation.startsWith('/supervisor/settings')) {
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
       selectedIndex = 4;
     }
 

@@ -180,7 +180,11 @@ class _AdminNotificationsScreenState
                       final seen = <String>{};
                       final items = <DropdownMenuItem<String>>[];
                       for (final option in _typeOptions) {
+<<<<<<< HEAD
                         final value = option['value'];
+=======
+                        final value = option['value'] as String?;
+>>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
                         if (value == null || seen.contains(value)) continue;
                         seen.add(value);
                         items.add(
