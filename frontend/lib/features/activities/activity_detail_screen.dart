@@ -414,11 +414,7 @@ class ActivityDetailScreen extends ConsumerWidget {
               const SizedBox(height: 6),
               if (hasReview)
                 GestureDetector(
-<<<<<<< HEAD
                   onTap: () => _showFeedbackModal(context, review),
-=======
-                  onTap: () => _showFeedbackModal(context, review!),
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [

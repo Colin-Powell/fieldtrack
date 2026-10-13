@@ -56,7 +56,6 @@ class _SupervisorRouterNotifier extends ChangeNotifier {
     final isAuth = _auth.isAuthenticated;
     final user = _auth.user;
     final path = state.uri.path;
-<<<<<<< HEAD
     final isAuthRoute = path == '/login' ||
         path.startsWith('/supervisor/login') ||
         path == '/forgot-password' ||
@@ -68,17 +67,10 @@ class _SupervisorRouterNotifier extends ChangeNotifier {
 
     if (!isAuth && !isAuthRoute) {
       return '/login';
-=======
-    final isAuthRoute = path.startsWith('/supervisor/login') || path.startsWith('/supervisor/forgot-password') || path.startsWith('/supervisor/verify-otp') || path.startsWith('/supervisor/reset-password');
-
-    if (!isAuth && !isAuthRoute) {
-      return '/supervisor/login';
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
     }
 
     if (isAuth && isAuthRoute) {
       if (user?.role == 'SUPERVISOR') {
-<<<<<<< HEAD
         return '/dashboard';
       }
     }
@@ -86,15 +78,6 @@ class _SupervisorRouterNotifier extends ChangeNotifier {
     if (isAuth && user?.role != 'SUPERVISOR' && !isAuthRoute) {
       _ref.read(authProvider.notifier).logout();
       return '/login';
-=======
-        return '/supervisor/dashboard';
-      }
-    }
-
-    if (isAuth && user?.role != 'SUPERVISOR' && path.startsWith('/supervisor') && !isAuthRoute) {
-      _ref.read(authProvider.notifier).logout();
-      return '/supervisor/login';
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
     }
 
     return null;
@@ -106,16 +89,11 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: ToastService.navigatorKey,
-<<<<<<< HEAD
     initialLocation: '/dashboard',
-=======
-    initialLocation: '/supervisor/login',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
     refreshListenable: notifier,
     redirect: notifier.redirect,
     errorBuilder: (context, state) => NotFoundScreen(
       location: state.uri.toString(),
-<<<<<<< HEAD
       homeRoute: '/dashboard',
     ),
     routes: [
@@ -145,31 +123,12 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/verify-otp',
-=======
-      homeRoute: '/supervisor/dashboard',
-    ),
-    routes: [
-      GoRoute(
-        path: '/supervisor/login',
-        builder: (context, state) => const SupervisorLoginScreen(),
-      ),
-      GoRoute(
-        path: '/supervisor/forgot-password',
-        builder: (context, state) {
-          // Import inline to avoid top-level import clutter if not needed, or better, we can add it at the top
-          return const SupervisorForgotPasswordScreen();
-        },
-      ),
-      GoRoute(
-        path: '/supervisor/verify-otp',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
         builder: (context, state) {
           final email = state.extra as String? ?? '';
           return SupervisorOtpScreen(email: email);
         },
       ),
       GoRoute(
-<<<<<<< HEAD
         path: '/supervisor/verify-otp',
         redirect: (_, __) => '/verify-otp',
       ),
@@ -180,12 +139,6 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/supervisor/reset-password',
         redirect: (_, __) => '/reset-password',
-=======
-        path: '/supervisor/reset-password',
-        builder: (context, state) {
-          return const SupervisorResetPasswordScreen();
-        },
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
       ),
       ShellRoute(
         builder: (context, state, child) {
@@ -199,11 +152,7 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
         },
         routes: [
           GoRoute(
-<<<<<<< HEAD
             path: '/dashboard',
-=======
-            path: '/supervisor/dashboard',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -211,15 +160,11 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-<<<<<<< HEAD
             path: '/supervisor/dashboard',
             redirect: (_, __) => '/dashboard',
           ),
           GoRoute(
             path: '/students',
-=======
-            path: '/supervisor/students',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -227,15 +172,11 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-<<<<<<< HEAD
             path: '/supervisor/students',
             redirect: (_, __) => '/students',
           ),
           GoRoute(
             path: '/student/:id',
-=======
-            path: '/supervisor/student/:id',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) {
               final studentId = state.pathParameters['id'] ?? '';
               return _buildPageWithFadeTransition<void>(
@@ -248,15 +189,11 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-<<<<<<< HEAD
             path: '/supervisor/student/:id',
             redirect: (context, state) => '/student/${state.pathParameters['id']}',
           ),
           GoRoute(
             path: '/student/:id/logs',
-=======
-            path: '/supervisor/student/:id/logs',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) {
               final studentId = state.pathParameters['id'] ?? '';
               final studentName = state.extra is String
@@ -273,15 +210,11 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-<<<<<<< HEAD
             path: '/supervisor/student/:id/logs',
             redirect: (context, state) => '/student/${state.pathParameters['id']}/logs',
           ),
           GoRoute(
             path: '/student/:id/location',
-=======
-            path: '/supervisor/student/:id/location',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) {
               final studentId = state.pathParameters['id'] ?? '';
               return _buildPageWithFadeTransition<void>(
@@ -292,15 +225,11 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-<<<<<<< HEAD
             path: '/supervisor/student/:id/location',
             redirect: (context, state) => '/student/${state.pathParameters['id']}/location',
           ),
           GoRoute(
             path: '/student/:id/activity/:activityId',
-=======
-            path: '/supervisor/student/:id/activity/:activityId',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) {
               final studentId = state.pathParameters['id'] ?? '';
               final activityId = state.pathParameters['activityId'] ?? '';
@@ -322,15 +251,11 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-<<<<<<< HEAD
             path: '/supervisor/student/:id/activity/:activityId',
             redirect: (context, state) => '/student/${state.pathParameters['id']}/activity/${state.pathParameters['activityId']}',
           ),
           GoRoute(
             path: '/student/:id/activity/:activityId/evidence',
-=======
-            path: '/supervisor/student/:id/activity/:activityId/evidence',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) {
               final studentId = state.pathParameters['id'] ?? '';
               final activityId = state.pathParameters['activityId'] ?? '';
@@ -345,15 +270,11 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-<<<<<<< HEAD
             path: '/supervisor/student/:id/activity/:activityId/evidence',
             redirect: (context, state) => '/student/${state.pathParameters['id']}/activity/${state.pathParameters['activityId']}/evidence',
           ),
           GoRoute(
             path: '/reports',
-=======
-            path: '/supervisor/reports',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -361,15 +282,11 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-<<<<<<< HEAD
             path: '/supervisor/reports',
             redirect: (_, __) => '/reports',
           ),
           GoRoute(
             path: '/map',
-=======
-            path: '/supervisor/map',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
@@ -377,15 +294,11 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-<<<<<<< HEAD
             path: '/supervisor/map',
             redirect: (_, __) => '/map',
           ),
           GoRoute(
             path: '/settings',
-=======
-            path: '/supervisor/settings',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) {
               final initialTab = state.extra is String
                   ? (state.extra as String)
@@ -398,28 +311,21 @@ final supervisorRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-<<<<<<< HEAD
             path: '/supervisor/settings',
             redirect: (_, __) => '/settings',
           ),
           GoRoute(
             path: '/profile',
-=======
-            path: '/supervisor/profile',
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
             pageBuilder: (context, state) => _buildPageWithFadeTransition<void>(
               context: context,
               state: state,
               child: const SupervisorProfileScreen(),
             ),
           ),
-<<<<<<< HEAD
           GoRoute(
             path: '/supervisor/profile',
             redirect: (_, __) => '/profile',
           ),
-=======
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
         ],
       ),
     ],

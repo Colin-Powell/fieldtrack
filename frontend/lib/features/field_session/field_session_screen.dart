@@ -48,12 +48,6 @@ class _EvidenceItem {
     required this.type,
     required this.path,
     required this.name,
-<<<<<<< HEAD
-=======
-    this.duration,
-    this.uploadStatus = UploadStatus.pending,
-    this.storageUrl,
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
   });
 }
 

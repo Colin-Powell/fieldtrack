@@ -25,27 +25,15 @@ class AppConstants {
     }
 
     if (kIsWeb) {
-<<<<<<< HEAD
       return 'https://fieldtrack-67y1.onrender.com/api/v1';
-=======
-      return 'https://fieldtrack-api-ge94.onrender.com/api/v1';
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
     }
 
     try {
       if (defaultTargetPlatform == TargetPlatform.android) {
-<<<<<<< HEAD
         return 'https://fieldtrack-67y1.onrender.com/api/v1';
       }
     } catch (_) {}
 
     return 'https://fieldtrack-67y1.onrender.com/api/v1';
-=======
-        return 'https://fieldtrack-api-ge94.onrender.com/api/v1';
-      }
-    } catch (_) {}
-
-    return 'https://fieldtrack-api-ge94.onrender.com/api/v1';
->>>>>>> 5b55d681fb32f39e7a13b7fb8c9fa5acd7e5ea19
   }
 }
