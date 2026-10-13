@@ -44,3 +44,5 @@
 
 # Ignore patch files and local workspace dumps that shouldn't be committed
 *.patch
+.vercel
+.env*
