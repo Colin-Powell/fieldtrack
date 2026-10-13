@@ -1,0 +1,283 @@
+import express from 'express';
+import path from 'path';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { RedisStore } from 'rate-limit-redis';
+import { redis } from './utils/redis.js';
+import morgan from 'morgan';
+import { appLogger } from './utils/logger.js';
+import { prisma } from './db.js';
+import { authenticate, authenticateDashboard } from './auth/auth.middleware.js';
+import authRoutes from './auth/auth.routes.js';
+import adminRoutes from './admins/admins.routes.js';
+import dashboardRoutes from './dashboard/dashboard.routes.js';
+import sessionRoutes from './sessions/session.routes.js';
+import activityRoutes from './activities/activity.routes.js';
+import mediaRoutes from './media/media.routes.js';
+import notificationRoutes from './notifications/notification.routes.js';
+import reviewRoutes from './reviews/review.routes.js';
+import reportRoutes from './reports/reports.routes.js';
+import settingsRoutes from './settings/settings.routes.js';
+import developerRoutes from './developer/developer.routes.js';
+import supervisorRoutes from './supervisor/supervisor.routes.js';
+import systemRoutes from './system/system.routes.js';
+import { initializeDashboardSocket } from './developer/dashboard_events.js';
+import { startScheduler } from './background/scheduler.js';
+import { initFirebaseAdmin } from './firebase_admin.js';
+const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Nginx) for accurate client IP
+const port = process.env.PORT || 3000;
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173').split(',').map((origin) => origin.trim()).filter(Boolean);
+const isLocalDevOrigin = (origin) => /^https?:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin);
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || isLocalDevOrigin(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(null, false);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-platform', 'x-app-version', 'x-device-id', 'x-fingerprint', 'x-os-version', 'x-device-model', 'x-device-brand', 'x-build-number'],
+};
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET must be configured before starting the backend.');
+}
+if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL must be configured before starting the backend.');
+}
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            baseUri: ["'self'"],
+            objectSrc: ["'none'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrcAttr: ["'none'"],
+            styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
+            imgSrc: ["'self'", 'data:'],
+            fontSrc: ["'self'", 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com'],
+            connectSrc: ["'self'"],
+            frameAncestors: ["'none'"],
+            formAction: ["'self'"],
+            upgradeInsecureRequests: [],
+            workerSrc: ["'none'"],
+        },
+    },
+    crossOriginResourcePolicy: { policy: 'same-origin' },
+    frameguard: { action: 'deny' },
+}));
+app.use(cors(corsOptions));
+app.use(express.json());
+app.use((req, res, next) => {
+    const originalJson = res.json.bind(res);
+    res.json = ((body) => {
+        if (body && typeof body === 'object' && !Array.isArray(body)) {
+            const payload = body;
+            if (typeof payload.error === 'string' && payload.error.trim().length > 0) {
+                const normalized = { ...payload };
+                if (typeof payload.message !== 'string' || payload.message.trim().length === 0) {
+                    normalized.message = payload.error;
+                }
+                if (payload.error === 'Internal server error' || payload.error === 'Internal Server Error' || payload.error === 'Unknown error') {
+                    normalized.error = 'Server error. Please try again later.';
+                }
+                if (payload.error === 'Unauthorized' || payload.error === 'Unauthorized: No token provided' || payload.error === 'Unauthorized: Invalid token') {
+                    normalized.error = 'Session expired. Please log in again.';
+                }
+                if (payload.error === 'Forbidden: Insufficient role permissions' || payload.error === 'Access denied.') {
+                    normalized.error = 'Access denied.';
+                }
+                return originalJson(normalized);
+            }
+        }
+        return originalJson(body);
+    });
+    next();
+});
+// Log HTTP requests using Morgan and Winston
+app.use(morgan('combined', { stream: { write: (msg) => appLogger.info(msg.trim()) } }));
+// Global Rate Limiter backed by Redis
+const globalLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 100, // Limit each user/IP to 100 requests per minute
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Too many requests, please try again later',
+    store: new RedisStore({
+        sendCommand: (...args) => redis.call(args[0], ...args.slice(1)),
+    }),
+    keyGenerator: (req) => {
+        // If authenticated, use userId, otherwise fallback to IP
+        return req.user?.userId || req.ip;
+    }
+});
+app.use('/api', globalLimiter);
+app.put('/api/v1/fcm-token', authenticate, async (req, res) => {
+    try {
+        const { fcmToken } = req.body;
+        const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        if (typeof fcmToken !== 'string' || fcmToken.trim().length === 0) {
+            return res.status(400).json({ error: 'FCM token is required' });
+        }
+        const trimmedToken = fcmToken.trim();
+        // Check if user previously had no token (new registration vs refresh)
+        const existingUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { fcmToken: true },
+        });
+        const isNewToken = !existingUser?.fcmToken || existingUser.fcmToken !== trimmedToken;
+        await prisma.user.update({
+            where: { id: userId },
+            data: { fcmToken: trimmedToken },
+        });
+        // Send a single summary push for unread notifications (only on new token registration)
+        if (isNewToken) {
+            const unreadCount = await prisma.notification.count({
+                where: { recipientId: userId, isRead: false },
+            });
+            if (unreadCount > 0) {
+                try {
+                    const { firebaseAdmin, getMessagingClient } = await import('./firebase_admin.js');
+                    if (firebaseAdmin?.apps?.length) {
+                        await getMessagingClient().send({
+                            token: trimmedToken,
+                            notification: {
+                                title: 'Notifications waiting',
+                                body: `You have ${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}. Tap to view.`,
+                            },
+                            android: {
+                                priority: 'high',
+                                notification: {
+                                    channelId: 'high_importance_channel',
+                                    sound: 'default',
+                                },
+                            },
+                            apns: {
+                                headers: { 'apns-priority': '10' },
+                                payload: { aps: { sound: 'default', badge: unreadCount } },
+                            },
+                            data: {
+                                notificationType: 'UNREAD_SUMMARY',
+                                unreadCount: unreadCount.toString(),
+                            },
+                        });
+                        appLogger.info('Sent unread summary push', { userId, unreadCount });
+                    }
+                }
+                catch (pushError) {
+                    // Non-critical — don't fail the token registration
+                    appLogger.error('Failed to send unread summary push:', pushError);
+                }
+            }
+        }
+        appLogger.info('FCM token updated', { userId });
+        res.json({ success: true, linked: true, message: 'FCM token linked to user' });
+    }
+    catch (error) {
+        appLogger.error('Error updating FCM token:', error);
+        res.status(500).json({ error: 'Failed to register FCM token' });
+    }
+});
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/sessions', sessionRoutes);
+app.use('/api/v1/activities', activityRoutes);
+app.use('/api/v1/media', mediaRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/reviews', reviewRoutes);
+app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/settings', settingsRoutes);
+app.use('/api/v1/developer', developerRoutes);
+app.use('/api/v1/supervisor', supervisorRoutes);
+app.use('/api/v1/system', systemRoutes);
+// ── Health Check ──
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', message: 'FieldTrack Unified Backend is running' });
+});
+app.get(/^\/developer-dashboard(\/.*)?$/, authenticateDashboard, async (req, res) => {
+    res.sendFile(path.resolve(process.cwd(), 'src/developer/developer.html'));
+});
+app.get('/developer-login', (_req, res) => {
+    res.sendFile(path.resolve(process.cwd(), 'src/developer/developer-login.html'));
+});
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const BASE_STORAGE_DIR = process.env.STORAGE_DIR
+    ? path.resolve(process.env.STORAGE_DIR)
+    : path.resolve(__dirname, '../storage');
+// Serve the storage folder statically with caching and media streaming support
+// IMPORTANT: This MUST come before the catch-all 404 handler
+app.use('/storage', express.static(BASE_STORAGE_DIR, {
+    maxAge: '30d',
+    setHeaders: (res, filePath) => {
+        // Ensure media files indicate they support byte range requests for streaming
+        if (filePath.endsWith('.mp4') || filePath.endsWith('.mp3') || filePath.endsWith('.m4a')) {
+            res.set('Accept-Ranges', 'bytes');
+        }
+        // Set proper cache headers
+        res.set('Cache-Control', 'public, max-age=2592000, immutable');
+    }
+}));
+// 404 and Error handlers moved to end of file
+import { ensureEnvAdminAccount } from './admin-sync.js';
+// NOTE: The admin users endpoint lives in admins.routes.ts (protected with authenticate + authorizeRole(['ADMIN']))
+// The duplicate unprotected route has been intentionally removed.
+app.use((req, res) => {
+    res.status(404).json({
+        status: 404,
+        error: 'Resource not found.',
+        errorCode: 'RESOURCE_NOT_FOUND',
+        message: 'The requested endpoint could not be found.',
+        path: req.originalUrl,
+    });
+});
+app.use((err, req, res, next) => {
+    const statusCode = Number.isFinite(err?.statusCode) ? Number(err.statusCode) : 500;
+    const serverMessage = typeof err?.message === 'string' && err.message.trim().length > 0
+        ? err.message
+        : 'Something went wrong.';
+    const response = {
+        error: statusCode >= 500 ? 'Server error. Please try again later.' : serverMessage,
+    };
+    if (statusCode === 400 && Array.isArray(err?.details) && err.details.length > 0) {
+        response.details = err.details;
+        response.message = err.details[0]?.message ?? 'Please check the submitted data.';
+    }
+    if (statusCode === 401) {
+        response.error = 'Session expired. Please log in again.';
+    }
+    if (statusCode === 403) {
+        response.error = 'Access denied.';
+    }
+    if (statusCode === 404) {
+        response.error = 'Resource not found.';
+    }
+    if (statusCode === 409) {
+        response.error = 'Conflict detected. Please try again.';
+    }
+    if (statusCode === 422) {
+        response.error = 'Invalid data submitted.';
+    }
+    return res.status(statusCode).json(response);
+});
+ensureEnvAdminAccount()
+    .then(async () => {
+    await initFirebaseAdmin();
+    startScheduler();
+    const server = app.listen(Number(port), '0.0.0.0', () => {
+        console.log(`[server]: Unified Server is running at http://0.0.0.0:${port}`);
+    });
+    initializeDashboardSocket(server);
+})
+    .catch((error) => {
+    console.error('Failed to ensure admin account from env:', error);
+    process.exit(1);
+});

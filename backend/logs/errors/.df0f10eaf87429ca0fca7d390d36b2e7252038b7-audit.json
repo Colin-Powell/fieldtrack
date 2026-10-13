@@ -1,0 +1,55 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logs\\errors\\.df0f10eaf87429ca0fca7d390d36b2e7252038b7-audit.json",
+    "files": [
+        {
+            "date": 1785513255764,
+            "name": "logs\\errors\\error-2026-07-31.log",
+            "hash": "94a9af880eb6c13f185b4542db70e19b367a6ae6b5c8664db54f97265509565b"
+        },
+        {
+            "date": 1785603299754,
+            "name": "logs\\errors\\error-2026-08-01.log",
+            "hash": "49177585923f4c0eb8c0c9eec206290f7d2eac04ccecf7b19557dc1a8aeea392"
+        },
+        {
+            "date": 1785654393327,
+            "name": "logs\\errors\\error-2026-08-02.log",
+            "hash": "e94c38d5856699fb580fae921bc93e3bc4f283f114ab7bc075ab5b05ae32b431"
+        },
+        {
+            "date": 1785742454774,
+            "name": "logs\\errors\\error-2026-08-03.log",
+            "hash": "0633071e45775b2b266bdcdc49f12164d468b55635f9a89403b4e2f9da2d33dd"
+        },
+        {
+            "date": 1785822016177,
+            "name": "logs\\errors\\error-2026-08-04.log",
+            "hash": "aee4405d2513b214e25d3c7ed1c051bc7bd929b0139cb8e00d15aace16f0919b"
+        },
+        {
+            "date": 1785921716202,
+            "name": "logs\\errors\\error-2026-08-05.log",
+            "hash": "ad6fa3bf9adba87ef9c99d83780c6d1a538f801959697978f931cce9c93af601"
+        },
+        {
+            "date": 1786010945042,
+            "name": "logs\\errors\\error-2026-08-06.log",
+            "hash": "74ded56eaf317c1f79daec5e2669290781bbca8749ba3d98e744e0c4f305f28f"
+        },
+        {
+            "date": 1786870340797,
+            "name": "logs\\errors\\error-2026-08-16.log",
+            "hash": "de29e4ae369b73cc56fd2d3201ae735d3ccc8d52cb291cde10611749851c87aa"
+        },
+        {
+            "date": 1786968017305,
+            "name": "logs\\errors\\error-2026-08-17.log",
+            "hash": "cc0e3a81b7d45377e24070e9a53a046a536b06fbe73248b341c465b67c2aff99"
+        }
+    ],
+    "hashType": "sha256"
+}

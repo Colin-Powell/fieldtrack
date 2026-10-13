@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-W9QWBP9LBE"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-W9QWBP9LBE');
+        </script>
+
+    <title>FieldTrack | User Guide</title>
+    <meta name="description" content="Official FieldTrack User Guide for students and supervisors: login, GPS check-in, field logs, evidence uploads, maps, reviews, and feedback.">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <link rel="canonical" href="https://fieldtrack.top/user_guide.html">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://fieldtrack.top/user_guide.html">
+    <meta property="og:title" content="FieldTrack User Guide | Student and Supervisor Help">
+    <meta property="og:description" content="Learn how to use FieldTrack for GPS check-ins, field logs, evidence uploads, supervisor reviews, maps, and feedback.">
+    <meta property="og:image" content="https://fieldtrack.top/assets/logo.png">
+    <meta property="og:image:alt" content="FieldTrack User Guide">
+    <meta property="og:site_name" content="FieldTrack">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="FieldTrack User Guide | Student and Supervisor Help">
+    <meta name="twitter:description" content="Learn how to use FieldTrack for GPS check-ins, field logs, evidence uploads, supervisor reviews, maps, and feedback.">
+    <meta name="twitter:image" content="https://fieldtrack.top/assets/logo.png">
+    <meta name="twitter:image:alt" content="FieldTrack User Guide">
+    
+    <!-- Icons & Manifest -->
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <meta name="theme-color" content="#1BA654">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1BA654',
+                            dark: '#158743',
+                            light: '#EAF8EF'
+                        },
+                        surface: '#F7F8F9',
+                        text: {
+                            main: '#111827',
+                            muted: '#4B5563',
+                            light: '#6B7280'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 15px 40px rgba(17, 24, 39, 0.08)',
+                        'float': '0 20px 40px rgba(0, 0, 0, 0.15)',
+                        'float-lg': '0 30px 60px rgba(0, 0, 0, 0.2)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html { scroll-behavior: smooth; }
+        .guide-img {
+            @apply rounded-2xl shadow-float border border-gray-100 w-auto h-auto max-h-[220px] md:max-h-[250px] mx-auto my-0;
+        }
+        h2 {
+            @apply text-3xl font-extrabold text-text-main mt-16 mb-6 tracking-tight text-center;
+        }
+        h3 {
+            @apply text-xl font-bold text-text-main mt-10 mb-4 text-center;
+        }
+        p {
+            @apply text-text-muted leading-relaxed mb-6 text-lg text-center max-w-3xl mx-auto;
+        }
+        ul, ol {
+            @apply text-text-muted leading-relaxed mb-6 text-lg max-w-3xl mx-auto list-inside text-center;
+        }
+        ol { @apply list-decimal; }
+        ul { @apply list-disc; }
+        li { @apply mb-3; }
+        .reveal {
+            opacity: 0;
+            transform: translateY(25px);
+            transition: opacity 0.7s ease, transform 0.7s ease;
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-surface text-text-main font-sans overflow-x-hidden selection:bg-primary selection:text-white">
+
+<!-- NAVIGATION -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-md border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-3 font-extrabold text-lg tracking-tight hover:opacity-80 transition-opacity">
+            <img src="assets/logo.png" alt="FieldTrack Logo" class="h-10 w-auto object-contain">
+            FieldTrack
+        </a>
+
+        <nav class="hidden lg:flex items-center gap-8">
+            <a href="index.html" class="text-sm font-semibold text-text-muted hover:text-primary transition-colors">Home</a>
+            <a href="#student-app" class="text-sm font-semibold text-text-muted hover:text-primary transition-colors">Student Guide</a>
+            <a href="#supervisor-app" class="text-sm font-semibold text-text-muted hover:text-primary transition-colors">Supervisor Guide</a>
+        </nav>
+
+        <div class="hidden lg:flex items-center gap-4">
+            <a href="/supervisor" class="text-sm font-bold text-text-main hover:text-primary px-4 py-2 transition-colors">Supervisor Login</a>
+            <a href="/Fieldtrack.apk" class="bg-primary hover:bg-primary-dark text-white text-sm font-bold px-6 py-3 rounded-full shadow-lg shadow-primary/20 hover:-translate-y-0.5 transition-all">Download App</a>
+        </div>
+
+        <button id="mobile-menu-btn" class="lg:hidden text-2xl text-text-main focus:outline-none">☰</button>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="hidden absolute top-20 left-4 right-4 bg-white border border-gray-200 rounded-2xl shadow-soft flex-col p-6 gap-4 z-50">
+        <a href="index.html" class="text-base font-semibold text-text-main">Home</a>
+        <a href="#student-app" class="text-base font-semibold text-text-main">Student Guide</a>
+        <a href="#supervisor-app" class="text-base font-semibold text-text-main">Supervisor Guide</a>
+        <hr class="border-gray-100 my-2">
+        <a href="/supervisor" class="text-base font-bold text-primary">Supervisor Login</a>
+        <a href="/Fieldtrack.apk" class="text-base font-bold text-primary">Download App</a>
+    </div>
+</header>
+
+<!-- HERO SECTION -->
+<section class="relative pt-40 pb-20 overflow-hidden bg-[radial-gradient(circle_at_10%_10%,_rgba(27,166,84,0.08),_transparent_40%),radial-gradient(circle_at_90%_30%,_rgba(27,166,84,0.05),_transparent_30%)] text-center">
+    <div class="max-w-7xl mx-auto px-6 reveal">
+        <span class="inline-block py-1.5 px-4 rounded-full bg-primary-light text-primary font-bold text-sm mb-6 uppercase tracking-wider">Documentation</span>
+        <h1 class="text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight mb-6">
+            User <span class="text-primary">Guide</span>
+        </h1>
+        <p class="text-lg text-text-light leading-relaxed mb-10 max-w-2xl mx-auto">
+            Everything you need to know about navigating the FieldTrack application as a Student or Supervisor.
+        </p>
+    </div>
+</section>
+
+<!-- MAIN CONTENT -->
+<main class="max-w-7xl mx-auto px-6 pb-32">
+    <div class="reveal">
+        
+        <!-- Student App Section -->
+        <section id="student-app" class="scroll-mt-32 w-full">
+            <div class="text-center mb-16">
+                <div class="inline-block py-1.5 px-4 rounded-full bg-blue-50 text-blue-600 font-bold text-xs mb-4 uppercase tracking-widest border border-blue-100">For Students</div>
+                <h2 class="!mt-0 text-4xl text-primary font-extrabold">Student App Manual</h2>
+                <p class="max-w-3xl mx-auto">The student application is designed to help you track your fieldwork activities, log your locations, and submit evidence easily on the go.</p>
+            </div>
+
+            <hr class="my-16 border-gray-100 w-full max-w-5xl mx-auto">
+
+            <!-- First-Launch Setup -->
+            <div class="my-20 max-w-5xl mx-auto rounded-3xl border border-primary/20 bg-primary-light p-8 md:p-12">
+                <h3 class="!text-left !mt-0 text-3xl">Before You Start: First-Launch Setup</h3>
+                <p class="!text-left !mx-0">FieldTrack requests these permissions when the student app opens. Choose <strong>Allow</strong> for each prompt so check-ins, updates, and evidence uploads work correctly.</p>
+                <ol class="!text-left !mx-0 !pl-5 list-decimal list-outside">
+                    <li><strong>Location:</strong> Choose <strong>Allow while using the app</strong>. Keep your phone's <strong>Location/GPS turned on</strong> whenever you are using FieldTrack or checking in.</li>
+                    <li><strong>Notifications:</strong> Choose <strong>Allow</strong> to receive activity updates and supervisor feedback.</li>
+                    <li><strong>Camera and files:</strong> Allow access when prompted so you can capture and attach field evidence.</li>
+                </ol>
+                <p class="!text-left !mx-0 !mb-0">If a prompt was denied, open Android <strong>Settings &gt; Apps &gt; FieldTrack &gt; Permissions</strong> and enable the required permission. Turn Location back on from Quick Settings before checking in.</p>
+            </div>
+
+            <!-- 1. Logging In (Image Left) -->
+            <div class="flex flex-col md:flex-row items-center gap-12 my-20 max-w-5xl mx-auto">
+                <div class="w-full md:w-1/2 flex justify-center">
+                    <img src="assets/guide/student_login.png" alt="Student Login Screen" class="guide-img !my-0">
+                </div>
+                <div class="w-full md:w-1/2 text-left">
+                    <h3 class="!text-left !mt-0 text-3xl">1. Logging In</h3>
+                    <p class="!text-left !mx-0">Use your registered student email and password to log in. Upon first login, you may be prompted to grant location and camera permissions.</p>
+                    <ul class="!text-left !mx-0 !pl-5 list-disc list-outside">
+                        <li>Enter your credentials.</li>
+                        <li>Tap <strong>Login</strong> to access your dashboard.</li>
+                        <li>Ensure GPS is enabled on your device.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 2. The Dashboard (Image Right) -->
+            <div class="flex flex-col md:flex-row-reverse items-center gap-12 my-20 max-w-5xl mx-auto">
+                <div class="w-full md:w-1/2 flex justify-center">
+                    <img src="assets/guide/student_dashboard.png" alt="Student Dashboard" class="guide-img !my-0">
+                </div>
+                <div class="w-full md:w-1/2 text-left">
+                    <h3 class="!text-left !mt-0 text-3xl">2. The Dashboard & Checking In</h3>
+                    <p class="!text-left !mx-0">Before you begin your fieldwork activities for the day, you must Check In. This starts tracking your session and location.</p>
+                    <ol class="!text-left !mx-0 !pl-5 list-decimal list-outside">
+                        <li>Tap the <strong>Check In</strong> button on the home screen.</li>
+                        <li>Wait for the app to acquire your current GPS coordinates.</li>
+                        <li>Your status will change to "Active" and the session timer will begin.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- 3. Creating a Field Log (Image Left) -->
+            <div class="flex flex-col md:flex-row items-center gap-12 my-20 max-w-5xl mx-auto">
+                <div class="w-full md:w-1/2 flex justify-center">
+                    <img src="assets/guide/student_add_log.png" alt="Add Field Log Screen" class="guide-img !my-0">
+                </div>
+                <div class="w-full md:w-1/2 text-left">
+                    <h3 class="!text-left !mt-0 text-3xl">3. Creating a Field Log</h3>
+                    <p class="!text-left !mx-0">Throughout your session, you can create logs to document your findings, observations, and tasks completed.</p>
+                    <ol class="!text-left !mx-0 !pl-5 list-decimal list-outside">
+                        <li>Tap the <strong>+ New Log</strong> or <strong>Add Activity</strong> button.</li>
+                        <li>Fill in the activity title, description, and any specific findings.</li>
+                        <li>The log automatically attaches your current GPS location.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- 4. Uploading Evidence (Image Right) -->
+            <div class="flex flex-col md:flex-row-reverse items-center gap-12 my-20 max-w-5xl mx-auto">
+                <div class="w-full md:w-1/2 flex justify-center">
+                    <img src="assets/guide/student_upload_evidence.png" alt="Upload Evidence Screen" class="guide-img !my-0">
+                </div>
+                <div class="w-full md:w-1/2 text-left">
+                    <h3 class="!text-left !mt-0 text-3xl">4. Uploading Evidence</h3>
+                    <p class="!text-left !mx-0">Evidence is crucial for verifying your fieldwork. You can upload photos, videos, audio notes, and documents.</p>
+                    <ul class="!text-left !mx-0 !pl-5 list-disc list-outside">
+                        <li>Open a draft field log.</li>
+                        <li>Select the type of media you want to attach (Camera, Gallery, Audio, Document).</li>
+                        <li>Wait for the upload to complete before submitting the log.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 5. Checking Out (Image Left) -->
+            <div class="flex flex-col md:flex-row items-center gap-12 my-20 max-w-5xl mx-auto">
+                <div class="w-full md:w-1/2 flex justify-center">
+                    <img src="assets/guide/student_checkout.png" alt="Student Check Out Screen" class="guide-img !my-0">
+                </div>
+                <div class="w-full md:w-1/2 text-left">
+                    <h3 class="!text-left !mt-0 text-3xl">5. Checking Out</h3>
+                    <p class="!text-left !mx-0">At the end of your fieldwork day, remember to check out to stop tracking and summarize your session.</p>
+                    <p class="!text-left !mx-0">Tap <strong>Check Out</strong> on the dashboard. You will see a summary of your session duration and distance travelled.</p>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-24 border-gray-200 border-dashed w-full max-w-5xl mx-auto">
+
+        <!-- Supervisor App Section -->
+        <section id="supervisor-app" class="scroll-mt-32 w-full">
+            <div class="text-center mb-16">
+                <div class="inline-block py-1.5 px-4 rounded-full bg-purple-50 text-purple-600 font-bold text-xs mb-4 uppercase tracking-widest border border-purple-100">For Supervisors</div>
+                <h2 class="!mt-0 text-4xl text-primary font-extrabold">Supervisor App Manual</h2>
+                <p class="max-w-3xl mx-auto">The supervisor application allows you to monitor your assigned students, review their activities in real-time, and approve or request revisions for their submissions.</p>
+            </div>
+
+            <hr class="my-16 border-gray-100 w-full max-w-5xl mx-auto">
+
+            <!-- 1. Supervisor Dashboard (Image Right) -->
+            <div class="flex flex-col md:flex-row-reverse items-center gap-12 my-20 max-w-5xl mx-auto">
+                <div class="w-full md:w-1/2 flex justify-center">
+                    <img src="assets/guide/supervisor_dashboard.png" alt="Supervisor Dashboard" class="guide-img !my-0">
+                </div>
+                <div class="w-full md:w-1/2 text-left">
+                    <h3 class="!text-left !mt-0 text-3xl">1. Supervisor Dashboard</h3>
+                    <p class="!text-left !mx-0">The dashboard provides an overview of your students' statuses—who is currently in the field, who is idle, and recent submissions awaiting review.</p>
+                    <ul class="!text-left !mx-0 !pl-5 list-disc list-outside">
+                        <li>View quick stats on active sessions.</li>
+                        <li>See a list of pending activities needing your attention.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 2. Tracking Students on Map (Image Left) -->
+            <div class="flex flex-col md:flex-row items-center gap-12 my-20 max-w-5xl mx-auto">
+                <div class="w-full md:w-1/2 flex justify-center">
+                    <img src="assets/guide/supervisor_map.png" alt="Supervisor Map View" class="guide-img !my-0">
+                </div>
+                <div class="w-full md:w-1/2 text-left">
+                    <h3 class="!text-left !mt-0 text-3xl">2. Tracking Students on the Map</h3>
+                    <p class="!text-left !mx-0">You can view the real-time or historical locations of your students during their active sessions.</p>
+                    <ul class="!text-left !mx-0 !pl-5 list-disc list-outside">
+                        <li>Navigate to the <strong>Map</strong> tab.</li>
+                        <li>Select a specific student to see their check-in point, route, and locations where logs were created.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 3. Reviewing Field Logs (Image Right) -->
+            <div class="flex flex-col md:flex-row-reverse items-center gap-12 my-20 max-w-5xl mx-auto">
+                <div class="w-full md:w-1/2 flex justify-center">
+                    <img src="assets/guide/supervisor_review_log.png" alt="Review Field Log" class="guide-img !my-0">
+                </div>
+                <div class="w-full md:w-1/2 text-left">
+                    <h3 class="!text-left !mt-0 text-3xl">3. Reviewing Field Logs</h3>
+                    <p class="!text-left !mx-0">When a student submits a field log, you can review the details, location data, and attached evidence.</p>
+                    <ol class="!text-left !mx-0 !pl-5 list-decimal list-outside">
+                        <li>Tap on a pending submission.</li>
+                        <li>Read the student's description and methodology.</li>
+                        <li>Review the attached evidence (Photos, Videos, Audio, PDFs).</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- 4. Approving/Rejecting (Image Left) -->
+            <div class="flex flex-col md:flex-row items-center gap-12 my-20 max-w-5xl mx-auto">
+                <div class="w-full md:w-1/2 flex justify-center">
+                    <img src="assets/guide/supervisor_feedback.png" alt="Supervisor Feedback Screen" class="guide-img !my-0">
+                </div>
+                <div class="w-full md:w-1/2 text-left">
+                    <h3 class="!text-left !mt-0 text-3xl">4. Approving or Requesting Revisions</h3>
+                    <p class="!text-left !mx-0">After reviewing, you must provide feedback and a final status for the log.</p>
+                    <ol class="!text-left !mx-0 !pl-5 list-decimal list-outside">
+                        <li>Tap <strong>Review Submission</strong>.</li>
+                        <li>Provide a rating and detailed comments.</li>
+                        <li>Select either <strong>Approve</strong> or <strong>Request Revision</strong>. The student will be notified immediately.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="bg-[#111827] text-white pt-20 pb-10 mt-auto">
+    <div class="max-w-7xl mx-auto px-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+            
+            <div class="lg:col-span-1">
+                <a href="/" class="flex items-center gap-3 font-extrabold text-lg tracking-tight mb-4 text-white">
+                    <img src="assets/logo.png" alt="FieldTrack Logo" class="h-8 w-auto object-contain brightness-0 invert">
+                    FieldTrack
+                </a>
+                <p class="text-gray-400 text-sm leading-relaxed max-w-xs">
+                    The platform that connects remote student fieldwork directly to university supervisors.
+                </p>
+            </div>
+            
+            <div>
+                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Features</h4>
+                <ul class="space-y-4 text-sm text-gray-400 font-medium">
+                    <li><a href="index.html#workflow" class="hover:text-white transition-colors">How It Works</a></li>
+                    <li><a href="index.html#students" class="hover:text-white transition-colors">Student Features</a></li>
+                    <li><a href="index.html#supervisors" class="hover:text-white transition-colors">Supervisor Features</a></li>
+                    <li><a href="index.html#portals" class="hover:text-white transition-colors">Platform Portals</a></li>
+                </ul>
+            </div>
+            
+            <div>
+                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Downloads & Support</h4>
+                <ul class="space-y-4 text-sm text-gray-400 font-medium">
+                    <li><a href="/Fieldtrack.apk" class="hover:text-white transition-colors">Download Android App</a></li>
+                    <li><a href="user_guide.html" class="hover:text-white transition-colors">User Guide</a></li>
+                    <li><a href="/setup-guide.html" class="hover:text-white transition-colors">Setup Guide</a></li>
+                    <li><a href="/help-center.html" class="hover:text-white transition-colors">Help Center</a></li>
+                </ul>
+            </div>
+            
+            <div>
+                <h4 class="text-xs uppercase tracking-widest font-bold text-gray-500 mb-6 block">Access</h4>
+                <ul class="space-y-4 text-sm text-gray-400 font-medium">
+                    <li><a href="/supervisor" class="hover:text-white transition-colors">Supervisor Login</a></li>
+                    <li><a href="/admin" class="hover:text-white transition-colors">Admin Login</a></li>
+                </ul>
+            </div>
+            
+        </div>
+        
+        <div class="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4 text-xs font-medium text-gray-500">
+            <span>&copy; 2026 FieldTrack. All rights reserved.</span>
+            <span>Built for better postgraduate fieldwork.</span>
+        </div>
+    </div>
+</footer>
+
+<script>
+    // Mobile Menu Toggle
+    const mobileBtn = document.getElementById('mobile-menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    if(mobileBtn && mobileMenu) {
+        mobileBtn.addEventListener('click', () => {
+            if (mobileMenu.classList.contains('hidden')) {
+                mobileMenu.classList.remove('hidden');
+                mobileMenu.classList.add('flex');
+            } else {
+                mobileMenu.classList.add('hidden');
+                mobileMenu.classList.remove('flex');
+            }
+        });
+
+        // Close menu when clicking link
+        document.querySelectorAll('#mobile-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenu.classList.add('hidden');
+                mobileMenu.classList.remove('flex');
+            });
+        });
+    }
+
+    // Scroll Reveal Animation
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('active');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.05 });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>

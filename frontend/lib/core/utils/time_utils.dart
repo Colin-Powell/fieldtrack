@@ -1,0 +1,16 @@
+String getGreeting() {
+  final hour = DateTime.now().hour;
+  if (hour < 12) {
+    return 'Good Morning,';
+  } else if (hour < 17) {
+    return 'Good Afternoon,';
+  } else {
+    return 'Good Evening,';
+  }
+}
+
+String formatDuration(Duration duration) {
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60);
+  return '${hours}h ${minutes}m';
+}

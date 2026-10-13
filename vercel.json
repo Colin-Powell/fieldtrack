@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "outputDirectory": "dist",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/supervisor",
+      "destination": "/supervisor/index.html"
+    },
+    {
+      "source": "/supervisor/:path*",
+      "destination": "/supervisor/index.html"
+    }
+  ]
+}

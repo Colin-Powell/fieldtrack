@@ -1,0 +1,12 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/generated/prisma
+/backend/storage
+firebase_service_account_key.json
+**/firebase*.json
+**/service-account*.json
+**/service_account*.json
+**/*.pem
+**/*.p12

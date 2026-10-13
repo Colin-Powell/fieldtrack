@@ -1,0 +1,1202 @@
+openapi: 3.0.3
+info:
+  title: FieldTrack API
+  description: |
+    Digital Field Activity Supervision Platform API.
+
+    Authentication uses a Bearer JWT access token (30 min) plus a rotating refresh token (7 days).
+    All protected endpoints require `Authorization: Bearer <access-token>`.
+    Roles: STUDENT, SUPERVISOR, ADMIN.
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: Base API path
+  - url: http://localhost:3000/api/v1
+    description: Local development
+tags:
+  - name: Auth
+    description: Authentication & account endpoints
+  - name: Admin
+    description: Administration (requires ADMIN)
+  - name: Dashboard
+    description: Aggregated dashboards
+  - name: Sessions
+    description: Field check-in / check-out & GPS pings
+  - name: Activities
+    description: Field activity logs
+  - name: Media
+    description: Evidence uploads
+  - name: Reviews
+    description: Supervisor reviews
+  - name: Reports
+    description: Reports (SUPERVISOR / ADMIN)
+  - name: Notifications
+    description: In-app notifications
+  - name: Settings
+    description: User settings & preferences
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Bad request / validation error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Insufficient role permissions
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Conflict with current state
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Internal server error
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [STUDENT, SUPERVISOR, ADMIN] }
+        mustChangePassword: { type: boolean }
+    LoginResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        token: { type: string, description: JWT access token (30 min) }
+        refreshToken: { type: string, description: JWT refresh token (7 days) }
+        user: { $ref: '#/components/schemas/User' }
+    FieldSession:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        checkInTime: { type: string, format: date-time }
+        checkOutTime: { type: string, format: date-time, nullable: true }
+        durationSeconds: { type: integer, nullable: true }
+        distanceTravelled: { type: number, nullable: true }
+        startLatitude: { type: number }
+        startLongitude: { type: number }
+        startAccuracy: { type: number }
+        endAccuracy: { type: number, nullable: true }
+        averageAccuracy: { type: number, nullable: true }
+        status: { type: string, enum: [ACTIVE, COMPLETED] }
+        batteryLevelStart: { type: integer, nullable: true }
+        networkType: { type: string, nullable: true }
+        deviceModel: { type: string, nullable: true }
+    Activity:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        latitude: { type: number, nullable: true }
+        longitude: { type: number, nullable: true }
+        gpsAccuracy: { type: number, nullable: true }
+        timestamp: { type: string, format: date-time }
+        status:
+          type: string
+          enum: [DRAFT, SUBMITTED, UNDER_REVIEW, REVISION_REQUESTED, RESUBMITTED, APPROVED, REJECTED, ARCHIVED]
+        methodology: { type: string, nullable: true }
+        objectives: { type: string, nullable: true }
+        findings: { type: string, nullable: true }
+        remarks: { type: string, nullable: true }
+    Evidence:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        activityId: { type: string, format: uuid }
+        uploadedById: { type: string, format: uuid }
+        originalName: { type: string }
+        storedName: { type: string }
+        fileExtension: { type: string }
+        mimeType: { type: string }
+        fileSize: { type: integer }
+        width: { type: integer, nullable: true }
+        height: { type: integer, nullable: true }
+        duration: { type: integer, nullable: true }
+        thumbnailPath: { type: string, nullable: true }
+        storagePath: { type: string }
+        uploadStatus: { type: string, enum: [PENDING, SUCCESS, FAILED] }
+        gpsLatitude: { type: number, nullable: true }
+        gpsLongitude: { type: number, nullable: true }
+        gpsAccuracy: { type: number, nullable: true }
+        capturedAt: { type: string, format: date-time, nullable: true }
+        uploadedAt: { type: string, format: date-time }
+    Review:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        activityId: { type: string, format: uuid }
+        reviewerId: { type: string, format: uuid }
+        rating: { type: number }
+        comments: { type: string, nullable: true }
+        status: { type: string, enum: [APPROVED, REJECTED, REVISION_REQUESTED] }
+        createdAt: { type: string, format: date-time }
+    Notification:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        recipientId: { type: string, format: uuid }
+        senderId: { type: string, format: uuid, nullable: true }
+        title: { type: string }
+        message: { type: string }
+        type:
+          type: string
+          enum: [CHECKED_IN, CHECKED_OUT, REVIEW_RECEIVED, REVISION_REQUESTED, ACTIVITY_APPROVED, SYSTEM_ALERT, NEW_SUBMISSION, SUPERVISOR_MESSAGE]
+        entityType: { type: string, nullable: true }
+        entityId: { type: string, nullable: true }
+        priority: { type: integer }
+        isRead: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    Settings:
+      type: object
+      additionalProperties: true
+
+paths:
+  # ─────────────────────────── Auth ───────────────────────────
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              oneOf:
+                - required: [email, password]
+                  properties:
+                    email: { type: string, format: email }
+                    password: { type: string, format: password }
+                - required: [registrationNo, password]
+                  properties:
+                    registrationNo: { type: string }
+                    password: { type: string, format: password }
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke a refresh token
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate a refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: New token pair issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  token: { type: string }
+                  refreshToken: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change the current user's password
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password, minLength: 6 }
+      responses:
+        '200':
+          description: Password changed; all refresh tokens revoked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Send a password-reset OTP to the user's email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: Generic success (prevents email enumeration)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+  /auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify a password-reset OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp]
+              properties:
+                email: { type: string, format: email }
+                otp: { type: string, example: '123456' }
+      responses:
+        '200':
+          description: OTP verified; returns a temporary reset token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  token: { type: string }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password using the OTP-verified token
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newPassword]
+              properties:
+                newPassword: { type: string, format: password, minLength: 6 }
+      responses:
+        '200':
+          description: Password reset successfully
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the authenticated user's profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  user: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/fcm-token:
+    put:
+      tags: [Auth]
+      summary: Register the device's Firebase push token
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcmToken]
+              properties:
+                fcmToken: { type: string }
+      responses:
+        '200':
+          description: Token registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+
+  # ─────────────────────────── Admin ───────────────────────────
+  /admin/users/students:
+    post:
+      tags: [Admin]
+      summary: Create a student account (returns temp password)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [firstName, lastName, registrationNo, email]
+              properties:
+                firstName: { type: string }
+                lastName: { type: string }
+                registrationNo: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string }
+                programme: { type: string }
+                department: { type: string }
+                faculty: { type: string }
+                researchTopic: { type: string }
+                supervisorId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Student created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  tempPassword: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /admin/users/supervisors:
+    post:
+      tags: [Admin]
+      summary: Create a supervisor account (returns temp password)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName, email, staffNumber]
+              properties:
+                fullName: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string }
+                staffNumber: { type: string }
+                department: { type: string }
+                faculty: { type: string }
+                office: { type: string }
+                specialization: { type: string }
+                studentCapacity: { type: integer, default: 20 }
+      responses:
+        '201':
+          description: Supervisor created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  tempPassword: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: List all users
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        email: { type: string }
+                        role: { type: string }
+                        status: { type: string }
+                        department: { type: string }
+                        regNo: { type: string, nullable: true }
+                        supervisorName: { type: string, nullable: true }
+                        assignedStudentsCount: { type: integer, nullable: true }
+                        avatarUrl: { type: string }
+  /admin/users/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Admin]
+      summary: Get a full user profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { type: object }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Admin]
+      summary: Update a user
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                status: { type: string }
+                phone: { type: string }
+                programme: { type: string }
+                department: { type: string }
+                faculty: { type: string }
+                topic: { type: string }
+                supervisorId: { type: string, format: uuid }
+                studentCapacity: { type: integer }
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Admin]
+      summary: Soft-delete (archive) a user
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: User archived and sessions revoked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+  /admin/users/{id}/status:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Admin]
+      summary: Update a user's status
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [ACTIVE, PENDING, DISABLED, SUSPENDED, LOCKED, ARCHIVED]
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+  /admin/users/{id}/supervisor:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Admin]
+      summary: Reassign a student's supervisor
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                supervisorId: { type: string, format: uuid, nullable: true }
+      responses:
+        '200':
+          description: Supervisor reassigned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+  /admin/users/{id}/reset-password:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Admin]
+      summary: Force a password reset (returns temp password)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  tempPassword: { type: string }
+  /admin/departments:
+    get:
+      tags: [Admin]
+      summary: List departments with counts
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Department list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  departments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        description: { type: string, nullable: true }
+                        students: { type: integer }
+                        supervisors: { type: integer }
+                        projects: { type: integer }
+    post:
+      tags: [Admin]
+      summary: Create a department
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                code: { type: string }
+                faculty: { type: string }
+                description: { type: string }
+      responses:
+        '201':
+          description: Department created
+          content:
+            application/json:
+              schema: { type: object }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /admin/departments/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Admin]
+      summary: Department details (students, supervisors, projects)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Department details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  department: { type: object }
+                  students: { type: array, items: { type: object } }
+                  supervisors: { type: array, items: { type: object } }
+                  projects: { type: array, items: { type: object } }
+  /admin/search:
+    get:
+      tags: [Admin]
+      summary: Global search across users, departments, projects
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users: { type: array, items: { type: object } }
+                  departments: { type: array, items: { type: object } }
+                  projects: { type: array, items: { type: object } }
+  /admin/projects:
+    get:
+      tags: [Admin]
+      summary: List research projects with progress
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        topic: { type: string }
+                        supervisor: { type: string }
+                        students: { type: integer }
+                        progress: { type: integer }
+                        status: { type: string }
+                        studentName: { type: string }
+                        registrationNo: { type: string }
+                        department: { type: string }
+  /admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Paginated audit log
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        '200':
+          description: Audit log page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        time: { type: string, format: date-time }
+                        administrator: { type: string }
+                        action: { type: string }
+                        affectedResource: { type: string }
+                        ipAddress: { type: string }
+                        status: { type: string }
+                        details: { type: object, nullable: true }
+                  pagination:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      limit: { type: integer }
+                      total: { type: integer }
+                      totalPages: { type: integer }
+  /admin/notifications:
+    get:
+      tags: [Admin]
+      summary: Recent system notifications
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        title: { type: string }
+                        message: { type: string }
+                        type: { type: string }
+                        time: { type: string, format: date-time }
+                        isRead: { type: boolean }
+                        senderName: { type: string }
+  /admin/notifications/broadcast:
+    post:
+      tags: [Admin]
+      summary: Broadcast to all active students and supervisors
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, message]
+              properties:
+                title: { type: string }
+                message: { type: string }
+                type: { $ref: '#/components/schemas/Notification/properties/type' }
+      responses:
+        '201':
+          description: Broadcast sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /admin/settings:
+    get:
+      tags: [Admin]
+      summary: Get system settings (merged with defaults)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: System settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings: { $ref: '#/components/schemas/Settings' }
+    put:
+      tags: [Admin]
+      summary: Update system settings
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Settings' }
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+  /admin/settings/history:
+    get:
+      tags: [Admin]
+      summary: Last 20 settings-change audit entries
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Settings history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        updatedBy: { type: string }
+                        fields: { type: array, items: { type: string } }
+                        timestamp: { type: string, format: date-time }
+  /admin/settings/backup:
+    post:
+      tags: [Admin]
+      summary: Trigger a manual backup (logged)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Backup initiated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+  /admin/map:
+    get:
+      tags: [Admin]
+      summary: Live map markers for all active field sessions
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Map markers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  markers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        studentId: { type: string }
+                        studentName: { type: string }
+                        latitude: { type: number }
+                        longitude: { type: number }
+                        accuracy: { type: number }
+                        department: { type: string }
+                        avatarUrl: { type: string }
+                        checkInTime: { type: string, format: date-time }
+
+  # ─────────────────────────── Dashboards ───────────────────────────
+  /dashboard/admin:
+    get:
+      tags: [Dashboard]
+      summary: Institution-wide admin dashboard
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: period, in: query, schema: { type: string, enum: [Today, This Week, This Month, This Year, All Time] } }
+      responses:
+        '200':
+          description: Aggregated admin stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalStudents: { type: integer }
+                  activeSupervisors: { type: integer }
+                  studentsInField: { type: integer }
+                  submittedToday: { type: integer }
+                  pendingReviews: { type: integer }
+                  activeProjects: { type: integer }
+                  activityTrend: { type: array, items: { type: object } }
+                  attendanceTrend: { type: array, items: { type: object } }
+                  submissionStatus: { type: array, items: { type: object } }
+                  departmentStats: { type: array, items: { type: object } }
+                  recentUsers: { type: array, items: { type: object } }
+                  systemActivities: { type: array, items: { type: object } }
+  /dashboard/supervisor:
+    get:
+      tags: [Dashboard]
+      summary: Supervisor dashboard
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Supervisor stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statistics:
+                    type: object
+                    properties:
+                      checkedOut: { type: integer }
+                      checkedIn: { type: integer }
+                      studentsInField: { type: integer }
+                      pendingApprovals: { type: integer }
+                      activitiesSubmitted: { type: integer }
+                  trend:
+                    type: object
+                    properties:
+                      activities: { type: string }
+                      checkIns: { type: string }
+                  assignedStudents: { type: integer }
+                  pendingReviews: { type: integer }
+                  recentActivities: { type: array, items: { type: object } }
+                activeFieldSessions: { type: array, items: { type: object } }
+  /dashboard/student:
+    get:
+      tags: [Dashboard]
+      summary: Student dashboard
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Student stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  hoursLogged: { type: integer }
+                  approvals: { type: integer }
+                  recentLogs: { type: array, items: { type: object } }
+
+  # ─────────────────────────── Sessions ───────────────────────────
+  /sessions/checkin:
+    post:
+      tags: [Sessions]
+      summary: Start a GPS-verified field session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentId, latitude, longitude, accuracy]
+              properties:
+                studentId: { type: string, format: uuid }
+                latitude: { type: number }
+                longitude: { type: number }
+                accuracy: { type: number }
+                batteryLevelStart: { type: integer }
+                networkType: { type: string }
+                deviceModel: { type: string }
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FieldSession' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /sessions/checkout:
+    patch:
+      tags: [Sessions]
+      summary: End the active field session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentId, latitude, longitude, accuracy]
+              properties:
+                studentId: { type: string, format: uuid }
+                latitude: { type: number }
+                longitude: { type: number }
+                accuracy: { type: number }
+                batteryLevelEnd: { type: integer }
+      responses:
+        '200':
+          description: Session completed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FieldSession' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /sessions/active:
+    get:
+      tags: [Sessions]
+      summary: Get a student's active session
+      parameters:
+        - { name: studentId, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Active session (or null)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: '#/components/schemas/FieldSession' }
+  /sessions/ping:
+    post:
+      tags: [Sessions]
+      summary: Log a location ping for an active session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, latitude, longitude, accuracy]
+              properties:
+                sessionId: { type: string, format: uuid }
+                latitude: { type: number }
+                longitude: { type: number }
+                accuracy: { type: number }
+                altitude: { type: number }
+                speed: { type: number }
+                heading: { type: number }
+      responses:
+        '201':
+          description: Ping logged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  sessionId: { type: string }
+                  latitude: { type: number }
+                  longitude: { type: number }
+                  accuracy: { type: number }
+                  timestamp: { type: string, format: date-time }
+  /sessions/student/{studentId}/pings:
+    parameters:
+      - { name: studentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Sessions]
+      summary: Get all location pings for a student
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Ping list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    sessionId: { type: string }
+                    latitude: { type: number }
+                    longitude: { type: number }
+                    accuracy: { type: number }
+                    altitude: { type: number, nullable: true }
+                    speed: { type: number, nullable: true }
+                    heading: { type: number, nullable: true }
+                    timestamp: { type: string, format: date-time }
+
+  # ─────────────────────────── Activities ───────────────────────────
+  /activities:
+    post:
+      tags: [Activities]
+      summary: Create a draft activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentId, title]
+              properties:
+                studentId: { type: string, format: uuid }
+                title: { type: string }
+                description: { type: string }
+                latitude: { type: number }
+                longitude: { type: number }
+                gpsAccuracy: { type: number }
+                methodology: { type: string }
+                objectives: { type: string }
+                findings: { type: string }
+                remarks: { type: string }
+      responses:
+        '201':
+          description: Draft created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Activity' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /activities/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Activities]
+      summary: Get an activity by ID
+      responses:
+        '200':
+          description: Activity
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Activity' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Activities]
+      summary: Update a draft activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentId]
+              properties:
+                studentId: { type: string, format: uuid }
+                title: { type: string }
+                description: { type: string }
+                methodology: { type: string }
+                objectives: { type: string }
+                findings: { type: string }
+                remarks: { type: string }
+      responses:
+        '200':
+          description: Activity updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Activity' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /activities/{id}/submit:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Activities]
+      summary: Submit an activity for review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentId]
+              properties:
+                studentId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Activity submitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Activity' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /activities/student/all:
+    get:
+      tags: [Activities]
+      summary: List a student's activities
+      parameters:
+        - { name: studentId, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Activity list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Activity' }

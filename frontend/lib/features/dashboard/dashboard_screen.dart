@@ -1,0 +1,907 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:fieldtrack/core/providers/auth_provider.dart';
+import 'package:fieldtrack/core/providers/location_provider.dart';
+import 'package:fieldtrack/core/providers/checkin_provider.dart';
+import 'package:fieldtrack/core/providers/navigation_provider.dart';
+import 'package:fieldtrack/core/utils/toast_service.dart';
+import 'package:fieldtrack/features/dashboard/providers/student_dashboard_provider.dart';
+import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
+import 'package:fieldtrack/core/network/api_result_builder.dart';
+import 'package:fieldtrack/shared/widgets/skeleton_loader.dart';
+import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
+import 'package:fieldtrack/core/utils/time_utils.dart';
+import 'package:fieldtrack/core/utils/image_utils.dart';
+import 'package:fieldtrack/core/widgets/app_avatar.dart';
+import 'package:fieldtrack/core/network/connectivity_service.dart';
+
+class DashboardScreen extends ConsumerStatefulWidget {
+  const DashboardScreen({super.key});
+
+  @override
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.invalidate(studentDashboardProvider);
+        ref.invalidate(studentActivitiesProvider);
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(studentDashboardProvider);
+      ref.invalidate(studentActivitiesProvider);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final locState = ref.watch(locationProvider);
+    final checkInState = ref.watch(checkInProvider);
+    const greenColor = Color(0xFF1BA654);
+
+    // Status styling based on checkin state
+    final Color statusBgColor = checkInState.isCheckedIn
+        ? const Color(0xFFC3DFCC)
+        : const Color(0xFFFFEBEE);
+    final Color statusIconBgColor = checkInState.isCheckedIn
+        ? greenColor
+        : const Color(0xFFE53935);
+    final Color statusTextColor = checkInState.isCheckedIn
+        ? greenColor
+        : const Color(0xFFE53935);
+    final String statusTitle = checkInState.isCheckedIn
+        ? 'Checked In'
+        : 'Not Checked In';
+    final String checkInLocation = locState.isLocating ? 'Locating...' : locState.locationName;
+    final String statusTime = checkInState.isCheckedIn
+        ? '${DateFormat('hh:mm a').format(checkInState.checkInTime!)} | $checkInLocation'
+        : 'Tap to check in';
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+
+      body: SingleChildScrollView(
+        // Extra bottom padding ensures the last items aren't hidden behind the floating nav bar
+        padding: const EdgeInsets.only(bottom: 120),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(
+              context,
+              locState,
+              checkInState,
+              statusBgColor,
+              statusIconBgColor,
+              statusTextColor,
+              statusTitle,
+              statusTime,
+              ref,
+            ),
+            StreamBuilder<ConnectionStatus>(
+              stream: ConnectivityService().onStatusChange,
+              initialData: ConnectivityService().currentStatus,
+              builder: (context, snapshot) {
+                if (snapshot.data == ConnectionStatus.offline) {
+                  return Container(
+                    width: double.infinity,
+                    color: const Color(0xFFFEF2F2), // Light red
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(
+                          PhosphorIconsRegular.wifiSlash,
+                          color: Color(0xFFEF4444),
+                          size: 16,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'You are operating offline',
+                          style: TextStyle(
+                            color: Color(0xFFB91C1C),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            const SizedBox(height: 24),
+            _buildSectionTitle('Today\'s Summary'),
+            _buildSummaryGrid(ref),
+            const SizedBox(height: 24),
+            _buildSectionTitle('Quick Actions'),
+            _buildQuickActions(context, ref),
+            const SizedBox(height: 24),
+            _buildSectionTitle('Recent Activities'),
+            _buildRecentActivities(context, ref),
+            const SizedBox(height: 100), // padding for bottom nav
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- 1. GREEN HEADER COMPONENT ---
+  Widget _buildHeader(
+    BuildContext context,
+    LocationState locState,
+    CheckInState checkInState,
+    Color statusBgColor,
+    Color statusIconBgColor,
+    Color statusTextColor,
+    String statusTitle,
+    String statusTime,
+    WidgetRef ref,
+  ) {
+    const greenColor = Color(0xFF1BA654);
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
+
+    // Display student name or fallback
+    final rawName = user?.name;
+    final name = rawName != null && rawName.trim().isNotEmpty
+        ? rawName.trim()
+        : 'Student';
+
+    // Fetch real student profile details from authentication payload
+    final prog = user?.programme ?? 'Environmental Sciences';
+    final dept = user?.department ?? 'Pwani University';
+    final details = '$prog\n$dept';
+    final displayName = rawName?.trim();
+
+    return Container(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + 24,
+        left: 24,
+        right: 24,
+        bottom: 24,
+      ),
+      decoration: const BoxDecoration(
+        color: greenColor,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Greeting Text
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    getGreeting(),
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 16,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontFamily: 'Roboto',
+                          fontSize: 24,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text('👋', style: TextStyle(fontSize: 20)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    details,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 14,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w400,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+              // Profile Image
+              GestureDetector(
+                onTap: () => context.push('/profile'),
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                  child: SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: AppAvatar(
+                      imagePath: user?.avatarUrl,
+                      size: 56,
+                      shape: AvatarShape.circle,
+                      initials: displayName != null && displayName.isNotEmpty
+                          ? displayName
+                                .split(' ')
+                                .map((s) => s.isNotEmpty ? s[0] : '')
+                                .take(2)
+                                .join()
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Stats Row
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: _buildHeaderStat(
+                  'Location',
+                  locState.isLocating ? 'Locating...' : locState.locationName,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: _buildHeaderStat(
+                  'Accuracy',
+                  locState.isLocating
+                      ? '—'
+                      : '${locState.accuracy.toStringAsFixed(0)} m',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: _buildHeaderStat(
+                  'Time in field',
+                  checkInState.isCheckedIn && checkInState.checkInTime != null
+                      ? formatDuration(
+                          DateTime.now().difference(checkInState.checkInTime!),
+                        )
+                      : '0h 0m',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Status Pill Card
+          GestureDetector(
+            onTap: () {
+              if (!checkInState.isCheckedIn) {
+                context.push('/checkin');
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: statusBgColor,
+                borderRadius: BorderRadius.circular(40),
+              ),
+              child: Row(
+                children: [
+                  // Icon
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: statusIconBgColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      PhosphorIconsFill.article,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // Text Column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Today\'s Status',
+                          style: TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 12,
+                            color: statusTextColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          statusTitle,
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 16,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          statusTime,
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 12,
+                            color: Color(0xFF737373),
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Arrow
+                  Icon(
+                    PhosphorIconsRegular.caretRight,
+                    color: statusTextColor,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderStat(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 12,
+            color: Colors.white.withOpacity(0.8),
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 16,
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- 2. SUMMARY GRID ---
+  Widget _buildSummaryGrid(WidgetRef ref) {
+    final checkInState = ref.watch(checkInProvider);
+    final statsAsync = ref.watch(studentDashboardProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: Container(
+        clipBehavior: Clip
+            .antiAlias, // Ensures internal dividers don't bleed out of larger corner radii
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F9F5), // Very light pale green
+          borderRadius: BorderRadius.circular(
+            40,
+          ), // Increased for larger pill shape
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: statsAsync.when(
+          skipError: true,
+          data: (stats) => Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSummaryCell(
+                      'Total Activities',
+                      '${stats.totalActivities}',
+                      PhosphorIconsFill.article,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 60,
+                    color: const Color(0xFFE5E7EB),
+                  ),
+                  Expanded(
+                    child: _buildSummaryCell(
+                      'Evidence Files',
+                      '${stats.evidenceFiles}',
+                      PhosphorIconsFill.folder,
+                    ),
+                  ),
+                ],
+              ),
+              Container(height: 1, color: const Color(0xFFE5E7EB)),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSummaryCell(
+                      'Sync Status',
+                      stats.syncStatus,
+                      PhosphorIconsFill.cloudCheck,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 60,
+                    color: const Color(0xFFE5E7EB),
+                  ),
+                  Expanded(
+                    child: _buildSummaryCell(
+                      'Check Out',
+                      checkInState.isCheckedIn ? 'Tap to check out' : 'N/A',
+                      PhosphorIconsBold.arrowsClockwise,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          loading: () => const Padding(
+            padding: EdgeInsets.all(32.0),
+            child: Center(
+              child: CircularProgressIndicator(color: Color(0xFF169B45)),
+            ),
+          ),
+          error: (error, stack) => const Padding(
+            padding: EdgeInsets.all(32.0),
+            child: Center(
+              child: Text(
+                'Stats unavailable offline',
+                style: TextStyle(
+                  color: Color(0xFF6B7280),
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCell(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: const Color(0xFF1BA654), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontFamily: 'Roboto',
+                    fontSize: 12,
+                    color: Color(0xFF737373),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontFamily: 'Roboto',
+                    fontSize: 14,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- 3. QUICK ACTIONS ---
+  Widget _buildQuickActions(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildQuickActionBtn(
+            'Check Out',
+            PhosphorIconsRegular.target,
+            const Color(0xFFFEE2E2),
+            const Color(0xFFEF4444),
+            onTap: () async {
+              final success = await ref
+                  .read(checkInProvider.notifier)
+                  .checkOut();
+              if (success) {
+                ToastService.showSuccess('Checked out. Session recorded.');
+              }
+            },
+          ),
+          _buildQuickActionBtn(
+            'New Activity',
+            PhosphorIconsFill.article,
+            const Color(0xFFC3DFCC),
+            const Color(0xFF1BA654),
+            onTap: () {
+              final checkInState = ref.read(checkInProvider);
+              if (!checkInState.isCheckedIn) {
+                ToastService.showError('You must check in first before logging an activity.');
+                return;
+              }
+              context.push('/field-session');
+            },
+          ),
+          _buildQuickActionBtn(
+            'Feedback',
+            PhosphorIconsFill.chatCircleText,
+            const Color(0xFFC3DFCC),
+            const Color(0xFF1BA654),
+            onTap: () => ref.read(navigationIndexProvider.notifier).state = 1,
+          ),
+          _buildQuickActionBtn(
+            'View Map',
+            PhosphorIconsFill.mapTrifold,
+            const Color(0xFFC3DFCC),
+            const Color(0xFF1BA654),
+            onTap: () => ref.read(navigationIndexProvider.notifier).state = 2,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionBtn(
+    String label,
+    IconData icon,
+    Color bgColor,
+    Color iconColor, {
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+            child: Icon(icon, color: iconColor, size: 24),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentActivities(BuildContext context, WidgetRef ref) {
+    final activitiesAsync = ref.watch(studentActivitiesProvider(const (page: 1, limit: 5, status: null, search: null)));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: ApiResultBuilder<List<dynamic>>(
+        asyncValue: activitiesAsync,
+        onRetry: () => ref.refresh(studentActivitiesProvider(const (page: 1, limit: 5, status: null, search: null))),
+        customLoading: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: ListSkeletonLoader(itemCount: 3, itemHeight: 90),
+        ),
+        onData: (activities) {
+          if (activities.isEmpty) {
+            return const EmptyStateWidget(
+              title: 'No recent activities',
+              message: 'Check in or create a draft to get started.',
+              icon: PhosphorIconsRegular.clipboardText,
+            );
+          }
+
+          final displayActivities = activities.take(3).toList();
+
+          return Column(
+            children: [
+              ...displayActivities.map<Widget>((activity) {
+                final title = activity['title'] ?? 'Untitled Activity';
+                final status = activity['status'] ?? 'DRAFT';
+
+                // Map status to colors
+                Color statusColor = const Color(0xFF1BA654);
+                Color statusBgColor = const Color(0xFFC3DFCC);
+                if (status == 'DRAFT') {
+                  statusColor = const Color(0xFF3B82F6);
+                  statusBgColor = const Color(0xFFDBEAFE);
+                } else if (status == 'UNDER_REVIEW') {
+                  statusColor = const Color(0xFFEAB308);
+                  statusBgColor = const Color(0xFFFEF08A);
+                } else if (status == 'REJECTED') {
+                  statusColor = const Color(0xFFEF4444);
+                  statusBgColor = const Color(0xFFFEE2E2);
+                }
+
+                // Extract time
+                String timeStr = '';
+                if (activity['timestamp'] != null) {
+                  final dt = DateTime.parse(activity['timestamp']).toLocal();
+                  timeStr = DateFormat('dd MMM yyyy • hh:mm a').format(dt);
+                }
+
+                // Extract first image from evidence list
+                String? activityImageUrl;
+                final evidenceList =
+                    activity['evidence'] as List<dynamic>? ?? [];
+                for (final ev in evidenceList) {
+                  final mimeType = ev['mimeType'] as String? ?? '';
+                  if (mimeType.startsWith('image/')) {
+                    final path = ev['storagePath'] as String?;
+                    if (path != null && path.isNotEmpty) {
+                      activityImageUrl = ImageUtils.getFullImageUrl(path);
+                      break;
+                    }
+                  }
+                }
+
+                final locName = activity['locationName'] as String?;
+                final fallbackLoc = "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: _buildActivityCard(
+                    context: context,
+                    id: activity['id'],
+                    title: title,
+                    location: locName != null && locName.isNotEmpty ? locName : fallbackLoc,
+                    time: timeStr,
+                    status: status,
+                    statusColor: statusColor,
+                    statusBgColor: statusBgColor,
+                    imageUrl: activityImageUrl,
+                  ),
+                );
+              }).toList(),
+              if (activities.length > 3)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
+                  child: TextButton(
+                    onPressed: () =>
+                        ref.read(navigationIndexProvider.notifier).state = 1,
+                    child: const Text(
+                      'View All Activities',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1BA654),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildActivityCard({
+    required BuildContext context,
+    required String id,
+    required String title,
+    required String location,
+    required String time,
+    required String status,
+    Color statusColor = const Color(0xFF1BA654),
+    Color statusBgColor = const Color(0xFFC3DFCC),
+    String? imageUrl,
+  }) {
+    return GestureDetector(
+      onTap: () => context.push('/activity-detail/$id'),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(
+            40,
+          ), // Increased for larger pill shape
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(
+          children: [
+            // Activity Image (from evidence) or fallback icon
+            ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: imageUrl != null && imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 64,
+                          height: 64,
+                          color: const Color(0xFFF3F4F6),
+                          child: const Icon(
+                            PhosphorIconsRegular.image,
+                            color: Color(0xFF9CA3AF),
+                            size: 32,
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      width: 64,
+                      height: 64,
+                      color: const Color(0xFFF3F4F6),
+                      child: const Icon(
+                        PhosphorIconsRegular.image,
+                        color: Color(0xFF9CA3AF),
+                        size: 32,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 16),
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Status Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusBgColor,
+                          borderRadius: BorderRadius.circular(
+                            20,
+                          ), // Increased for pill styling
+                        ),
+                        child: Text(
+                          status,
+                          style: TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    location,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF737373),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    time,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF737373),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              PhosphorIconsRegular.caretRight,
+              color: Colors.black,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- HELPER FOR SECTION TITLES ---
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontFamily: 'Roboto',
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: Colors.black,
+        ),
+      ),
+    );
+  }
+}
