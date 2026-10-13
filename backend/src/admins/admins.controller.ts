@@ -393,7 +393,7 @@ export async function updateUserStatus(req: Request, res: Response) {
     if (!existingUser) return res.status(404).json({ error: 'User not found' });
 
     const requiresLogout = ['SUSPENDED', 'LOCKED', 'DISABLED', 'ARCHIVED'].includes(status);
-    const isActive = requiresLogout ? false : existingUser.isActive;
+    const isActive = requiresLogout ? false : (status === 'ACTIVE' ? true : existingUser.isActive);
 
     const user = await prisma.$transaction(async (tx) => {
       if (requiresLogout) {
