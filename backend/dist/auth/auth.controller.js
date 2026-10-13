@@ -127,8 +127,8 @@ export async function login(req, res) {
             });
             const isExistingDevice = activeDevices.some((d) => d.deviceId === deviceId);
             if (!isExistingDevice && activeDevices.length >= user.maxActiveDevices) {
-                if (user.role === 'ADMIN') {
-                    // Auto-evict oldest active sessions for admins so they are never locked out
+                if (user.role === 'ADMIN' || user.role === 'SUPERVISOR') {
+                    // Auto-evict oldest active sessions for admins and supervisors so they are never locked out
                     const countToEvict = activeDevices.length - user.maxActiveDevices + 1;
                     const toEvict = activeDevices.slice(0, countToEvict);
                     const evictIds = toEvict.map((d) => d.id);
