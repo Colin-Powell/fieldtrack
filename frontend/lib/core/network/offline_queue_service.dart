@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'local_id_resolver.dart';
 
 class QueueItem {
@@ -90,34 +89,9 @@ class OfflineQueueService {
     String? localEntityId,
     List<String> dependencies = const [],
   }) async {
-    dynamic payloadToStore;
-
-    // Handle FormData serialization
-    if (data is FormData) {
-      final fields = <String, dynamic>{};
-      for (var field in data.fields) {
-        fields[field.key] = field.value;
-      }
-      final files = <Map<String, dynamic>>[];
-      final dir = await getApplicationDocumentsDirectory();
-      final offlineMediaDir = Directory('${dir.path}/offline_media');
-      if (!await offlineMediaDir.exists()) {
-        await offlineMediaDir.create(recursive: true);
-      }
-
-      for (var fileField in data.files) {
-        final mFile = fileField.value;
-        // Wait, MultipartFile in dio cannot be easily read as bytes synchronously.
-        // Actually, if it's from a file, we can just grab its path if we know it.
-        // But dio's MultipartFile doesn't expose the original file path.
-        // So we need to enforce that the caller passes a special map for files when enqueueing.
-        // Let's assume `data` can be a Map containing `__isFormData__: true` and `files` array.
-      }
-    }
-
-    // Workaround: Callers MUST NOT pass FormData directly if they want offline media support.
-    // They must pass a serializable map. We will convert it to FormData during sync.
-    payloadToStore = data;
+    // Payload can be a raw JSON-serializable Map/List or a Map with __isFormData__: true
+    // containing fields and files for offline uploads.
+    final payloadToStore = data;
 
     final item = QueueItem(
       id: _uuid.v4(),
@@ -182,12 +156,23 @@ class OfflineQueueService {
           fields.forEach((k, v) => formData.fields.add(MapEntry(k, v.toString())));
 
           final files = resolvedPayload['files'] as List<dynamic>? ?? [];
+          bool allFilesFound = true;
           for (var f in files) {
+            final filePath = f['path'] as String;
+            final fileObj = File(filePath);
+            if (!await fileObj.exists()) {
+              allFilesFound = false;
+              item.lastError = 'File not found at $filePath';
+              item.status = 'failed';
+              await _box.put(key, jsonEncode(item.toJson()));
+              break;
+            }
             formData.files.add(MapEntry(
               f['fieldName'],
-              await MultipartFile.fromFile(f['path'], filename: f['filename']),
+              await MultipartFile.fromFile(filePath, filename: f['filename']),
             ));
           }
+          if (!allFilesFound) continue;
           requestData = formData;
         }
 

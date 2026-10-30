@@ -7,8 +7,11 @@ class WelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
@@ -16,20 +19,20 @@ class WelcomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // --- Title Section ---
-              const Text(
+              Text(
                 'Welcome to',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 40,
                   fontWeight: FontWeight.w900, // Extra bold to match design
-                  color: Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                   height: 1.1,
                 ),
               ),
               const Text(
                 'FieldTrack',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 40,
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF16A34A), // Vibrant green matching the design
@@ -39,13 +42,15 @@ class WelcomeScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               // --- Subtitle Section ---
-              const Text(
+              Text(
                 'Track your field activities,\nstay accountable and\nmake data reliable',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF525252), // Dark grey
+                  color: isDark
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF525252),
                   height: 1.4, // Matches the spacing in the design perfectly
                 ),
               ),
@@ -80,7 +85,7 @@ class WelcomeScreen extends StatelessWidget {
                   child: const Text(
                     'Get Started',
                     style: TextStyle(
-                      fontFamily: 'Roboto',
+                      fontFamily: 'Poppins',
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -89,7 +94,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              
+
               const SizedBox(height: 16), // Bottom safe space
             ],
           ),

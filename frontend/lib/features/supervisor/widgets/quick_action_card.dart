@@ -35,7 +35,7 @@ class QuickActionCard extends StatelessWidget {
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF374151),

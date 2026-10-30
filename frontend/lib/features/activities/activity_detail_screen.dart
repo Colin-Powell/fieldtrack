@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:go_router/go_router.dart';
-import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
 import 'package:fieldtrack/core/network/api_result_builder.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
@@ -14,37 +13,47 @@ class ActivityDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const String fontFamily = 'Roboto';
-    const Color primaryGreen = Color(0xFF1BA654);
-    const Color lightGreenBadge = Color(0xFFC3DFCC);
-    const Color textDark = Color(0xFF111827);
-    const Color textGrey = Color(0xFF6B7280);
-
+    const String fontFamily = 'Poppins';
     final activityAsync = ref.watch(activityDetailsProvider(activityId));
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    // Base colors based on theme
+    final scaffoldBg = isDark ? const Color(0xFF121212) : theme.scaffoldBackgroundColor;
+    final cardBg = isDark ? const Color(0xFF1E1E1E) : theme.cardColor;
+    final primaryTextColor = isDark ? Colors.white : const Color(0xFF111827);
+    final secondaryTextColor = isDark ? const Color(0xFFA1A1AA) : const Color(0xFF6B7280);
+    final primaryGreen = isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: scaffoldBg,
       body: ApiResultBuilder<Map<String, dynamic>>(
         asyncValue: activityAsync,
         onRetry: () => ref.refresh(activityDetailsProvider(activityId)),
         onData: (activity) {
           final title = activity['title'] ?? 'Untitled Activity';
-          final description = activity['description'] ?? 'No description provided.';
+          final description =
+              activity['description'] ?? 'No description provided.';
           final objective = activity['objectives'] ?? 'No objective provided.';
           final status = activity['status'] ?? 'DRAFT';
+
+          // Map dynamic status colors for light and dark modes
+          Color statusColor = isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
+          Color statusBgColor = isDark ? const Color(0xFF14532D) : const Color(0xFFC3DFCC);
           
-          // Map status to colors
-          Color statusColor = const Color(0xFF1BA654);
-          Color statusBgColor = const Color(0xFFC3DFCC);
           if (status == 'DRAFT') {
-            statusColor = const Color(0xFF3B82F6);
-            statusBgColor = const Color(0xFFDBEAFE);
+            statusColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6);
+            statusBgColor = isDark ? const Color(0xFF1E3A8A) : const Color(0xFFDBEAFE);
           } else if (status == 'UNDER_REVIEW') {
-            statusColor = const Color(0xFFEAB308);
-            statusBgColor = const Color(0xFFFEF08A);
+            statusColor = isDark ? const Color(0xFFFDE047) : const Color(0xFFEAB308);
+            statusBgColor = isDark ? const Color(0xFF713F12) : const Color(0xFFFEF08A);
           } else if (status == 'REJECTED') {
-            statusColor = const Color(0xFFEF4444);
-            statusBgColor = const Color(0xFFFEE2E2);
+            statusColor = isDark ? const Color(0xFFFCA5A5) : const Color(0xFFEF4444);
+            statusBgColor = isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2);
+          } else if (status == 'REVISION_REQUESTED') {
+            statusColor = isDark ? const Color(0xFFFDBA74) : const Color(0xFFF97316);
+            statusBgColor = isDark ? const Color(0xFF7C2D12) : const Color(0xFFFFEDD5);
           }
 
           // Format time
@@ -60,7 +69,13 @@ class ActivityDetailScreen extends ConsumerWidget {
           for (final ev in evidenceList) {
             final mimeType = ev['mimeType'] as String? ?? '';
             if (mimeType.startsWith('image/')) {
-              final rawPath = ev['storagePath'] ?? ev['url'] ?? ev['firebaseUrl'] ?? ev['downloadUrl'] ?? ev['storedName'] ?? ev['originalName'];
+              final rawPath =
+                  ev['storagePath'] ??
+                  ev['url'] ??
+                  ev['firebaseUrl'] ??
+                  ev['downloadUrl'] ??
+                  ev['storedName'] ??
+                  ev['originalName'];
               if (rawPath != null) {
                 imageUrl = rawPath as String?;
                 break;
@@ -82,17 +97,25 @@ class ActivityDetailScreen extends ConsumerWidget {
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
-                            color: Colors.grey[300],
-                            child: const Center(
-                              child: Icon(PhosphorIconsRegular.image, size: 48, color: Colors.grey),
+                            color: isDark ? const Color(0xFF2C2C2E) : Colors.grey[300],
+                            child: Center(
+                              child: Icon(
+                                PhosphorIconsRegular.image,
+                                size: 48,
+                                color: isDark ? const Color(0xFF6B7280) : Colors.grey,
+                              ),
                             ),
                           );
                         },
                       )
                     : Container(
-                        color: Colors.grey[300],
-                        child: const Center(
-                          child: Icon(PhosphorIconsRegular.image, size: 48, color: Colors.grey),
+                        color: isDark ? const Color(0xFF2C2C2E) : Colors.grey[300],
+                        child: Center(
+                          child: Icon(
+                            PhosphorIconsRegular.image,
+                            size: 48,
+                            color: isDark ? const Color(0xFF6B7280) : Colors.grey,
+                          ),
                         ),
                       ),
               ),
@@ -104,37 +127,50 @@ class ActivityDetailScreen extends ConsumerWidget {
                 right: 0,
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Back Button
                         _buildTopIconBtn(
                           icon: PhosphorIconsRegular.caretLeft,
+                          isDark: isDark,
                           onTap: () => Navigator.pop(context),
                         ),
                         // Center Pill
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
-                            color: lightGreenBadge.withOpacity(0.9),
+                            color: (isDark ? const Color(0xFF14532D) : const Color(0xFFC3DFCC))
+                                .withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Activity Details',
                             style: TextStyle(
                               fontFamily: fontFamily,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: Colors.black,
+                              color: isDark ? const Color(0xFF4ADE80) : Colors.black,
                             ),
                           ),
                         ),
                         // Edit Button (Only for specific statuses)
-                        if (activity['status'] == 'DRAFT' || activity['status'] == 'REJECTED' || activity['status'] == 'REVISION_REQUESTED')
+                        if (activity['status'] == 'DRAFT' ||
+                            activity['status'] == 'REJECTED' ||
+                            activity['status'] == 'REVISION_REQUESTED')
                           _buildTopIconBtn(
                             icon: PhosphorIconsRegular.pencilSimple,
-                            onTap: () => context.push('/field-session?id=${activity['id']}'),
+                            isDark: isDark,
+                            onTap: () => context.push(
+                              '/field-session?id=${activity['id']}',
+                            ),
                           )
                         else
                           const SizedBox(width: 48),
@@ -146,14 +182,16 @@ class ActivityDetailScreen extends ConsumerWidget {
 
               // 3. Main Content Card (Bottom overlapping)
               Positioned(
-                top: MediaQuery.of(context).size.height * 0.45 - 32, // Overlap by 32px
+                top:
+                    MediaQuery.of(context).size.height * 0.45 -
+                    32, // Overlap by 32px
                 left: 0,
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(32),
                       topRight: Radius.circular(32),
                     ),
@@ -165,18 +203,23 @@ class ActivityDetailScreen extends ConsumerWidget {
                     ),
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.only(left: 24, right: 24, top: 32, bottom: 100),
+                      padding: const EdgeInsets.only(
+                        left: 24,
+                        right: 24,
+                        top: 32,
+                        bottom: 100,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Title
                           Text(
                             title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: fontFamily,
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
-                              color: textDark,
+                              color: primaryTextColor,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -185,7 +228,10 @@ class ActivityDetailScreen extends ConsumerWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: statusBgColor,
                                   borderRadius: BorderRadius.circular(20),
@@ -202,35 +248,35 @@ class ActivityDetailScreen extends ConsumerWidget {
                               ),
                               Text(
                                 'Date: $timeStr',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: fontFamily,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                  color: textGrey,
+                                  color: secondaryTextColor,
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 24),
-                          
+
                           // Description
-                          const Text(
+                          Text(
                             'Description',
                             style: TextStyle(
                               fontFamily: fontFamily,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: textDark,
+                              color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF111827),
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             description,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: fontFamily,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: textDark,
+                              color: isDark ? Colors.white70 : const Color(0xFF111827),
                               height: 1.4,
                             ),
                           ),
@@ -240,18 +286,24 @@ class ActivityDetailScreen extends ConsumerWidget {
                           _buildInfoItem(
                             icon: PhosphorIconsRegular.mapPin,
                             title: 'Location',
-                            subtitle: (activity['locationName'] != null && activity['locationName'].toString().isNotEmpty)
+                            subtitle:
+                                (activity['locationName'] != null &&
+                                    activity['locationName']
+                                        .toString()
+                                        .isNotEmpty)
                                 ? '${activity['locationName']}${activity['county'] != null ? ', ${activity['county']}' : ''}'
                                 : 'Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}',
+                            isDark: isDark,
                           ),
                           const SizedBox(height: 24),
-                          _buildSupervisorItem(context, activity),
+                          _buildSupervisorItem(context, activity, isDark),
                           const SizedBox(height: 24),
                           _buildInfoItem(
                             icon: PhosphorIconsRegular.package,
                             title: 'Objective',
                             subtitle: objective,
                             isMultiLineSubtitle: true,
+                            isDark: isDark,
                           ),
                         ],
                       ),
@@ -271,18 +323,26 @@ class ActivityDetailScreen extends ConsumerWidget {
                   child: ElevatedButton(
                     onPressed: () {
                       final reviews = activity['reviews'] as List<dynamic>?;
-                      final review = (reviews != null && reviews.isNotEmpty) ? reviews.last as Map<String, dynamic> : null;
+                      final review = (reviews != null && reviews.isNotEmpty)
+                          ? reviews.last as Map<String, dynamic>
+                          : null;
                       if (review != null) {
-                        _showFeedbackModal(context, review);
+                        _showFeedbackModal(context, review, isDark);
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('No feedback available yet.')),
+                          SnackBar(
+                            content: Text(
+                              'No feedback available yet.',
+                              style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                            ),
+                            backgroundColor: isDark ? const Color(0xFF333333) : Colors.white,
+                          ),
                         );
                       }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryGreen,
-                      foregroundColor: Colors.white,
+                      foregroundColor: isDark ? const Color(0xFF121212) : Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(28),
@@ -307,19 +367,23 @@ class ActivityDetailScreen extends ConsumerWidget {
   }
 
   // Helper for Top Buttons (Back, Menu)
-  Widget _buildTopIconBtn({required IconData icon, required VoidCallback onTap}) {
+  Widget _buildTopIconBtn({
+    required IconData icon,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFFC3DFCC).withOpacity(0.9), // Light green
+          color: (isDark ? const Color(0xFF14532D) : const Color(0xFFC3DFCC)).withValues(alpha: 0.9),
           shape: BoxShape.circle,
         ),
         child: Icon(
-          icon,
-          color: Colors.black,
-          size: 20,
+          icon, 
+          color: isDark ? const Color(0xFF4ADE80) : Colors.black, 
+          size: 20
         ),
       ),
     );
@@ -330,12 +394,15 @@ class ActivityDetailScreen extends ConsumerWidget {
     required IconData icon,
     required String title,
     required String subtitle,
+    required bool isDark,
     bool isMultiLineSubtitle = false,
   }) {
     return Row(
-      crossAxisAlignment: isMultiLineSubtitle ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: isMultiLineSubtitle
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: [
-        Icon(icon, color: Colors.black, size: 28),
+        Icon(icon, color: isDark ? const Color(0xFF4ADE80) : Colors.black, size: 28),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -343,21 +410,21 @@ class ActivityDetailScreen extends ConsumerWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  fontFamily: 'Roboto',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF374151),
+                  color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF374151),
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  fontFamily: 'Roboto',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                   height: 1.3,
                 ),
               ),
@@ -369,44 +436,55 @@ class ActivityDetailScreen extends ConsumerWidget {
   }
 
   // Special Supervisor Item with Feedback Link
-  Widget _buildSupervisorItem(BuildContext context, Map<String, dynamic> activity) {
+  Widget _buildSupervisorItem(
+    BuildContext context,
+    Map<String, dynamic> activity,
+    bool isDark,
+  ) {
     final review = activity['review'] as Map<String, dynamic>?;
     final status = review != null ? review['status'] : activity['status'];
     final reviewerName = review?['reviewerName'] ?? 'Pending Reviewer';
     final hasReview = review != null;
+    
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(PhosphorIconsRegular.userCircle, color: Colors.black, size: 28),
+        Icon(
+          PhosphorIconsRegular.userCircle,
+          color: isDark ? const Color(0xFF4ADE80) : Colors.black,
+          size: 28,
+        ),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Supervisor',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF374151),
+                  color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF374151),
                 ),
               ),
               const SizedBox(height: 4),
               RichText(
                 text: TextSpan(
-                  style: const TextStyle(
-                    fontFamily: 'Roboto',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: isDark ? Colors.white : Colors.black,
                     height: 1.3,
                   ),
                   children: [
                     TextSpan(text: '$reviewerName, Status: '),
                     TextSpan(
                       text: status ?? 'Pending',
-                      style: const TextStyle(color: Color(0xFF1BA654)),
+                      style: TextStyle(
+                        color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654)
+                      ),
                     ),
                   ],
                 ),
@@ -414,20 +492,24 @@ class ActivityDetailScreen extends ConsumerWidget {
               const SizedBox(height: 6),
               if (hasReview)
                 GestureDetector(
-                  onTap: () => _showFeedbackModal(context, review),
+                  onTap: () => _showFeedbackModal(context, review, isDark),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children: [
                       Text(
                         'View Full Feedback ',
                         style: TextStyle(
-                          fontFamily: 'Roboto',
+                          fontFamily: 'Poppins',
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF1BA654),
+                          color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                         ),
                       ),
-                      Icon(PhosphorIconsRegular.arrowRight, color: Color(0xFF1BA654), size: 16),
+                      Icon(
+                        PhosphorIconsRegular.arrowRight,
+                        color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
+                        size: 16,
+                      ),
                     ],
                   ),
                 ),
@@ -439,12 +521,14 @@ class ActivityDetailScreen extends ConsumerWidget {
   }
 
   // Bottom Sheet Modal for Feedback
-  void _showFeedbackModal(BuildContext context, Map<String, dynamic> review) {
+  void _showFeedbackModal(BuildContext context, Map<String, dynamic> review, bool isDark) {
     final reviewer = review['reviewer'] as Map<String, dynamic>?;
     final reviewerName = reviewer?['name'] ?? 'Unknown Supervisor';
-    final initial = reviewerName.isNotEmpty ? reviewerName.substring(0, 1).toUpperCase() : '?';
+    final initial = reviewerName.isNotEmpty
+        ? reviewerName.substring(0, 1).toUpperCase()
+        : '?';
     final comments = review['comments'] ?? 'No additional comments provided.';
-    
+
     // Attempt to format date
     String dateStr = '';
     if (review['createdAt'] != null) {
@@ -453,20 +537,26 @@ class ActivityDetailScreen extends ConsumerWidget {
         dateStr = DateFormat('dd MMM yyyy').format(dt);
       } catch (_) {}
     }
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(32),
               topRight: Radius.circular(32),
             ),
           ),
-          padding: const EdgeInsets.only(left: 24, right: 24, top: 12, bottom: 32),
+          padding: const EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 12,
+            bottom: 32,
+          ),
           child: SafeArea(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -478,7 +568,7 @@ class ActivityDetailScreen extends ConsumerWidget {
                     width: 40,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
+                      color: isDark ? const Color(0xFF4B5563) : Colors.grey.shade300,
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -488,13 +578,13 @@ class ActivityDetailScreen extends ConsumerWidget {
                   children: [
                     CircleAvatar(
                       radius: 20,
-                      backgroundColor: const Color(0xFFC3DFCC),
+                      backgroundColor: isDark ? const Color(0xFF14532D) : const Color(0xFFC3DFCC),
                       child: Text(
                         initial,
                         style: TextStyle(
-                          fontFamily: 'Roboto',
+                          fontFamily: 'Poppins',
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1BA654),
+                          color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                         ),
                       ),
                     ),
@@ -505,20 +595,20 @@ class ActivityDetailScreen extends ConsumerWidget {
                         children: [
                           Text(
                             reviewerName,
-                            style: const TextStyle(
-                              fontFamily: 'Roboto',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: Colors.black,
+                              color: isDark ? Colors.white : Colors.black,
                             ),
                           ),
                           if (dateStr.isNotEmpty)
                             Text(
                               dateStr,
-                              style: const TextStyle(
-                                fontFamily: 'Roboto',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
                                 fontSize: 12,
-                                color: Color(0xFF6B7280),
+                                color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF6B7280),
                               ),
                             ),
                         ],
@@ -530,9 +620,9 @@ class ActivityDetailScreen extends ConsumerWidget {
                 Text(
                   comments,
                   style: TextStyle(
-                    fontFamily: 'Roboto',
+                    fontFamily: 'Poppins',
                     fontSize: 15,
-                    color: Color(0xFF374151),
+                    color: isDark ? Colors.white70 : const Color(0xFF374151),
                     height: 1.5,
                   ),
                 ),
@@ -543,17 +633,18 @@ class ActivityDetailScreen extends ConsumerWidget {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF3F4F6),
-                      foregroundColor: Colors.black,
+                      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF3F4F6),
+                      foregroundColor: isDark ? Colors.white : Colors.black,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(28),
+                        side: isDark ? const BorderSide(color: Color(0xFF333333)) : BorderSide.none,
                       ),
                     ),
                     child: const Text(
                       'Close',
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
@@ -568,4 +659,3 @@ class ActivityDetailScreen extends ConsumerWidget {
     );
   }
 }
-

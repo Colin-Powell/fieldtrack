@@ -88,7 +88,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               const Text(
                 'Reset Password',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   color: Colors.black,
@@ -98,7 +98,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               const Text(
                 'Create a new password for your account.',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF737373),
@@ -140,7 +140,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         child: const Text(
                           'Reset Password',
                           style: TextStyle(
-                            fontFamily: 'Roboto',
+                            fontFamily: 'Poppins',
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),
@@ -168,7 +168,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 15,
             fontWeight: FontWeight.w700,
             color: Colors.black,

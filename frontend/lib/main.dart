@@ -13,6 +13,8 @@ import 'package:fieldtrack/core/services/analytics_service.dart';
 import 'package:fieldtrack/core/widgets/offline_banner.dart';
 import 'package:fieldtrack/core/providers/location_provider.dart';
 import 'package:fieldtrack/firebase_options.dart';
+import 'package:fieldtrack/core/theme/theme_provider.dart';
+import 'package:fieldtrack/core/network/offline_queue_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,17 +64,50 @@ Future<void> main() async {
   runApp(const ProviderScope(child: FieldTrackApp()));
 }
 
-class FieldTrackApp extends ConsumerWidget {
+class FieldTrackApp extends ConsumerStatefulWidget {
   const FieldTrackApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FieldTrackApp> createState() => _FieldTrackAppState();
+}
+
+class _FieldTrackAppState extends ConsumerState<FieldTrackApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Initial sync of pending offline actions on app startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      OfflineQueueService().syncQueue(ApiClient().dio);
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Sync pending offline operations whenever app comes to foreground
+      OfflineQueueService().syncQueue(ApiClient().dio);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.read(locationProvider);
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       title: 'FieldTrack',
       theme: AppTheme.lightTheme(),
+      darkTheme: AppTheme.darkTheme(),
+      themeMode: themeMode,
       routerConfig: router,
       builder: (context, child) {
         return Column(

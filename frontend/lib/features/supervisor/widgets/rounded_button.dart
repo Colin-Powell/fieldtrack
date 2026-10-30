@@ -20,16 +20,16 @@ class RoundedButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isSecondary 
-        ? Colors.transparent 
+    final bgColor = isSecondary
+        ? Colors.transparent
         : (color ?? const Color(0xFF1BA654));
-        
-    final fgColor = isSecondary 
-        ? (textColor ?? const Color(0xFF1BA654)) 
+
+    final fgColor = isSecondary
+        ? (textColor ?? const Color(0xFF1BA654))
         : (textColor ?? Colors.white);
-        
-    final borderSide = isSecondary 
-        ? BorderSide(color: color ?? const Color(0xFF1BA654)) 
+
+    final borderSide = isSecondary
+        ? BorderSide(color: color ?? const Color(0xFF1BA654))
         : BorderSide.none;
 
     final shape = RoundedRectangleBorder(
@@ -51,7 +51,7 @@ class RoundedButton extends StatelessWidget {
         label: Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 15,
             fontWeight: FontWeight.w700,
           ),
@@ -71,7 +71,7 @@ class RoundedButton extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(
-          fontFamily: 'Roboto',
+          fontFamily: 'Poppins',
           fontSize: 15,
           fontWeight: FontWeight.w700,
         ),

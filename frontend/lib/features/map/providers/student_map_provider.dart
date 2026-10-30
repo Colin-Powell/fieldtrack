@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:fieldtrack/core/providers/location_provider.dart';
@@ -60,7 +59,7 @@ class StudentMapNotifier extends StateNotifier<StudentMapState> {
 
     // 2. Listen to activities to pull activity locations and map the route
     _ref.listen(studentActivitiesProvider(const (page: 1, limit: 50, status: null, search: null)), (previous, next) {
-      next?.whenData((activitiesResult) {
+      next.whenData((activitiesResult) {
         if (activitiesResult is Success) {
           final activities = (activitiesResult as Success).data as List<dynamic>;
           final List<ActivityMarkerData> activityMarkers = [];

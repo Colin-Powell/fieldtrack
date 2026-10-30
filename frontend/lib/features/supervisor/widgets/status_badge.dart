@@ -1,22 +1,12 @@
 import 'package:flutter/material.dart';
 
-enum BadgeStatus {
-  completed,
-  inProgress,
-  pending,
-  rejected,
-  offline
-}
+enum BadgeStatus { completed, inProgress, pending, rejected, offline }
 
 class StatusBadge extends StatelessWidget {
   final BadgeStatus status;
   final String label;
 
-  const StatusBadge({
-    super.key,
-    required this.status,
-    required this.label,
-  });
+  const StatusBadge({super.key, required this.status, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +45,7 @@ class StatusBadge extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Roboto',
+          fontFamily: 'Poppins',
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: textColor,

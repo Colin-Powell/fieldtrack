@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/providers/auth_provider.dart';
 
 // ── Trend Data Point ──
 class TrendDataPoint {
@@ -196,6 +197,16 @@ class AdminDashboardStats {
 
 final adminDashboardProvider =
     FutureProvider.family<AdminDashboardStats, String>((ref, timeFilter) async {
+      // Watch auth state — this makes the provider automatically re-run
+      // when auth changes (e.g. after checkAuthStatus() completes).
+      final authState = ref.watch(authProvider);
+
+      // Don't fire the API call until auth is confirmed.
+      // isLoading == true → still checking session; isAuthenticated == false → not logged in.
+      if (authState.isLoading || !authState.isAuthenticated) {
+        throw Exception('Not authenticated');
+      }
+
       final api = ApiClient();
       final response = await api.dio.get(
         '/dashboard/admin',

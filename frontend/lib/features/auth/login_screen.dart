@@ -18,7 +18,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _regController = TextEditingController();
   final _pwController = TextEditingController();
 
-  bool _loading = false;
   bool _obscurePassword = true;
   bool _rememberMe = false;
 
@@ -75,14 +74,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         await prefs.remove('saved_student_identifier');
       }
 
+      if (!mounted) return;
       final user = ref.read(authProvider).user;
       if (user?.mustChangePassword == true) {
+        // ignore: use_build_context_synchronously
         context.go('/force-password-change');
       } else if (user?.role == 'STUDENT') {
+        // ignore: use_build_context_synchronously
         context.go('/portal');
       } else if (user?.role == 'ADMIN') {
+        // ignore: use_build_context_synchronously
         context.go('/admin');
       } else if (user?.role == 'SUPERVISOR') {
+        // ignore: use_build_context_synchronously
         context.go('/supervisor');
       } else {
         ToastService.showError('Unknown role. Access denied.');
@@ -158,11 +162,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const greenColor = Color(0xFF1BA654); // Matched green color
+    const greenColor = Color(0xFF1BA654);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final borderColor = isDark
+        ? const Color(0xFF334155)
+        : const Color(0xFFD1D5DB);
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Stack(
         children: [
           // --- Bottom Background Wave (pinned) ---
@@ -172,7 +182,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: SizedBox(
                 height: 150,
                 width: double.infinity,
-                child: CustomPaint(painter: _BottomWavePainter()),
+                child: CustomPaint(painter: _BottomWavePainter(isDark: isDark)),
               ),
             ),
           ),
@@ -193,7 +203,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     icon: Icon(
                       PhosphorIconsRegular.arrowLeft,
                       size: 28,
-                      color: Colors.black,
+                      color: textColor,
                     ),
                     padding: EdgeInsets.zero,
                     alignment: Alignment.centerLeft,
@@ -209,14 +219,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 24),
 
                   // --- Header ---
-                  const Center(
+                  Center(
                     child: Text(
                       'Welcome Back',
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 32,
                         fontWeight: FontWeight.w700,
-                        color: Colors.black,
+                        color: textColor,
                       ),
                     ),
                   ),
@@ -225,7 +235,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Text(
                       'Login to continue',
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
                         color: Color(0xFF6B7280),
@@ -235,36 +245,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 48),
 
                   // --- Identifier Field ---
-                  const Text(
+                  Text(
                     'Email or Registration Number',
                     style: TextStyle(
-                      fontFamily: 'Roboto',
+                      fontFamily: 'Poppins',
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: Colors.black,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _regController,
+                    style: TextStyle(color: textColor),
                     decoration: InputDecoration(
                       hintText: 'Enter your email or reg number',
                       hintStyle: const TextStyle(
                         color: Color(0xFF9CA3AF),
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 15,
                       ),
+                      filled: true,
+                      fillColor: isDark
+                          ? const Color(0xFF1E293B)
+                          : Colors.transparent,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 18,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                        borderSide: BorderSide(color: borderColor),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                        borderSide: BorderSide(color: borderColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
@@ -278,37 +293,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 24),
 
                   // --- Password Field ---
-                  const Text(
+                  Text(
                     'Password',
                     style: TextStyle(
-                      fontFamily: 'Roboto',
+                      fontFamily: 'Poppins',
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: Colors.black,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _pwController,
                     obscureText: _obscurePassword,
+                    style: TextStyle(color: textColor),
                     decoration: InputDecoration(
                       hintText: 'Enter your password',
                       hintStyle: const TextStyle(
                         color: Color(0xFF9CA3AF),
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 15,
                       ),
+                      filled: true,
+                      fillColor: isDark
+                          ? const Color(0xFF1E293B)
+                          : Colors.transparent,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 18,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                        borderSide: BorderSide(color: borderColor),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                        borderSide: BorderSide(color: borderColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
@@ -359,12 +379,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Remember me',
                         style: TextStyle(
-                          fontFamily: 'Roboto',
+                          fontFamily: 'Poppins',
                           fontSize: 14,
-                          color: Color(0xFF6B7280),
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF6B7280),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -379,7 +401,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         child: const Text(
                           'Forgot Password?',
                           style: TextStyle(
-                            fontFamily: 'Roboto',
+                            fontFamily: 'Poppins',
                             fontSize: 14,
                             color: greenColor,
                             fontWeight: FontWeight.w600,
@@ -410,7 +432,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: const Text(
                               'Login',
                               style: TextStyle(
-                                fontFamily: 'Roboto',
+                                fontFamily: 'Poppins',
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
@@ -430,11 +452,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
 // Custom Painter to draw the smooth green wave at the bottom perfectly
 class _BottomWavePainter extends CustomPainter {
+  final bool isDark;
+  const _BottomWavePainter({this.isDark = false});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color =
-          const Color(0xFFC3DFCC) // Matches the light green wave color
+      ..color = isDark
+          ? const Color(0xFF14532D) // Dark mode: deeper green
+          : const Color(0xFFC3DFCC) // Light mode: light green wave
       ..style = PaintingStyle.fill;
 
     final path = Path();

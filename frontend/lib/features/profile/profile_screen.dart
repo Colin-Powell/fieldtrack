@@ -11,9 +11,8 @@ import 'package:fieldtrack/core/widgets/app_avatar.dart';
 // --- Theme Colors ---
 const Color _lightGreen = Color(0xFFCDE8D5); // Background for badges/buttons
 const Color _primaryGreen = Color(0xFF1B934F); // Text for primary highlights
-const Color _textDark = Color(0xFF333333); // Dark text for labels
 const Color _textLight = Color(0xFF88929A); // Grey text for values
-const String _fontFamily = 'Roboto'; // Specified font family
+const String _fontFamily = 'Poppins'; // Specified font family
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -22,6 +21,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final user = authState.user;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final name = user?.name ?? 'Collins Kodero';
     final regNo = user?.registrationNo ?? 'MB21/PU/1234/22';
@@ -32,8 +32,14 @@ class ProfileScreen extends ConsumerWidget {
     final topic = user?.topic ?? 'Mangrove Ecosystems & Carbon Sequestration';
     final phone = user?.phone ?? '+254 712 345 678';
 
+    // Dynamic Colors
+    final bgColor = isDark ? const Color(0xFF121212) : Theme.of(context).scaffoldBackgroundColor;
+    final badgeBgColor = isDark ? const Color(0xFF14532D) : _lightGreen;
+    final badgeTextColor = isDark ? const Color(0xFF4ADE80) : Colors.black;
+    final primaryTextColor = isDark ? const Color(0xFF4ADE80) : _primaryGreen;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -51,16 +57,16 @@ class ProfileScreen extends ConsumerWidget {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: _lightGreen,
+                      color: badgeBgColor,
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Profile',
                       style: TextStyle(
                         fontFamily: _fontFamily,
-                        fontSize: 18, // Increased size
+                        fontSize: 18, 
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: badgeTextColor,
                       ),
                     ),
                   ),
@@ -68,14 +74,14 @@ class ProfileScreen extends ConsumerWidget {
                     alignment: Alignment.centerRight,
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: _lightGreen,
+                      decoration: BoxDecoration(
+                        color: badgeBgColor,
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
                         icon: PhosphorIcon(
-                          PhosphorIcons.gear(), // Added parentheses
-                          color: Colors.black,
+                          PhosphorIcons.gear(),
+                          color: badgeTextColor,
                           size: 26,
                         ),
                         onPressed: () {
@@ -123,13 +129,16 @@ class ProfileScreen extends ConsumerWidget {
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: _lightGreen,
+                          color: badgeBgColor,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
+                          border: Border.all(
+                            color: bgColor, // matches scaffold background perfectly
+                            width: 3,
+                          ),
                         ),
                         child: PhosphorIcon(
                           PhosphorIcons.pencilSimple(),
-                          color: _primaryGreen,
+                          color: primaryTextColor,
                           size: 18,
                         ),
                       ),
@@ -140,10 +149,10 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 6),
               Text(
                 programme,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: _fontFamily,
-                  fontSize: 16, // Increased size
-                  color: _primaryGreen,
+                  fontSize: 16,
+                  color: primaryTextColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -156,15 +165,15 @@ class ProfileScreen extends ConsumerWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: _lightGreen,
+                  color: badgeBgColor,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   'REG: $regNo',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: _fontFamily,
-                    fontSize: 14, // Increased size
-                    color: _primaryGreen,
+                    fontSize: 14,
+                    color: primaryTextColor,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -172,18 +181,19 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 36),
 
               // --- Details List ---
-              _ProfileDetailRow(label: 'Full Name', value: name),
-              _ProfileDetailRow(label: 'Registration Number', value: regNo),
-              _ProfileDetailRow(label: 'Phone Number', value: phone),
-              _ProfileDetailRow(label: 'Programme', value: programme),
-              _ProfileDetailRow(label: 'Department', value: department),
-              _ProfileDetailRow(label: 'Faculty', value: faculty),
-              const _ProfileDetailRow(
+              _ProfileDetailRow(label: 'Full Name', value: name, isDark: isDark),
+              _ProfileDetailRow(label: 'Registration Number', value: regNo, isDark: isDark),
+              _ProfileDetailRow(label: 'Phone Number', value: phone, isDark: isDark),
+              _ProfileDetailRow(label: 'Programme', value: programme, isDark: isDark),
+              _ProfileDetailRow(label: 'Department', value: department, isDark: isDark),
+              _ProfileDetailRow(label: 'Faculty', value: faculty, isDark: isDark),
+              _ProfileDetailRow(
                 label: 'University',
                 value: 'Pwani University',
+                isDark: isDark,
               ),
-              _ProfileDetailRow(label: 'Research Topic', value: topic),
-              _ProfileDetailRow(label: 'Supervisor', value: supervisor),
+              _ProfileDetailRow(label: 'Research Topic', value: topic, isDark: isDark),
+              _ProfileDetailRow(label: 'Supervisor', value: supervisor, isDark: isDark),
             ],
           ),
         ),
@@ -194,10 +204,15 @@ class ProfileScreen extends ConsumerWidget {
 
 // --- Helper Widget for the Details Layout ---
 class _ProfileDetailRow extends StatelessWidget {
-  const _ProfileDetailRow({required this.label, required this.value});
+  const _ProfileDetailRow({
+    required this.label,
+    required this.value,
+    required this.isDark,
+  });
 
   final String label;
   final String value;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -210,11 +225,11 @@ class _ProfileDetailRow extends StatelessWidget {
             flex: 2,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: _fontFamily,
                 fontWeight: FontWeight.w700,
-                fontSize: 15, // Increased size
-                color: _textDark,
+                fontSize: 15,
+                color: isDark ? Colors.white : Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ),
@@ -223,11 +238,11 @@ class _ProfileDetailRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: _fontFamily,
-                fontSize: 15, // Increased size
+                fontSize: 15,
                 fontWeight: FontWeight.w500,
-                color: _textLight,
+                color: isDark ? const Color(0xFFA1A1AA) : _textLight,
                 height: 1.4,
               ),
             ),
@@ -301,10 +316,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     // Update email + phone via API
     if (success) {
-      success = await ref.read(authProvider.notifier).updateProfile(
-        email: _emailController.text.trim(),
-        phone: _phoneController.text.trim(),
-      );
+      success = await ref
+          .read(authProvider.notifier)
+          .updateProfile(
+            email: _emailController.text.trim(),
+            phone: _phoneController.text.trim(),
+          );
     }
 
     if (!mounted) return;
@@ -333,18 +350,25 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bgColor = isDark ? const Color(0xFF121212) : Colors.white;
+    final surfaceColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final borderColor = isDark ? const Color(0xFF333333) : Colors.grey.shade300;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final hintColor = isDark ? const Color(0xFFA1A1AA) : _textLight;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: bgColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-        title: const Text(
+        iconTheme: IconThemeData(color: textColor),
+        title: Text(
           'Edit Profile',
           style: TextStyle(
             fontFamily: _fontFamily,
-            color: Colors.black,
+            color: textColor,
             fontWeight: FontWeight.bold,
             fontSize: 22,
           ),
@@ -368,7 +392,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         height: 96,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFF169B45).withValues(alpha: 0.1),
+                          color: isDark 
+                              ? const Color(0xFF14532D) 
+                              : const Color(0xFF169B45).withValues(alpha: 0.1),
                           image: _imageFile != null
                               ? DecorationImage(
                                   image: FileImage(_imageFile!),
@@ -388,9 +414,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             _imageFile == null &&
                                 (user?.avatarUrl == null ||
                                     user!.avatarUrl!.isEmpty)
-                            ? const Icon(
+                            ? Icon(
                                 PhosphorIconsFill.userCircle,
-                                color: Color(0xFF169B45),
+                                color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF169B45),
                                 size: 64,
                               )
                             : null,
@@ -403,7 +429,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           decoration: BoxDecoration(
                             color: _primaryGreen,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
+                            border: Border.all(color: bgColor, width: 3),
                           ),
                           child: PhosphorIcon(
                             PhosphorIcons.camera(),
@@ -417,12 +443,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Center(
+              Center(
                 child: Text(
                   'Tap to change photo',
                   style: TextStyle(
                     fontFamily: _fontFamily,
-                    color: _textLight,
+                    color: hintColor,
                     fontSize: 15,
                   ),
                 ),
@@ -432,7 +458,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               // Email Field
               TextFormField(
                 controller: _emailController,
-                style: const TextStyle(fontFamily: _fontFamily, fontSize: 16),
+                style: TextStyle(fontFamily: _fontFamily, fontSize: 16, color: textColor),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -446,13 +472,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 decoration: InputDecoration(
                   labelText: 'Email Address',
                   hintText: 'Enter your email',
-                  labelStyle: const TextStyle(fontFamily: _fontFamily),
+                  labelStyle: TextStyle(fontFamily: _fontFamily, color: hintColor),
+                  hintStyle: TextStyle(fontFamily: _fontFamily, color: hintColor),
+                  filled: true,
+                  fillColor: surfaceColor,
                   prefixIcon: PhosphorIcon(
                     PhosphorIcons.envelope(),
-                    color: _textLight,
+                    color: hintColor,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -473,7 +507,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               // Phone Field
               TextFormField(
                 controller: _phoneController,
-                style: const TextStyle(fontFamily: _fontFamily, fontSize: 16),
+                style: TextStyle(fontFamily: _fontFamily, fontSize: 16, color: textColor),
                 keyboardType: TextInputType.phone,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -484,13 +518,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 decoration: InputDecoration(
                   labelText: 'Phone Number',
                   hintText: 'Enter your phone number',
-                  labelStyle: const TextStyle(fontFamily: _fontFamily),
+                  labelStyle: TextStyle(fontFamily: _fontFamily, color: hintColor),
+                  hintStyle: TextStyle(fontFamily: _fontFamily, color: hintColor),
+                  filled: true,
+                  fillColor: surfaceColor,
                   prefixIcon: PhosphorIcon(
                     PhosphorIcons.phone(),
-                    color: _textLight,
+                    color: hintColor,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -517,7 +559,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryGreen,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: _primaryGreen.withValues(alpha: 0.6),
+                    disabledBackgroundColor: _primaryGreen.withValues(
+                      alpha: 0.6,
+                    ),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -549,4 +593,3 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     );
   }
 }
-

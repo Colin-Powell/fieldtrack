@@ -57,28 +57,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   Widget build(BuildContext context) {
     final locState = ref.watch(locationProvider);
     final checkInState = ref.watch(checkInProvider);
-    const greenColor = Color(0xFF1BA654);
-
-    // Status styling based on checkin state
-    final Color statusBgColor = checkInState.isCheckedIn
-        ? const Color(0xFFC3DFCC)
-        : const Color(0xFFFFEBEE);
-    final Color statusIconBgColor = checkInState.isCheckedIn
-        ? greenColor
-        : const Color(0xFFE53935);
-    final Color statusTextColor = checkInState.isCheckedIn
-        ? greenColor
-        : const Color(0xFFE53935);
-    final String statusTitle = checkInState.isCheckedIn
-        ? 'Checked In'
-        : 'Not Checked In';
-    final String checkInLocation = locState.isLocating ? 'Locating...' : locState.locationName;
-    final String statusTime = checkInState.isCheckedIn
-        ? '${DateFormat('hh:mm a').format(checkInState.checkInTime!)} | $checkInLocation'
-        : 'Tap to check in';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Override to a true charcoal black for dark mode
+      backgroundColor: isDark
+          ? const Color(0xFF121212)
+          : Theme.of(context).scaffoldBackgroundColor,
 
       body: SingleChildScrollView(
         // Extra bottom padding ensures the last items aren't hidden behind the floating nav bar
@@ -90,12 +75,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               context,
               locState,
               checkInState,
-              statusBgColor,
-              statusIconBgColor,
-              statusTextColor,
-              statusTitle,
-              statusTime,
               ref,
+              isDark,
             ),
             StreamBuilder<ConnectionStatus>(
               stream: ConnectivityService().onStatusChange,
@@ -104,21 +85,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 if (snapshot.data == ConnectionStatus.offline) {
                   return Container(
                     width: double.infinity,
-                    color: const Color(0xFFFEF2F2), // Light red
+                    color: isDark
+                        ? const Color(0xFF450A0A)
+                        : const Color(0xFFFEF2F2),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(
                           PhosphorIconsRegular.wifiSlash,
-                          color: Color(0xFFEF4444),
+                          color: isDark
+                              ? const Color(0xFFFCA5A5)
+                              : const Color(0xFFEF4444),
                           size: 16,
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
                           'You are operating offline',
                           style: TextStyle(
-                            color: Color(0xFFB91C1C),
+                            color: isDark
+                                ? const Color(0xFFFCA5A5)
+                                : const Color(0xFFB91C1C),
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -131,14 +118,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               },
             ),
             const SizedBox(height: 24),
-            _buildSectionTitle('Today\'s Summary'),
-            _buildSummaryGrid(ref),
+            _buildSectionTitle('Today\'s Summary', isDark),
+            _buildSummaryGrid(ref, isDark),
             const SizedBox(height: 24),
-            _buildSectionTitle('Quick Actions'),
-            _buildQuickActions(context, ref),
+            _buildSectionTitle('Quick Actions', isDark),
+            _buildQuickActions(context, ref, isDark),
             const SizedBox(height: 24),
-            _buildSectionTitle('Recent Activities'),
-            _buildRecentActivities(context, ref),
+            _buildSectionTitle('Recent Activities', isDark),
+            _buildRecentActivities(context, ref, isDark),
             const SizedBox(height: 100), // padding for bottom nav
           ],
         ),
@@ -146,21 +133,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  // --- 1. GREEN HEADER COMPONENT ---
+  // --- 1. HEADER COMPONENT ---
   Widget _buildHeader(
     BuildContext context,
     LocationState locState,
     CheckInState checkInState,
-    Color statusBgColor,
-    Color statusIconBgColor,
-    Color statusTextColor,
-    String statusTitle,
-    String statusTime,
     WidgetRef ref,
+    bool isDark,
   ) {
-    const greenColor = Color(0xFF1BA654);
     final authState = ref.watch(authProvider);
     final user = authState.user;
+
+    // Header Background
+    final Color headerBgColor =
+        isDark ? const Color(0xFF1E1E1E) : const Color(0xFF1BA654);
+
+    // Status Pill Dynamic Styling
+    final Color statusBgColor = checkInState.isCheckedIn
+        ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFC3DFCC))
+        : (isDark ? const Color(0xFF450A0A) : const Color(0xFFFFEBEE));
+
+    final Color statusIconBgColor = checkInState.isCheckedIn
+        ? (isDark ? const Color(0xFF34D399) : const Color(0xFF1BA654))
+        : (isDark ? const Color(0xFFF87171) : const Color(0xFFE53935));
+
+    final Color statusTextColor = checkInState.isCheckedIn
+        ? (isDark ? const Color(0xFF34D399) : const Color(0xFF1BA654))
+        : (isDark ? const Color(0xFFF87171) : const Color(0xFFE53935));
+
+    final String statusTitle =
+        checkInState.isCheckedIn ? 'Checked In' : 'Not Checked In';
+    final String checkInLocation =
+        locState.isLocating ? 'Locating...' : locState.locationName;
+    final String statusTime = checkInState.isCheckedIn
+        ? '${DateFormat('hh:mm a').format(checkInState.checkInTime!)} | $checkInLocation'
+        : 'Tap to check in';
 
     // Display student name or fallback
     final rawName = user?.name;
@@ -168,7 +175,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ? rawName.trim()
         : 'Student';
 
-    // Fetch real student profile details from authentication payload
     final prog = user?.programme ?? 'Environmental Sciences';
     final dept = user?.department ?? 'Pwani University';
     final details = '$prog\n$dept';
@@ -181,9 +187,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         right: 24,
         bottom: 24,
       ),
-      decoration: const BoxDecoration(
-        color: greenColor,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: headerBgColor,
+        borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(40),
           bottomRight: Radius.circular(40),
         ),
@@ -202,7 +208,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   Text(
                     getGreeting(),
                     style: const TextStyle(
-                      fontFamily: 'Roboto',
+                      fontFamily: 'Poppins',
                       fontSize: 16,
                       color: Colors.white,
                       fontWeight: FontWeight.w500,
@@ -214,7 +220,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       Text(
                         name,
                         style: const TextStyle(
-                          fontFamily: 'Roboto',
+                          fontFamily: 'Poppins',
                           fontSize: 24,
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -228,7 +234,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   Text(
                     details,
                     style: const TextStyle(
-                      fontFamily: 'Roboto',
+                      fontFamily: 'Poppins',
                       fontSize: 14,
                       color: Colors.white,
                       fontWeight: FontWeight.w400,
@@ -257,10 +263,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       shape: AvatarShape.circle,
                       initials: displayName != null && displayName.isNotEmpty
                           ? displayName
-                                .split(' ')
-                                .map((s) => s.isNotEmpty ? s[0] : '')
-                                .take(2)
-                                .join()
+                              .split(' ')
+                              .map((s) => s.isNotEmpty ? s[0] : '')
+                              .take(2)
+                              .join()
                           : null,
                     ),
                   ),
@@ -328,9 +334,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       color: statusIconBgColor,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       PhosphorIconsFill.article,
-                      color: Colors.white,
+                      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                       size: 20,
                     ),
                   ),
@@ -343,7 +349,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         Text(
                           'Today\'s Status',
                           style: TextStyle(
-                            fontFamily: 'Roboto',
+                            fontFamily: 'Poppins',
                             fontSize: 12,
                             color: statusTextColor,
                             fontWeight: FontWeight.w600,
@@ -352,20 +358,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         const SizedBox(height: 2),
                         Text(
                           statusTitle,
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
                             fontSize: 16,
-                            color: Colors.black,
+                            color: isDark ? Colors.white : Colors.black,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           statusTime,
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
                             fontSize: 12,
-                            color: Color(0xFF737373),
+                            color: isDark
+                                ? const Color(0xFFA1A1AA)
+                                : const Color(0xFF737373),
                             fontWeight: FontWeight.w400,
                           ),
                         ),
@@ -394,7 +402,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         Text(
           label,
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 12,
             color: Colors.white.withOpacity(0.8),
             fontWeight: FontWeight.w400,
@@ -406,7 +414,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 16,
             color: Colors.white,
             fontWeight: FontWeight.w700,
@@ -417,21 +425,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   // --- 2. SUMMARY GRID ---
-  Widget _buildSummaryGrid(WidgetRef ref) {
+  Widget _buildSummaryGrid(WidgetRef ref, bool isDark) {
     final checkInState = ref.watch(checkInProvider);
     final statsAsync = ref.watch(studentDashboardProvider);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Container(
-        clipBehavior: Clip
-            .antiAlias, // Ensures internal dividers don't bleed out of larger corner radii
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F9F5), // Very light pale green
-          borderRadius: BorderRadius.circular(
-            40,
-          ), // Increased for larger pill shape
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF3F9F5),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB),
+          ),
         ),
         child: statsAsync.when(
           skipError: true,
@@ -444,23 +451,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       'Total Activities',
                       '${stats.totalActivities}',
                       PhosphorIconsFill.article,
+                      isDark,
                     ),
                   ),
                   Container(
                     width: 1,
                     height: 60,
-                    color: const Color(0xFFE5E7EB),
+                    color: isDark
+                        ? const Color(0xFF333333)
+                        : const Color(0xFFE5E7EB),
                   ),
                   Expanded(
                     child: _buildSummaryCell(
                       'Evidence Files',
                       '${stats.evidenceFiles}',
                       PhosphorIconsFill.folder,
+                      isDark,
                     ),
                   ),
                 ],
               ),
-              Container(height: 1, color: const Color(0xFFE5E7EB)),
+              Container(
+                height: 1,
+                color:
+                    isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB),
+              ),
               Row(
                 children: [
                   Expanded(
@@ -468,37 +483,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       'Sync Status',
                       stats.syncStatus,
                       PhosphorIconsFill.cloudCheck,
+                      isDark,
                     ),
                   ),
                   Container(
                     width: 1,
                     height: 60,
-                    color: const Color(0xFFE5E7EB),
+                    color: isDark
+                        ? const Color(0xFF333333)
+                        : const Color(0xFFE5E7EB),
                   ),
                   Expanded(
                     child: _buildSummaryCell(
                       'Check Out',
                       checkInState.isCheckedIn ? 'Tap to check out' : 'N/A',
                       PhosphorIconsBold.arrowsClockwise,
+                      isDark,
                     ),
                   ),
                 ],
               ),
             ],
           ),
-          loading: () => const Padding(
-            padding: EdgeInsets.all(32.0),
+          loading: () => Padding(
+            padding: const EdgeInsets.all(32.0),
             child: Center(
-              child: CircularProgressIndicator(color: Color(0xFF169B45)),
+              child: CircularProgressIndicator(
+                  color: isDark ? const Color(0xFF34D399) : const Color(0xFF169B45)),
             ),
           ),
-          error: (error, stack) => const Padding(
-            padding: EdgeInsets.all(32.0),
+          error: (error, stack) => Padding(
+            padding: const EdgeInsets.all(32.0),
             child: Center(
               child: Text(
                 'Stats unavailable offline',
                 style: TextStyle(
-                  color: Color(0xFF6B7280),
+                  color:
+                      isDark ? const Color(0xFFA1A1AA) : const Color(0xFF6B7280),
                   fontFamily: 'Inter',
                   fontSize: 13,
                 ),
@@ -510,7 +531,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  Widget _buildSummaryCell(String label, String value, IconData icon) {
+  Widget _buildSummaryCell(
+      String label, String value, IconData icon, bool isDark) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
@@ -518,11 +540,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: const Color(0xFF1BA654), size: 20),
+            child: Icon(
+              icon,
+              color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -532,20 +558,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    fontFamily: 'Roboto',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
                     fontSize: 12,
-                    color: Color(0xFF737373),
+                    color: isDark
+                        ? const Color(0xFFA1A1AA)
+                        : const Color(0xFF737373),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontFamily: 'Roboto',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
                     fontSize: 14,
-                    color: Colors.black,
+                    color: isDark ? Colors.white : Colors.black,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -558,7 +586,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   // --- 3. QUICK ACTIONS ---
-  Widget _buildQuickActions(BuildContext context, WidgetRef ref) {
+  Widget _buildQuickActions(
+      BuildContext context, WidgetRef ref, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Row(
@@ -568,12 +597,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           _buildQuickActionBtn(
             'Check Out',
             PhosphorIconsRegular.target,
-            const Color(0xFFFEE2E2),
-            const Color(0xFFEF4444),
+            isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2),
+            isDark ? const Color(0xFFFCA5A5) : const Color(0xFFEF4444),
+            isDark,
             onTap: () async {
-              final success = await ref
-                  .read(checkInProvider.notifier)
-                  .checkOut();
+              final success =
+                  await ref.read(checkInProvider.notifier).checkOut();
               if (success) {
                 ToastService.showSuccess('Checked out. Session recorded.');
               }
@@ -582,12 +611,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           _buildQuickActionBtn(
             'New Activity',
             PhosphorIconsFill.article,
-            const Color(0xFFC3DFCC),
-            const Color(0xFF1BA654),
+            isDark ? const Color(0xFF064E3B) : const Color(0xFFC3DFCC),
+            isDark ? const Color(0xFF34D399) : const Color(0xFF1BA654),
+            isDark,
             onTap: () {
               final checkInState = ref.read(checkInProvider);
               if (!checkInState.isCheckedIn) {
-                ToastService.showError('You must check in first before logging an activity.');
+                ToastService.showError(
+                  'You must check in first before logging an activity.',
+                );
                 return;
               }
               context.push('/field-session');
@@ -596,15 +628,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           _buildQuickActionBtn(
             'Feedback',
             PhosphorIconsFill.chatCircleText,
-            const Color(0xFFC3DFCC),
-            const Color(0xFF1BA654),
+            isDark ? const Color(0xFF064E3B) : const Color(0xFFC3DFCC),
+            isDark ? const Color(0xFF34D399) : const Color(0xFF1BA654),
+            isDark,
             onTap: () => ref.read(navigationIndexProvider.notifier).state = 1,
           ),
           _buildQuickActionBtn(
             'View Map',
             PhosphorIconsFill.mapTrifold,
-            const Color(0xFFC3DFCC),
-            const Color(0xFF1BA654),
+            isDark ? const Color(0xFF064E3B) : const Color(0xFFC3DFCC),
+            isDark ? const Color(0xFF34D399) : const Color(0xFF1BA654),
+            isDark,
             onTap: () => ref.read(navigationIndexProvider.notifier).state = 2,
           ),
         ],
@@ -616,7 +650,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     String label,
     IconData icon,
     Color bgColor,
-    Color iconColor, {
+    Color iconColor,
+    bool isDark, {
     VoidCallback? onTap,
   }) {
     return GestureDetector(
@@ -633,11 +668,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Roboto',
+            style: TextStyle(
+              fontFamily: 'Poppins',
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Colors.black,
+              color: isDark ? Colors.white : Colors.black,
             ),
           ),
         ],
@@ -645,14 +680,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  Widget _buildRecentActivities(BuildContext context, WidgetRef ref) {
-    final activitiesAsync = ref.watch(studentActivitiesProvider(const (page: 1, limit: 5, status: null, search: null)));
+  Widget _buildRecentActivities(
+      BuildContext context, WidgetRef ref, bool isDark) {
+    final activitiesAsync = ref.watch(
+      studentActivitiesProvider(const (
+        page: 1,
+        limit: 5,
+        status: null,
+        search: null,
+      )),
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: ApiResultBuilder<List<dynamic>>(
         asyncValue: activitiesAsync,
-        onRetry: () => ref.refresh(studentActivitiesProvider(const (page: 1, limit: 5, status: null, search: null))),
+        onRetry: () => ref.refresh(
+          studentActivitiesProvider(const (
+            page: 1,
+            limit: 5,
+            status: null,
+            search: null,
+          )),
+        ),
         customLoading: const Padding(
           padding: EdgeInsets.symmetric(vertical: 12),
           child: ListSkeletonLoader(itemCount: 3, itemHeight: 90),
@@ -674,18 +724,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 final title = activity['title'] ?? 'Untitled Activity';
                 final status = activity['status'] ?? 'DRAFT';
 
-                // Map status to colors
-                Color statusColor = const Color(0xFF1BA654);
-                Color statusBgColor = const Color(0xFFC3DFCC);
+                // Map status to dynamic colors
+                Color statusColor =
+                    isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
+                Color statusBgColor =
+                    isDark ? const Color(0xFF14532D) : const Color(0xFFC3DFCC);
+
                 if (status == 'DRAFT') {
-                  statusColor = const Color(0xFF3B82F6);
-                  statusBgColor = const Color(0xFFDBEAFE);
+                  statusColor = isDark
+                      ? const Color(0xFF60A5FA)
+                      : const Color(0xFF3B82F6);
+                  statusBgColor = isDark
+                      ? const Color(0xFF1E3A8A)
+                      : const Color(0xFFDBEAFE);
                 } else if (status == 'UNDER_REVIEW') {
-                  statusColor = const Color(0xFFEAB308);
-                  statusBgColor = const Color(0xFFFEF08A);
+                  statusColor = isDark
+                      ? const Color(0xFFFDE047)
+                      : const Color(0xFFEAB308);
+                  statusBgColor = isDark
+                      ? const Color(0xFF713F12)
+                      : const Color(0xFFFEF08A);
                 } else if (status == 'REJECTED') {
-                  statusColor = const Color(0xFFEF4444);
-                  statusBgColor = const Color(0xFFFEE2E2);
+                  statusColor = isDark
+                      ? const Color(0xFFFCA5A5)
+                      : const Color(0xFFEF4444);
+                  statusBgColor = isDark
+                      ? const Color(0xFF450A0A)
+                      : const Color(0xFFFEE2E2);
                 }
 
                 // Extract time
@@ -711,7 +776,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 }
 
                 final locName = activity['locationName'] as String?;
-                final fallbackLoc = "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
+                final fallbackLoc =
+                    "Lat: ${activity['latitude']?.toStringAsFixed(4) ?? '-'}, Lng: ${activity['longitude']?.toStringAsFixed(4) ?? '-'}";
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
@@ -719,12 +785,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     context: context,
                     id: activity['id'],
                     title: title,
-                    location: locName != null && locName.isNotEmpty ? locName : fallbackLoc,
+                    location: locName != null && locName.isNotEmpty
+                        ? locName
+                        : fallbackLoc,
                     time: timeStr,
                     status: status,
                     statusColor: statusColor,
                     statusBgColor: statusBgColor,
                     imageUrl: activityImageUrl,
+                    isDark: isDark,
                   ),
                 );
               }).toList(),
@@ -734,11 +803,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   child: TextButton(
                     onPressed: () =>
                         ref.read(navigationIndexProvider.notifier).state = 1,
-                    child: const Text(
+                    child: Text(
                       'View All Activities',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1BA654),
+                        color: isDark
+                            ? const Color(0xFF4ADE80)
+                            : const Color(0xFF1BA654),
                       ),
                     ),
                   ),
@@ -757,8 +828,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     required String location,
     required String time,
     required String status,
-    Color statusColor = const Color(0xFF1BA654),
-    Color statusBgColor = const Color(0xFFC3DFCC),
+    required Color statusColor,
+    required Color statusBgColor,
+    required bool isDark,
     String? imageUrl,
   }) {
     return GestureDetector(
@@ -766,11 +838,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(
-            40,
-          ), // Increased for larger pill shape
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB),
+          ),
         ),
         child: Row(
           children: [
@@ -787,10 +859,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         return Container(
                           width: 64,
                           height: 64,
-                          color: const Color(0xFFF3F4F6),
-                          child: const Icon(
+                          color: isDark
+                              ? const Color(0xFF2C2C2E)
+                              : const Color(0xFFF3F4F6),
+                          child: Icon(
                             PhosphorIconsRegular.image,
-                            color: Color(0xFF9CA3AF),
+                            color: isDark
+                                ? const Color(0xFF6B7280)
+                                : const Color(0xFF9CA3AF),
                             size: 32,
                           ),
                         );
@@ -799,10 +875,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   : Container(
                       width: 64,
                       height: 64,
-                      color: const Color(0xFFF3F4F6),
-                      child: const Icon(
+                      color: isDark
+                          ? const Color(0xFF2C2C2E)
+                          : const Color(0xFFF3F4F6),
+                      child: Icon(
                         PhosphorIconsRegular.image,
-                        color: Color(0xFF9CA3AF),
+                        color: isDark
+                            ? const Color(0xFF6B7280)
+                            : const Color(0xFF9CA3AF),
                         size: 32,
                       ),
                     ),
@@ -819,11 +899,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black,
+                            color: isDark ? Colors.white : Colors.black,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -838,14 +918,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         ),
                         decoration: BoxDecoration(
                           color: statusBgColor,
-                          borderRadius: BorderRadius.circular(
-                            20,
-                          ), // Increased for pill styling
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           status,
                           style: TextStyle(
-                            fontFamily: 'Roboto',
+                            fontFamily: 'Poppins',
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: statusColor,
@@ -857,30 +935,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   const SizedBox(height: 4),
                   Text(
                     location,
-                    style: const TextStyle(
-                      fontFamily: 'Roboto',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF737373),
+                      color: isDark
+                          ? const Color(0xFFA1A1AA)
+                          : const Color(0xFF737373),
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     time,
-                    style: const TextStyle(
-                      fontFamily: 'Roboto',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF737373),
+                      color: isDark
+                          ? const Color(0xFFA1A1AA)
+                          : const Color(0xFF737373),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(
+            Icon(
               PhosphorIconsRegular.caretRight,
-              color: Colors.black,
+              color: isDark ? Colors.white70 : Colors.black,
               size: 20,
             ),
           ],
@@ -890,16 +972,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   // --- HELPER FOR SECTION TITLES ---
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
       child: Text(
         title,
-        style: const TextStyle(
-          fontFamily: 'Roboto',
+        style: TextStyle(
+          fontFamily: 'Poppins',
           fontSize: 18,
           fontWeight: FontWeight.w700,
-          color: Colors.black,
+          color: isDark ? Colors.white : Colors.black,
         ),
       ),
     );

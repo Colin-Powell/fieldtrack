@@ -1,7 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'dart:convert';
 import 'package:fieldtrack/core/network/api_client.dart';
 import 'package:fieldtrack/features/auth/login_screen.dart';
 import 'package:fieldtrack/core/network/error_handler.dart';
@@ -11,44 +10,62 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:fieldtrack/core/services/version_check_service.dart';
 import 'package:fieldtrack/shared/widgets/update_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
-// --- Theme Colors ---
+import 'package:fieldtrack/core/theme/theme_provider.dart';
+
+// --- Theme Colors (Base/Light) ---
 const Color _lightGreen = Color(0xFFCDE8D5);
 const Color _primaryGreen = Color(0xFF1B934F);
 const Color _textDark = Color(0xFF333333);
 const Color _textLight = Color(0xFF88929A);
 const Color _dangerRed = Color(0xFFE53935);
 const Color _cardBorder = Color(0xFFF0F0F0);
-const String _fontFamily = 'Roboto';
+const String _fontFamily = 'Poppins';
 
-// --- Standard Button Style ---
-final ButtonStyle _primaryButtonStyle = ElevatedButton.styleFrom(
-  backgroundColor: _primaryGreen,
-  elevation: 0,
-  minimumSize: const Size(double.infinity, 56),
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(40), // Updated to 40px
-  ),
-);
+// --- Dark Mode Specific Colors ---
+const Color _darkBg = Color(0xFF121212);
+const Color _darkSurface = Color(0xFF1E1E1E);
+const Color _darkBorder = Color(0xFF333333);
+const Color _darkPrimaryText = Color(0xFF4ADE80);
+const Color _darkHintText = Color(0xFFA1A1AA);
+const Color _darkDangerRed = Color(0xFFFCA5A5);
 
-// --- Standard Input Decoration ---
-InputDecoration _buildInputDecoration(String label) {
+// --- Standard Button Style (Dynamic) ---
+ButtonStyle _buildPrimaryButtonStyle(bool isDark) {
+  return ElevatedButton.styleFrom(
+    backgroundColor: isDark ? const Color(0xFF14532D) : _primaryGreen,
+    foregroundColor: isDark ? _darkPrimaryText : Colors.white,
+    elevation: 0,
+    minimumSize: const Size(double.infinity, 56),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(40),
+    ),
+  );
+}
+
+// --- Standard Input Decoration (Dynamic) ---
+InputDecoration _buildInputDecoration(String label, bool isDark) {
+  final bgColor = isDark ? _darkSurface : Colors.white;
+  final borderColor = isDark ? _darkBorder : _cardBorder;
+  final focusColor = isDark ? _darkPrimaryText : _primaryGreen;
+  final hintColor = isDark ? _darkHintText : _textLight;
+
   return InputDecoration(
     labelText: label,
-    labelStyle: const TextStyle(fontFamily: _fontFamily, color: _textLight),
+    labelStyle: TextStyle(fontFamily: _fontFamily, color: hintColor),
     filled: true,
-    fillColor: Colors.white,
+    fillColor: bgColor,
     contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(40), // Updated to 40px
-      borderSide: const BorderSide(color: _cardBorder, width: 1.5),
+      borderRadius: BorderRadius.circular(40),
+      borderSide: BorderSide(color: borderColor, width: 1.5),
     ),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(40), // Updated to 40px
-      borderSide: const BorderSide(color: _cardBorder, width: 1.5),
+      borderRadius: BorderRadius.circular(40),
+      borderSide: BorderSide(color: borderColor, width: 1.5),
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(40), // Updated to 40px
-      borderSide: const BorderSide(color: _primaryGreen, width: 1.5),
+      borderRadius: BorderRadius.circular(40),
+      borderSide: BorderSide(color: focusColor, width: 1.5),
     ),
   );
 }
@@ -62,11 +79,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // --- API State ---
-  bool _isLoading = true;
-  bool _isDarkMode = false;
   bool _isOfflineSyncEnabled = true;
   Map<String, dynamic>? _profile;
-  Map<String, dynamic>? _preferences;
   Map<String, dynamic>? _helpInfo;
 
   @override
@@ -81,9 +95,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final helpRes = await ApiClient().dio.get('/settings/info');
       helpInfo = helpRes.data['info'] as Map<String, dynamic>? ?? {};
-    } catch (_) {
-      // Ignore help info failures and continue loading profile data.
-    }
+    } catch (_) {}
 
     try {
       final res = await ApiClient().dio.get('/settings/profile');
@@ -93,18 +105,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) {
         setState(() {
           _profile = p;
-          _preferences = prefs;
           _helpInfo = helpInfo;
-          _isDarkMode = prefs['prefTheme'] == 'Dark';
           _isOfflineSyncEnabled = prefs['chanInApp'] ?? true;
-          _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _helpInfo = helpInfo;
-          _isLoading = false;
         });
       }
     }
@@ -128,52 +136,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  // Log out the current user and return to the login screen.
   void _handleLogout() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text(
+        backgroundColor: isDark ? _darkSurface : Colors.white,
+        title: Text(
           'Logout',
           style: TextStyle(
             fontFamily: _fontFamily,
             fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
-        content: const Text(
+        content: Text(
           'Are you sure you want to log out of FieldTrack?',
-          style: TextStyle(fontFamily: _fontFamily),
+          style: TextStyle(
+            fontFamily: _fontFamily,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)), // Updated to 40px
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(40),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: _textLight, fontFamily: _fontFamily),
+              style: TextStyle(
+                color: isDark ? _darkHintText : _textLight,
+                fontFamily: _fontFamily,
+              ),
             ),
           ),
           ElevatedButton(
             onPressed: () async {
+              final nav = Navigator.of(context);
               try {
                 await ApiClient().dio.post('/auth/logout');
               } catch (_) {}
               ref.read(authProvider.notifier).logout();
-              Navigator.of(context).pushAndRemoveUntil(
+              nav.pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
                 (route) => false,
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: _dangerRed,
+              backgroundColor: isDark ? const Color(0xFF450A0A) : _dangerRed,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(40), // Updated to 40px
+                borderRadius: BorderRadius.circular(40),
               ),
             ),
-            child: const Text(
+            child: Text(
               'Logout',
               style: TextStyle(
-                color: Colors.white,
+                color: isDark ? _darkDangerRed : Colors.white,
                 fontFamily: _fontFamily,
                 fontWeight: FontWeight.bold,
               ),
@@ -187,85 +207,117 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _handleDeleteAccount() {
     final user = ref.read(authProvider).user;
     if (user == null) return;
-    
+
     final TextEditingController emailController = TextEditingController();
-    
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
-          final bool isEmailMatch = emailController.text.trim().toLowerCase() == user.email.toLowerCase();
-          
+          final bool isEmailMatch =
+              emailController.text.trim().toLowerCase() ==
+              user.email.toLowerCase();
+
           return AlertDialog(
-            title: const Text(
+            backgroundColor: isDark ? _darkSurface : Colors.white,
+            title: Text(
               'Delete Account',
               style: TextStyle(
                 fontFamily: _fontFamily,
                 fontWeight: FontWeight.bold,
-                color: _dangerRed,
+                color: isDark ? _darkDangerRed : _dangerRed,
               ),
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Are you sure you want to delete your account? This action cannot be undone.',
-                  style: TextStyle(fontFamily: _fontFamily),
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Type ${user.email} to confirm:',
-                  style: const TextStyle(fontFamily: _fontFamily, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: emailController,
-                  decoration: _buildInputDecoration('Email address'),
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black,
+                    fontFamily: _fontFamily,
+                  ),
+                  decoration: _buildInputDecoration('Email address', isDark),
                   onChanged: (_) => setState(() {}),
                 ),
               ],
             ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)), // Updated to 40px
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(40),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
+                child: Text(
                   'Cancel',
-                  style: TextStyle(color: _textLight, fontFamily: _fontFamily),
+                  style: TextStyle(
+                    color: isDark ? _darkHintText : _textLight,
+                    fontFamily: _fontFamily,
+                  ),
                 ),
               ),
               ElevatedButton(
-                onPressed: isEmailMatch ? () async {
-                  try {
-                    await ApiClient().dio.delete('/settings/deactivate');
-                    ref.read(authProvider.notifier).logout();
-                    if (mounted) {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        (route) => false,
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to delete account: ${ErrorHandler.getFriendlyErrorMessage(e)}')),
-                      );
-                    }
-                  }
-                } : null,
+                onPressed: isEmailMatch
+                    ? () async {
+                        final nav = Navigator.of(context);
+                        final sm = ScaffoldMessenger.of(context);
+                        try {
+                          await ApiClient().dio.delete('/settings/deactivate');
+                          ref.read(authProvider.notifier).logout();
+                          if (mounted) {
+                            nav.pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (_) => const LoginScreen(),
+                              ),
+                              (route) => false,
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            nav.pop();
+                            sm.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Failed to delete account: ${ErrorHandler.getFriendlyErrorMessage(e)}',
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _dangerRed,
-                  disabledBackgroundColor: _dangerRed.withOpacity(0.5),
+                  backgroundColor: isDark ? const Color(0xFF450A0A) : _dangerRed,
+                  disabledBackgroundColor: isDark
+                      ? const Color(0xFF450A0A).withValues(alpha: 0.5)
+                      : _dangerRed.withValues(alpha: 0.5),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(40), // Updated to 40px
+                    borderRadius: BorderRadius.circular(40),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Delete Account',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: isDark ? _darkDangerRed : Colors.white,
                     fontFamily: _fontFamily,
                     fontWeight: FontWeight.bold,
                   ),
@@ -273,15 +325,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ],
           );
-        }
+        },
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    final bgColor = isDark ? _darkBg : theme.scaffoldBackgroundColor;
+    final cardBgColor = isDark ? _darkSurface : Colors.white;
+    final borderColor = isDark ? _darkBorder : _cardBorder;
+    final headerBgColor = isDark ? const Color(0xFF14532D) : _lightGreen;
+    final headerTextColor = isDark ? _darkPrimaryText : Colors.black;
+    final sectionTitleColor = isDark ? _darkPrimaryText : _primaryGreen;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(
@@ -301,13 +363,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onTap: () => Navigator.pop(context),
                       child: Container(
                         padding: const EdgeInsets.all(10),
-                        decoration: const BoxDecoration(
-                          color: _lightGreen,
+                        decoration: BoxDecoration(
+                          color: headerBgColor,
                           shape: BoxShape.circle,
                         ),
                         child: PhosphorIcon(
                           PhosphorIcons.caretLeft(),
-                          color: Colors.black,
+                          color: headerTextColor,
                           size: 24,
                         ),
                       ),
@@ -319,16 +381,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: _lightGreen,
-                      borderRadius: BorderRadius.circular(40), // Updated to 40px
+                      color: headerBgColor,
+                      borderRadius: BorderRadius.circular(40),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Settings',
                       style: TextStyle(
                         fontFamily: _fontFamily,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: headerTextColor,
                       ),
                     ),
                   ),
@@ -337,13 +399,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 36),
 
               if (_profile != null) ...[
-                const Text(
+                Text(
                   'Account',
                   style: TextStyle(
                     fontFamily: _fontFamily,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: _primaryGreen,
+                    color: sectionTitleColor,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -354,29 +416,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     vertical: 24,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(40), // Updated to 40px
-                    border: Border.all(color: _cardBorder, width: 1.5),
+                    color: cardBgColor,
+                    borderRadius: BorderRadius.circular(40),
+                    border: Border.all(color: borderColor, width: 1.5),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         _profile?['name'] as String? ?? 'Student',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: _fontFamily,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: isDark ? Colors.white : _textDark,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         _profile?['email'] as String? ?? '',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: _fontFamily,
                           fontSize: 14,
-                          color: _textLight,
+                          color: isDark ? _darkHintText : _textLight,
                         ),
                       ),
                     ],
@@ -386,23 +448,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
 
               // --- App Settings Section ---
-              const Text(
+              Text(
                 'App Settings',
                 style: TextStyle(
                   fontFamily: _fontFamily,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: _primaryGreen,
+                  color: sectionTitleColor,
                 ),
               ),
               const SizedBox(height: 16),
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: _cardBorder, width: 1.5),
-                  borderRadius: BorderRadius.circular(40), // Updated to 40px
+                  color: cardBgColor,
+                  border: Border.all(color: borderColor, width: 1.5),
+                  borderRadius: BorderRadius.circular(40),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(40), // Updated to 40px
+                  borderRadius: BorderRadius.circular(40),
                   child: Material(
                     color: Colors.transparent,
                     child: Column(
@@ -415,8 +478,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  const SettingsNotificationsScreen(),
+                              builder: (_) => const SettingsNotificationsScreen(),
                             ),
                           ),
                         ),
@@ -427,8 +489,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           trailing: _TrailingTextWithCaret(
                             text: _isOfflineSyncEnabled ? 'On' : 'Off',
                             textColor: _isOfflineSyncEnabled
-                                ? _primaryGreen
-                                : _textLight,
+                                ? (isDark ? _darkPrimaryText : _primaryGreen)
+                                : (isDark ? _darkHintText : _textLight),
                           ),
                           onTap: () async {
                             final result = await Navigator.push<bool>(
@@ -445,41 +507,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             }
                           },
                         ),
-                        _SettingsItem(
-                          icon: PhosphorIcons.slidersHorizontal(),
-                          title: 'Preferences',
-                          subtitle:
-                              'Manage dashboard, date, and export settings',
-                          trailing: _TrailingCaret(),
-                          onTap: () async {
-                            final result = await Navigator.push<bool>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => SettingsPreferencesScreen(
-                                  initialPrefs: _preferences ?? {},
-                                ),
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final currentTheme = ref.watch(themeModeProvider);
+                            final isCurrentlyDark =
+                                currentTheme == ThemeMode.dark ||
+                                (currentTheme == ThemeMode.system &&
+                                    MediaQuery.platformBrightnessOf(context) ==
+                                        Brightness.dark);
+                            final subtitleText =
+                                currentTheme == ThemeMode.system
+                                ? 'System default (${isCurrentlyDark ? "Dark" : "Light"})'
+                                : (currentTheme == ThemeMode.dark
+                                      ? 'Dark'
+                                      : 'Light');
+
+                            return _SettingsItem(
+                              icon: isCurrentlyDark
+                                  ? PhosphorIcons.moon()
+                                  : PhosphorIcons.sun(),
+                              title: 'Appearance',
+                              subtitle: subtitleText,
+                              trailing: _TrailingTextWithCaret(
+                                text: currentTheme == ThemeMode.system
+                                    ? 'System'
+                                    : (currentTheme == ThemeMode.dark
+                                          ? 'Dark'
+                                          : 'Light'),
+                                textColor: isDark ? _darkPrimaryText : _primaryGreen,
                               ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const AppearanceScreen(),
+                                  ),
+                                );
+                              },
+                              isLast: true,
                             );
-                            if (result == true) {
-                              await _loadSettings();
-                            }
                           },
-                        ),
-                        _SettingsItem(
-                          icon: PhosphorIcons.moon(),
-                          title: 'Dark Mode',
-                          subtitle: 'Switch between light and dark theme',
-                          trailing: CupertinoSwitch(
-                            value: _isDarkMode,
-                            activeColor: _primaryGreen,
-                            onChanged: (bool value) {
-                              setState(() => _isDarkMode = value);
-                              _updatePreferences({
-                                'prefTheme': value ? 'Dark' : 'Light',
-                              });
-                            },
-                          ),
-                          isLast: true,
                         ),
                       ],
                     ),
@@ -489,23 +556,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 36),
 
               // --- Support & Information Section ---
-              const Text(
+              Text(
                 'Support & Information',
                 style: TextStyle(
                   fontFamily: _fontFamily,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: _primaryGreen,
+                  color: sectionTitleColor,
                 ),
               ),
               const SizedBox(height: 16),
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: _cardBorder, width: 1.5),
-                  borderRadius: BorderRadius.circular(40), // Updated to 40px
+                  color: cardBgColor,
+                  border: Border.all(color: borderColor, width: 1.5),
+                  borderRadius: BorderRadius.circular(40),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(40), // Updated to 40px
+                  borderRadius: BorderRadius.circular(40),
                   child: Material(
                     color: Colors.transparent,
                     child: Column(
@@ -570,27 +638,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onPressed: _handleLogout,
                   icon: PhosphorIcon(
                     PhosphorIcons.signOut(),
-                    color: _dangerRed,
+                    color: isDark ? _darkDangerRed : _dangerRed,
                     size: 24,
                   ),
-                  label: const Text(
+                  label: Text(
                     'Logout',
                     style: TextStyle(
                       fontFamily: _fontFamily,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: _dangerRed,
+                      color: isDark ? _darkDangerRed : _dangerRed,
                     ),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(
-                      color: _dangerRed.withOpacity(0.2),
+                      color: isDark 
+                          ? _darkDangerRed.withValues(alpha: 0.3) 
+                          : _dangerRed.withValues(alpha: 0.2),
                       width: 1.5,
                     ),
-                    backgroundColor: Colors.white,
+                    backgroundColor: isDark ? const Color(0xFF450A0A) : Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(40), // Updated to 40px
+                      borderRadius: BorderRadius.circular(40),
                     ),
                   ),
                 ),
@@ -604,16 +674,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onPressed: _handleDeleteAccount,
                   icon: PhosphorIcon(
                     PhosphorIcons.trash(),
-                    color: _dangerRed,
+                    color: isDark ? _darkDangerRed : _dangerRed,
                     size: 24,
                   ),
-                  label: const Text(
+                  label: Text(
                     'Delete Account',
                     style: TextStyle(
                       fontFamily: _fontFamily,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: _dangerRed,
+                      color: isDark ? _darkDangerRed : _dangerRed,
                     ),
                   ),
                 ),
@@ -650,6 +720,10 @@ class _SettingsItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : _textDark;
+
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -662,7 +736,7 @@ class _SettingsItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            PhosphorIcon(icon, size: 28, color: Colors.black),
+            PhosphorIcon(icon, size: 28, color: textColor),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -670,20 +744,20 @@ class _SettingsItem extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: _fontFamily,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: _fontFamily,
                       fontSize: 13,
-                      color: _textLight,
+                      color: isDark ? _darkHintText : _textLight,
                     ),
                   ),
                 ],
@@ -701,9 +775,10 @@ class _SettingsItem extends StatelessWidget {
 class _TrailingCaret extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return PhosphorIcon(
       PhosphorIcons.caretRight(),
-      color: Colors.grey.shade600,
+      color: isDark ? _darkHintText : Colors.grey.shade600,
       size: 20,
     );
   }
@@ -717,6 +792,7 @@ class _TrailingTextWithCaret extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -732,7 +808,7 @@ class _TrailingTextWithCaret extends StatelessWidget {
         const SizedBox(width: 4),
         PhosphorIcon(
           PhosphorIcons.caretRight(),
-          color: Colors.grey.shade600,
+          color: isDark ? _darkHintText : Colors.grey.shade600,
           size: 20,
         ),
       ],
@@ -746,16 +822,21 @@ class _GenericAppbar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bgColor = isDark ? _darkBg : theme.scaffoldBackgroundColor;
+    final textColor = isDark ? Colors.white : _textDark;
+
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       elevation: 0,
-      iconTheme: const IconThemeData(color: Colors.black),
+      iconTheme: IconThemeData(color: textColor),
       centerTitle: true,
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: _fontFamily,
-          color: Colors.black,
+          color: textColor,
           fontWeight: FontWeight.bold,
           fontSize: 20,
         ),
@@ -824,7 +905,14 @@ class _SettingsNotificationsScreenState
     }
   }
 
-  Widget _buildSwitchRow(String title, String subtitle, bool value, ValueChanged<bool> onChanged, {bool isLast = false}) {
+  Widget _buildSwitchRow(
+    String title,
+    String subtitle,
+    bool value,
+    ValueChanged<bool> onChanged,
+    bool isDark, {
+    bool isLast = false,
+  }) {
     return Padding(
       padding: EdgeInsets.only(
         left: 24,
@@ -841,20 +929,20 @@ class _SettingsNotificationsScreenState
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: _fontFamily,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: _fontFamily,
                     fontSize: 13,
-                    color: _textLight,
+                    color: isDark ? _darkHintText : _textLight,
                   ),
                 ),
               ],
@@ -863,7 +951,9 @@ class _SettingsNotificationsScreenState
           const SizedBox(width: 12),
           CupertinoSwitch(
             value: value,
-            activeColor: _primaryGreen,
+            activeTrackColor: isDark ? _darkPrimaryText : _primaryGreen,
+            thumbColor: Colors.white,
+            trackColor: isDark ? const Color(0xFF333333) : CupertinoColors.systemFill,
             onChanged: onChanged,
           ),
         ],
@@ -873,22 +963,31 @@ class _SettingsNotificationsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? _darkBg : Colors.white,
       appBar: const _GenericAppbar(title: 'Notifications'),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: _primaryGreen))
+          ? Center(
+              child: CircularProgressIndicator(
+                color: isDark ? _darkPrimaryText : _primaryGreen,
+              ),
+            )
           : ListView(
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.all(24),
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    border: Border.all(color: _cardBorder, width: 1.5),
-                    borderRadius: BorderRadius.circular(40), // Updated to 40px
+                    color: isDark ? _darkSurface : Colors.white,
+                    border: Border.all(
+                      color: isDark ? _darkBorder : _cardBorder,
+                      width: 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(40),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(40), // Updated to 40px
+                    borderRadius: BorderRadius.circular(40),
                     child: Column(
                       children: [
                         _buildSwitchRow(
@@ -899,6 +998,7 @@ class _SettingsNotificationsScreenState
                             setState(() => push = v);
                             _savePrefs();
                           },
+                          isDark,
                         ),
                         _buildSwitchRow(
                           'Email Summaries',
@@ -908,6 +1008,7 @@ class _SettingsNotificationsScreenState
                             setState(() => email = v);
                             _savePrefs();
                           },
+                          isDark,
                         ),
                         _buildSwitchRow(
                           'Data Upload Alerts',
@@ -917,6 +1018,7 @@ class _SettingsNotificationsScreenState
                             setState(() => dataAlerts = v);
                             _savePrefs();
                           },
+                          isDark,
                           isLast: true,
                         ),
                       ],
@@ -947,21 +1049,21 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? _darkBg : Colors.white,
       appBar: AppBar(
-        leading: BackButton(
-          onPressed: () => Navigator.pop(context, isEnabled),
-        ),
-        backgroundColor: Colors.white,
+        leading: BackButton(onPressed: () => Navigator.pop(context, isEnabled)),
+        backgroundColor: isDark ? _darkBg : Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'Offline Sync',
           style: TextStyle(
             fontFamily: _fontFamily,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -972,20 +1074,21 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Background Synchronization',
               style: TextStyle(
                 fontFamily: _fontFamily,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'When enabled, FieldTrack will automatically upload your saved field entries as soon as your device reconnects to a stable internet connection.',
               style: TextStyle(
                 fontFamily: _fontFamily,
-                color: _textLight,
+                color: isDark ? _darkHintText : _textLight,
                 height: 1.5,
               ),
             ),
@@ -993,26 +1096,31 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               decoration: BoxDecoration(
-                border: Border.all(color: _cardBorder, width: 1.5),
-                borderRadius: BorderRadius.circular(40), // Updated to 40px
+                color: isDark ? _darkSurface : Colors.transparent,
+                border: Border.all(
+                  color: isDark ? _darkBorder : _cardBorder, 
+                  width: 1.5,
+                ),
+                borderRadius: BorderRadius.circular(40),
               ),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Enable Offline Sync',
                       style: TextStyle(
                         fontFamily: _fontFamily,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   CupertinoSwitch(
                     value: isEnabled,
-                    activeColor: _primaryGreen,
+                    activeTrackColor: isDark ? _darkPrimaryText : _primaryGreen,
+                    trackColor: isDark ? const Color(0xFF333333) : CupertinoColors.systemFill,
                     onChanged: (v) {
                       setState(() => isEnabled = v);
                     },
@@ -1027,225 +1135,198 @@ class _OfflineSyncScreenState extends State<OfflineSyncScreen> {
   }
 }
 
-class SettingsPreferencesScreen extends StatefulWidget {
-  final Map<String, dynamic> initialPrefs;
-  const SettingsPreferencesScreen({super.key, required this.initialPrefs});
+class AppearanceScreen extends ConsumerWidget {
+  const AppearanceScreen({super.key});
 
-  @override
-  State<SettingsPreferencesScreen> createState() =>
-      _SettingsPreferencesScreenState();
-}
+  Widget _buildThemeRadioTile({
+    required BuildContext context,
+    required WidgetRef ref,
+    required ThemeMode mode,
+    required ThemeMode currentMode,
+    required String title,
+    required String description,
+    required IconData icon,
+  }) {
+    final theme = Theme.of(context);
+    final isSelected = currentMode == mode;
+    final isDark = theme.brightness == Brightness.dark;
+    final accentColor = isDark ? _darkPrimaryText : _primaryGreen;
 
-class _SettingsPreferencesScreenState extends State<SettingsPreferencesScreen> {
-  late String _prefDashboard;
-  late String _prefZoom;
-  late String _prefDateFormat;
-  late String _prefLanguage;
-  late bool _exportPdf;
-  late bool _exportExcel;
-  late bool _exportCsv;
-  bool _isSaving = false;
+    final cardBorderColor = isSelected
+        ? accentColor
+        : (isDark ? _darkBorder : _cardBorder);
+    final cardBgColor = isSelected
+        ? (isDark
+              ? const Color(0xFF14532D).withValues(alpha: 0.25)
+              : const Color(0xFFDCFCE7).withValues(alpha: 0.4))
+        : (isDark ? _darkSurface : Colors.white);
 
-  @override
-  void initState() {
-    super.initState();
-    final prefs = widget.initialPrefs;
-    _prefDashboard = prefs['prefDashboard'] ?? 'Overview';
-    _prefZoom = prefs['prefZoom'] ?? 'City';
-    _prefDateFormat = prefs['prefDateFormat'] ?? 'DD/MM/YYYY';
-    _prefLanguage = prefs['prefLanguage'] ?? 'English';
-    _exportPdf = prefs['exportPdf'] ?? true;
-    _exportExcel = prefs['exportExcel'] ?? false;
-    _exportCsv = prefs['exportCsv'] ?? true;
-  }
-
-  Future<void> _savePreferences() async {
-    setState(() => _isSaving = true);
-
-    try {
-      await ApiClient().dio.put(
-        '/settings/preferences',
-        data: {
-          'prefDashboard': _prefDashboard,
-          'prefZoom': _prefZoom,
-          'prefDateFormat': _prefDateFormat,
-          'prefLanguage': _prefLanguage,
-          'exportPdf': _exportPdf,
-          'exportExcel': _exportExcel,
-          'exportCsv': _exportCsv,
-        },
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Preferences updated successfully',
-              style: TextStyle(fontFamily: _fontFamily),
-            ),
-            backgroundColor: _primaryGreen,
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: () {
+        ref.read(themeModeProvider.notifier).setThemeMode(mode);
+        try {
+          ApiClient().dio.put(
+            '/settings/preferences',
+            data: {
+              'prefTheme': mode == ThemeMode.dark
+                  ? 'Dark'
+                  : (mode == ThemeMode.light ? 'Light' : 'System'),
+            },
+          );
+        } catch (_) {}
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: cardBgColor,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: cardBorderColor,
+            width: isSelected ? 2.0 : 1.5,
           ),
-        );
-        Navigator.pop(context, true);
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Unable to save preferences',
-              style: TextStyle(fontFamily: _fontFamily),
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
-
-  Widget _buildDropdownField(
-    String label,
-    List<String> options,
-    String currentValue,
-    ValueChanged<String?> onChanged,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: DropdownButtonFormField<String>(
-        value: currentValue,
-        decoration: _buildInputDecoration(label),
-        icon: PhosphorIcon(PhosphorIcons.caretDown(), size: 20, color: _textLight),
-        dropdownColor: Colors.white,
-        borderRadius: BorderRadius.circular(40), // Updated to 40px
-        items: options
-            .map(
-              (option) => DropdownMenuItem(
-                value: option,
-                child: Text(option, style: const TextStyle(fontFamily: _fontFamily)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? accentColor.withValues(alpha: 0.15)
+                    : (isDark
+                          ? const Color(0xFF334155)
+                          : const Color(0xFFF1F5F9)),
+                shape: BoxShape.circle,
               ),
-            )
-            .toList(),
-        onChanged: onChanged,
-      ),
-    );
-  }
-
-  Widget _buildCheckboxRow(String title, String subtitle, bool value, ValueChanged<bool?> onChanged, {bool isLast = false}) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 8,
-        right: 8,
-        top: 12,
-        bottom: isLast ? 12 : 0,
-      ),
-      child: CheckboxListTile(
-        activeColor: _primaryGreen,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)), // Updated to 40px
-        value: value,
-        title: Text(
-          title,
-          style: const TextStyle(fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w600),
+              child: Icon(
+                icon,
+                color: isSelected
+                    ? accentColor
+                    : (isDark ? Colors.grey.shade300 : Colors.grey.shade700),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: _fontFamily,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : _textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      fontFamily: _fontFamily,
+                      fontSize: 13,
+                      color: isDark ? _darkHintText : _textLight,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Radio<ThemeMode>(
+              value: mode,
+              groupValue: currentMode,
+              fillColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? accentColor
+                    : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+              ),
+              onChanged: (newMode) {
+                if (newMode != null) {
+                  ref.read(themeModeProvider.notifier).setThemeMode(newMode);
+                  try {
+                    ApiClient().dio.put(
+                      '/settings/preferences',
+                      data: {
+                        'prefTheme': newMode == ThemeMode.dark
+                            ? 'Dark'
+                            : (newMode == ThemeMode.light ? 'Light' : 'System'),
+                      },
+                    );
+                  } catch (_) {}
+                }
+              },
+            ),
+          ],
         ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(fontFamily: _fontFamily, fontSize: 13, color: _textLight),
-        ),
-        onChanged: onChanged,
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final currentMode = ref.watch(themeModeProvider);
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: const _GenericAppbar(title: 'Preferences'),
+      backgroundColor: isDark ? _darkBg : theme.scaffoldBackgroundColor,
+      appBar: const _GenericAppbar(title: 'Appearance'),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24.0),
         physics: const BouncingScrollPhysics(),
         children: [
-          _buildDropdownField(
-            'Default Dashboard',
-            const ['Overview', 'Map', 'Activities'],
-            _prefDashboard,
-            (v) {
-              if (v != null) setState(() => _prefDashboard = v);
-            },
-          ),
-          const SizedBox(height: 8),
-          _buildDropdownField(
-            'Map Zoom Level',
-            const ['City', 'Region', 'Country'],
-            _prefZoom,
-            (v) {
-              if (v != null) setState(() => _prefZoom = v);
-            },
-          ),
-          const SizedBox(height: 8),
-          _buildDropdownField(
-            'Date Format',
-            const ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'],
-            _prefDateFormat,
-            (v) {
-              if (v != null) setState(() => _prefDateFormat = v);
-            },
-          ),
-          const SizedBox(height: 8),
-          _buildDropdownField(
-            'Language',
-            const ['English', 'Swahili'],
-            _prefLanguage,
-            (v) {
-              if (v != null) setState(() => _prefLanguage = v);
-            },
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Export Options',
+          Text(
+            'Theme Preference',
             style: TextStyle(
               fontFamily: _fontFamily,
               fontSize: 16,
               fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : _textDark,
             ),
           ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: _cardBorder, width: 1.5),
-              borderRadius: BorderRadius.circular(40), // Updated to 40px
-            ),
-            child: Column(
-              children: [
-                _buildCheckboxRow('PDF Export', 'Include PDF when exporting reports', _exportPdf, (v) {
-                  if (v != null) setState(() => _exportPdf = v);
-                }),
-                _buildCheckboxRow('Excel Export', 'Include Excel when exporting reports', _exportExcel, (v) {
-                  if (v != null) setState(() => _exportExcel = v);
-                }),
-                _buildCheckboxRow('CSV Export', 'Include CSV when exporting reports', _exportCsv, (v) {
-                  if (v != null) setState(() => _exportCsv = v);
-                }, isLast: true),
-              ],
+          const SizedBox(height: 8),
+          Text(
+            'Choose how FieldTrack looks to you. Select System Default to automatically match your device settings.',
+            style: TextStyle(
+              fontFamily: _fontFamily,
+              fontSize: 14,
+              color: isDark ? _darkHintText : _textLight,
+              height: 1.4,
             ),
           ),
-          const SizedBox(height: 32),
-          ElevatedButton(
-            onPressed: _isSaving ? null : _savePreferences,
-            style: _primaryButtonStyle,
-            child: _isSaving
-                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text(
-                    'Save Preferences',
-                    style: TextStyle(
-                      fontFamily: _fontFamily,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
-                    ),
-                  ),
+          const SizedBox(height: 24),
+          _buildThemeRadioTile(
+            context: context,
+            ref: ref,
+            mode: ThemeMode.system,
+            currentMode: currentMode,
+            title: 'System Default',
+            description:
+                'Automatically adjust to your system light or dark settings',
+            icon: Icons.brightness_auto,
+          ),
+          const SizedBox(height: 16),
+          _buildThemeRadioTile(
+            context: context,
+            ref: ref,
+            mode: ThemeMode.light,
+            currentMode: currentMode,
+            title: 'Light Theme',
+            description:
+                'Bright and clean with white surfaces and crisp contrast',
+            icon: Icons.light_mode_outlined,
+          ),
+          const SizedBox(height: 16),
+          _buildThemeRadioTile(
+            context: context,
+            ref: ref,
+            mode: ThemeMode.dark,
+            currentMode: currentMode,
+            title: 'Dark Theme',
+            description: 'Deep contrast surfaces easy on the eyes in low light',
+            icon: Icons.dark_mode_outlined,
           ),
         ],
       ),
@@ -1306,6 +1387,8 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     final faqs =
         (widget.helpInfo['faqs'] as List<dynamic>?)
             ?.map((item) => item as Map<String, dynamic>)
@@ -1326,46 +1409,55 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
         widget.helpInfo['supportEmail'] as String? ?? 'support@fieldtrack.top';
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? _darkBg : Colors.white,
       appBar: const _GenericAppbar(title: 'Help & Support'),
       body: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.all(24),
         children: [
-          const Text(
+          Text(
             'Frequently Asked Questions',
             style: TextStyle(
               fontFamily: _fontFamily,
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: _primaryGreen,
+              color: isDark ? _darkPrimaryText : _primaryGreen,
             ),
           ),
           const SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
-              border: Border.all(color: _cardBorder, width: 1.5),
-              borderRadius: BorderRadius.circular(40), // Updated to 40px
+              color: isDark ? _darkSurface : Colors.white,
+              border: Border.all(
+                color: isDark ? _darkBorder : _cardBorder, 
+                width: 1.5,
+              ),
+              borderRadius: BorderRadius.circular(40),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(40), // Updated to 40px
+              borderRadius: BorderRadius.circular(40),
               child: Column(
-                children: faqs.map((faq) => _buildFaqItem(
-                  faq['question'] as String? ?? '',
-                  faq['answer'] as String? ?? '',
-                  isLast: faqs.last == faq,
-                )).toList(),
+                children: faqs
+                    .map(
+                      (faq) => _buildFaqItem(
+                        faq['question'] as String? ?? '',
+                        faq['answer'] as String? ?? '',
+                        isDark,
+                        isLast: faqs.last == faq,
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),
           const SizedBox(height: 32),
-          const Text(
+          Text(
             'Contact Us',
             style: TextStyle(
               fontFamily: _fontFamily,
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: _primaryGreen,
+              color: isDark ? _darkPrimaryText : _primaryGreen,
             ),
           ),
           const SizedBox(height: 16),
@@ -1380,54 +1472,68 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 await launchUrl(uri);
               }
             },
-            borderRadius: BorderRadius.circular(40), // Updated to 40px
+            borderRadius: BorderRadius.circular(40),
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                border: Border.all(color: _cardBorder, width: 1.5),
-                borderRadius: BorderRadius.circular(40), // Updated to 40px
+                color: isDark ? _darkSurface : Colors.white,
+                border: Border.all(
+                  color: isDark ? _darkBorder : _cardBorder, 
+                  width: 1.5,
+                ),
+                borderRadius: BorderRadius.circular(40),
               ),
               child: Row(
                 children: [
-                  const CircleAvatar(
-                    backgroundColor: _lightGreen,
+                  CircleAvatar(
+                    backgroundColor: isDark ? const Color(0xFF14532D) : _lightGreen,
                     radius: 24,
-                    child: Icon(Icons.email, color: _primaryGreen),
+                    child: Icon(
+                      Icons.email, 
+                      color: isDark ? _darkPrimaryText : _primaryGreen,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Email Support',
                           style: TextStyle(
                             fontFamily: _fontFamily,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
+                            color: isDark ? Colors.white : _textDark,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           supportEmail,
-                          style: const TextStyle(fontFamily: _fontFamily, color: _textLight),
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            color: isDark ? _darkHintText : _textLight,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  PhosphorIcon(PhosphorIcons.caretRight(), color: _textLight),
+                  PhosphorIcon(
+                    PhosphorIcons.caretRight(), 
+                    color: isDark ? _darkHintText : _textLight,
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 32),
-          const Text(
+          Text(
             'Send a Help Request',
             style: TextStyle(
               fontFamily: _fontFamily,
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: _primaryGreen,
+              color: isDark ? _darkPrimaryText : _primaryGreen,
             ),
           ),
           const SizedBox(height: 16),
@@ -1437,30 +1543,33 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
               children: [
                 DropdownButtonFormField<String>(
                   value: _category,
-                  decoration: _buildInputDecoration('Request type'),
-                  icon: PhosphorIcon(PhosphorIcons.caretDown(), size: 20, color: _textLight),
-                  dropdownColor: Colors.white,
-                  borderRadius: BorderRadius.circular(40), // Updated to 40px
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  decoration: _buildInputDecoration('Request type', isDark),
+                  icon: PhosphorIcon(
+                    PhosphorIcons.caretDown(),
+                    size: 20,
+                    color: isDark ? _darkHintText : _textLight,
+                  ),
+                  dropdownColor: isDark ? _darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(40),
                   items: const [
-                    DropdownMenuItem(
-                      value: 'bug_report',
-                      child: Text('Bug report'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'feature_request',
-                      child: Text('Feature request'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'support',
-                      child: Text('Support request'),
-                    ),
+                    DropdownMenuItem(value: 'bug_report', child: Text('Bug report')),
+                    DropdownMenuItem(value: 'feature_request', child: Text('Feature request')),
+                    DropdownMenuItem(value: 'support', child: Text('Support request')),
                   ],
                   onChanged: (value) =>
                       setState(() => _category = value ?? 'bug_report'),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  decoration: _buildInputDecoration('Title'),
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  decoration: _buildInputDecoration('Title', isDark),
                   validator: (value) => value == null || value.trim().isEmpty
                       ? 'Please enter a title'
                       : null,
@@ -1468,17 +1577,29 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  decoration: _buildInputDecoration('Email (optional)'),
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  decoration: _buildInputDecoration('Email (optional)', isDark),
                   keyboardType: TextInputType.emailAddress,
                   onChanged: (value) => _email = value,
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: _severity,
-                  decoration: _buildInputDecoration('Severity'),
-                  icon: PhosphorIcon(PhosphorIcons.caretDown(), size: 20, color: _textLight),
-                  dropdownColor: Colors.white,
-                  borderRadius: BorderRadius.circular(40), // Updated to 40px
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  decoration: _buildInputDecoration('Severity', isDark),
+                  icon: PhosphorIcon(
+                    PhosphorIcons.caretDown(),
+                    size: 20,
+                    color: isDark ? _darkHintText : _textLight,
+                  ),
+                  dropdownColor: isDark ? _darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(40),
                   items: const [
                     DropdownMenuItem(value: 'low', child: Text('Low')),
                     DropdownMenuItem(value: 'medium', child: Text('Medium')),
@@ -1489,7 +1610,11 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  decoration: _buildInputDecoration('Describe the issue'),
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  decoration: _buildInputDecoration('Describe the issue', isDark),
                   maxLines: 4,
                   validator: (value) => value == null || value.trim().isEmpty
                       ? 'Please describe the issue'
@@ -1499,16 +1624,23 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _isSubmitting ? null : _submitSupportRequest,
-                  style: _primaryButtonStyle,
+                  style: _buildPrimaryButtonStyle(isDark),
                   child: _isSubmitting
-                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text(
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
                           'Submit request',
                           style: TextStyle(
                             fontFamily: _fontFamily,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            color: Colors.white,
+                            color: isDark ? _darkPrimaryText : Colors.white,
                           ),
                         ),
                 ),
@@ -1520,32 +1652,47 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     );
   }
 
-  Widget _buildFaqItem(String q, String a, {bool isLast = false}) {
+  Widget _buildFaqItem(String q, String a, bool isDark, {bool isLast = false}) {
     return Container(
       decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: _cardBorder, width: 1.5)),
+        border: isLast
+            ? null
+            : Border(
+                bottom: BorderSide(
+                  color: isDark ? _darkBorder : _cardBorder, 
+                  width: 1.5,
+                ),
+              ),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          iconColor: _primaryGreen,
-          collapsedIconColor: _textLight,
+          iconColor: isDark ? _darkPrimaryText : _primaryGreen,
+          collapsedIconColor: isDark ? _darkHintText : _textLight,
           title: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               q,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: _fontFamily,
                 fontWeight: FontWeight.w600,
-                color: _textDark,
+                color: isDark ? Colors.white : _textDark,
               ),
             ),
           ),
-          childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+          childrenPadding: const EdgeInsets.only(
+            left: 16,
+            right: 16,
+            bottom: 24,
+          ),
           children: [
             Text(
               a,
-              style: const TextStyle(fontFamily: _fontFamily, color: _textLight, height: 1.5),
+              style: TextStyle(
+                fontFamily: _fontFamily,
+                color: isDark ? _darkHintText : _textLight,
+                height: 1.5,
+              ),
             ),
           ],
         ),
@@ -1560,8 +1707,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? _darkBg : Colors.white,
       appBar: const _GenericAppbar(title: 'Privacy Policy'),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -1569,10 +1718,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
         child: Text(
           privacyPolicy ??
               "FieldTrack Privacy Policy\n\nLast Updated: October 2024\n\n1. Information Collection\nWe collect location data and field metrics you input to assist in environmental research. Your personal information (Name, ID, Email) is used strictly for authentication and academic tracking.\n\n2. Data Usage\nAll geographic and analytical data collected is synced to university servers and may be used in aggregated research studies. Individual user tracking is kept confidential.\n\n3. Offline Data\nData stored locally on your device remains encrypted until a secure connection is established for syncing.\n\n(This is a sample privacy policy for demonstration purposes. In a real application, place your full legal terms here.)",
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: _fontFamily,
             fontSize: 15,
-            color: _textDark,
+            color: isDark ? Colors.white70 : _textDark,
             height: 1.6,
           ),
         ),
@@ -1603,11 +1752,14 @@ class _AboutScreenState extends State<AboutScreen> {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       setState(() {
-        _appVersion = 'Version ${packageInfo.version} (Build ${packageInfo.buildNumber})';
+        _appVersion =
+            'Version ${packageInfo.version} (Build ${packageInfo.buildNumber})';
       });
     } catch (e) {
       setState(() {
-        _appVersion = widget.aboutInfo?['version'] as String? ?? 'Version 1.0.0 (Build 42)';
+        _appVersion =
+            widget.aboutInfo?['version'] as String? ??
+            'Version 1.0.0 (Build 42)';
       });
     }
   }
@@ -1642,20 +1794,28 @@ class _AboutScreenState extends State<AboutScreen> {
           ),
         );
       } else {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('FieldTrack is up to date.'),
-            backgroundColor: _primaryGreen,
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: Text(
+              'FieldTrack is up to date.',
+              style: TextStyle(color: isDark ? _darkPrimaryText : Colors.white),
+            ),
+            backgroundColor: isDark ? const Color(0xFF14532D) : _primaryGreen,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to check for updates. Please check your connection.'),
-            backgroundColor: _dangerRed,
+          SnackBar(
+            content: Text(
+              'Failed to check for updates. Please check your connection.',
+              style: TextStyle(color: isDark ? _darkDangerRed : Colors.white),
+            ),
+            backgroundColor: isDark ? const Color(0xFF450A0A) : _dangerRed,
           ),
         );
       }
@@ -1670,8 +1830,10 @@ class _AboutScreenState extends State<AboutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? _darkBg : Colors.white,
       appBar: const _GenericAppbar(title: 'About'),
       body: Center(
         child: Column(
@@ -1689,19 +1851,19 @@ class _AboutScreenState extends State<AboutScreen> {
             const SizedBox(height: 24),
             Text(
               widget.aboutInfo?['title'] as String? ?? 'FieldTrack',
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: _fontFamily,
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: _primaryGreen,
+                color: isDark ? _darkPrimaryText : _primaryGreen,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               _appVersion,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: _fontFamily,
-                color: _textLight,
+                color: isDark ? _darkHintText : _textLight,
               ),
             ),
             const SizedBox(height: 32),
@@ -1709,19 +1871,23 @@ class _AboutScreenState extends State<AboutScreen> {
               widget.aboutInfo?['description'] as String? ??
                   'Developed for\nPwani University, Environmental Sciences',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: _fontFamily,
                 fontSize: 16,
                 height: 1.5,
+                color: isDark ? Colors.white70 : Colors.black87,
               ),
             ),
             const SizedBox(height: 48),
             ElevatedButton(
               onPressed: _isChecking ? null : _checkForUpdates,
               style: ElevatedButton.styleFrom(
-                backgroundColor: _primaryGreen,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                backgroundColor: isDark ? const Color(0xFF14532D) : _primaryGreen,
+                foregroundColor: isDark ? _darkPrimaryText : Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

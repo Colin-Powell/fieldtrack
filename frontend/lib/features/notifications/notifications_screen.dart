@@ -51,7 +51,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         content: Text(
           message,
           style: const TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
@@ -100,27 +100,35 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       }).toList();
     }
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Dynamic background and loader colors
+    final scaffoldBg = isDark ? const Color(0xFF121212) : theme.scaffoldBackgroundColor;
+    final primaryGreen = isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
+    final loaderBg = isDark ? const Color(0xFF1E1E1E) : theme.cardColor;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      bottomNavigationBar: _isSelectionMode ? _buildSelectionBottomBar() : null,
+      backgroundColor: scaffoldBg,
+      bottomNavigationBar: _isSelectionMode ? _buildSelectionBottomBar(isDark) : null,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () =>
               ref.read(notificationsProvider.notifier).fetchNotifications(),
-          color: const Color(0xFF1BA654),
-          backgroundColor: Colors.white,
+          color: primaryGreen,
+          backgroundColor: loaderBg,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(bottom: 24),
             child: Column(
               children: [
                 if (_isSelectionMode)
-                  _buildSelectionHeader(filtered)
+                  _buildSelectionHeader(filtered, isDark)
                 else
-                  _buildHeaderTitle(filtered),
+                  _buildHeaderTitle(filtered, isDark),
 
-                _buildSearchBar(),
-                _buildFilters(),
+                _buildSearchBar(isDark),
+                _buildFilters(isDark),
 
                 notificationsState.when(
                   loading: () => const Padding(
@@ -136,7 +144,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   ),
                   data: (notifications) {
                     if (filtered.isEmpty) {
-                      return _buildEmptyState();
+                      return _buildEmptyState(isDark);
                     }
 
                     return ListView.builder(
@@ -176,7 +184,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   .markAsRead(n.id);
                               _showSnackbar(
                                 'Marked as read',
-                                const Color(0xFF1BA654),
+                                isDark ? const Color(0xFF14532D) : const Color(0xFF1BA654),
                               );
                             }
 
@@ -198,7 +206,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             isRead: n.isRead,
                             isSelected: _selectedIds.contains(n.id),
                             icon: _getIconForType(n.type),
-                            iconColor: _getColorForType(n.type),
+                            iconColor: _getColorForType(n.type, isDark),
+                            isDark: isDark,
                           ),
                         );
                       },
@@ -215,18 +224,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   // --- WIDGET COMPONENTS ---
 
-  Widget _buildSelectionHeader(List<NotificationModel> filtered) {
+  Widget _buildSelectionHeader(List<NotificationModel> filtered, bool isDark) {
     final bool isAllSelected =
         filtered.isNotEmpty && _selectedIds.length == filtered.length;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final activeGreen = isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               PhosphorIconsRegular.x,
-              color: Colors.black,
+              color: textColor,
               size: 28,
             ),
             onPressed: () {
@@ -237,20 +248,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           const SizedBox(width: 8),
           Text(
             '${_selectedIds.length} Selected',
-            style: const TextStyle(
-              fontFamily: 'Roboto',
+            style: TextStyle(
+              fontFamily: 'Poppins',
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: Colors.black,
+              color: textColor,
             ),
           ),
           const Spacer(),
           if (_selectedIds.isNotEmpty)
             IconButton(
               tooltip: 'Delete selected',
-              icon: const Icon(
+              icon: Icon(
                 PhosphorIconsRegular.trash,
-                color: Colors.red,
+                color: isDark ? const Color(0xFFFCA5A5) : Colors.red,
                 size: 24,
               ),
               onPressed: () {
@@ -259,7 +270,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     .deleteBulkNotifications(_selectedIds.toList());
                 _showSnackbar(
                   '${_selectedIds.length} deleted',
-                  Colors.redAccent,
+                  isDark ? const Color(0xFF450A0A) : Colors.redAccent,
                 );
                 _selectedIds.clear();
                 _setSelectionMode(false);
@@ -283,12 +294,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   Text(
                     'All',
                     style: TextStyle(
-                      fontFamily: 'Roboto',
+                      fontFamily: 'Poppins',
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: isAllSelected
-                          ? const Color(0xFF1BA654)
-                          : Colors.black,
+                      color: isAllSelected ? activeGreen : textColor,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -296,9 +305,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     isAllSelected
                         ? PhosphorIconsFill.checkCircle
                         : PhosphorIconsRegular.checkCircle,
-                    color: isAllSelected
-                        ? const Color(0xFF1BA654)
-                        : Colors.black,
+                    color: isAllSelected ? activeGreen : textColor,
                     size: 24,
                   ),
                 ],
@@ -310,15 +317,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  Widget _buildSelectionBottomBar() {
+  Widget _buildSelectionBottomBar(bool isDark) {
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
               blurRadius: 15,
               offset: const Offset(0, -5),
             ),
@@ -330,7 +337,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             _buildBottomBarAction(
               icon: PhosphorIconsRegular.envelopeOpen,
               label: 'Read',
-              color: const Color(0xFF1BA654),
+              color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
+              isDark: isDark,
               onTap: _selectedIds.isEmpty
                   ? null
                   : () {
@@ -339,7 +347,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           .markBulkAsRead(_selectedIds.toList());
                       _showSnackbar(
                         '${_selectedIds.length} marked as read',
-                        const Color(0xFF1BA654),
+                        isDark ? const Color(0xFF14532D) : const Color(0xFF1BA654),
                       );
                       _selectedIds.clear();
                       _setSelectionMode(false);
@@ -348,7 +356,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             _buildBottomBarAction(
               icon: PhosphorIconsRegular.trash,
               label: 'Delete',
-              color: Colors.red,
+              color: isDark ? const Color(0xFFFCA5A5) : Colors.red,
+              isDark: isDark,
               onTap: _selectedIds.isEmpty
                   ? null
                   : () {
@@ -357,7 +366,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           .deleteBulkNotifications(_selectedIds.toList());
                       _showSnackbar(
                         '${_selectedIds.length} deleted',
-                        Colors.redAccent,
+                        isDark ? const Color(0xFF450A0A) : Colors.redAccent,
                       );
                       _selectedIds.clear();
                       _setSelectionMode(false);
@@ -373,9 +382,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     required IconData icon,
     required String label,
     required Color color,
+    required bool isDark,
     VoidCallback? onTap,
   }) {
     final bool isEnabled = onTap != null;
+    final disabledColor = isDark ? const Color(0xFF4B5563) : const Color(0xFFD1D5DB);
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -386,17 +398,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           children: [
             Icon(
               icon,
-              color: isEnabled ? color : const Color(0xFFD1D5DB),
+              color: isEnabled ? color : disabledColor,
               size: 28,
             ),
             const SizedBox(height: 6),
             Text(
               label,
               style: TextStyle(
-                fontFamily: 'Roboto',
+                fontFamily: 'Poppins',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: isEnabled ? color : const Color(0xFFD1D5DB),
+                color: isEnabled ? color : disabledColor,
               ),
             ),
           ],
@@ -405,7 +417,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  Widget _buildHeaderTitle(List<NotificationModel> filtered) {
+  Widget _buildHeaderTitle(List<NotificationModel> filtered, bool isDark) {
+    final pillBg = isDark ? const Color(0xFF14532D) : const Color(0xFFCBE5D2);
+    final pillTextColor = isDark ? const Color(0xFF4ADE80) : Colors.black;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
@@ -416,32 +431,30 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFCBE5D2),
+              color: pillBg,
               borderRadius: BorderRadius.circular(30),
             ),
-            child: const Text(
+            child: Text(
               'Notifications',
               style: TextStyle(
-                fontFamily: 'Roboto',
+                fontFamily: 'Poppins',
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: Colors.black,
+                color: pillTextColor,
               ),
             ),
           ),
           const Spacer(),
           GestureDetector(
-            onTap: () => _showMenuBottomSheet(filtered),
+            onTap: () => _showMenuBottomSheet(filtered, isDark),
             child: Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
-                color: Color(0xFFCBE5D2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
+              decoration: BoxDecoration(color: pillBg, shape: BoxShape.circle),
+              child: Icon(
                 PhosphorIconsRegular.dotsThreeVertical,
-                color: Colors.black,
+                color: pillTextColor,
+                size: 24,
               ),
             ),
           ),
@@ -450,15 +463,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  void _showMenuBottomSheet(List<NotificationModel> filtered) {
+  void _showMenuBottomSheet(List<NotificationModel> filtered, bool isDark) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           ),
           padding: const EdgeInsets.only(
             top: 12,
@@ -473,7 +486,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 width: 48,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
+                  color: isDark ? const Color(0xFF4B5563) : const Color(0xFFE5E7EB),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -481,6 +494,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               _buildMenuOption(
                 icon: PhosphorIconsRegular.listChecks,
                 title: 'Select items',
+                isDark: isDark,
                 onTap: () {
                   Navigator.pop(context);
                   _setSelectionMode(true);
@@ -489,12 +503,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               const SizedBox(height: 12),
               _buildMenuOption(
                 icon: PhosphorIconsRegular.envelopeOpen,
-                iconColor: const Color(0xFF1BA654),
+                iconColor: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                 title: 'Mark all as read',
+                isDark: isDark,
                 onTap: () {
                   Navigator.pop(context);
                   ref.read(notificationsProvider.notifier).markAllAsRead();
-                  _showSnackbar('All marked as read', const Color(0xFF1BA654));
+                  _showSnackbar(
+                    'All marked as read', 
+                    isDark ? const Color(0xFF14532D) : const Color(0xFF1BA654),
+                  );
                 },
               ),
             ],
@@ -508,6 +526,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
+    required bool isDark,
     Color? iconColor,
   }) {
     return InkWell(
@@ -516,21 +535,23 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
+          color: isDark ? const Color(0xFF121212) : const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(
+            color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB),
+          ),
         ),
         child: Row(
           children: [
-            Icon(icon, color: iconColor ?? Colors.black, size: 24),
+            Icon(icon, color: iconColor ?? (isDark ? Colors.white : Colors.black), size: 24),
             const SizedBox(width: 16),
             Text(
               title,
-              style: const TextStyle(
-                fontFamily: 'Roboto',
+              style: TextStyle(
+                fontFamily: 'Poppins',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.black,
+                color: isDark ? Colors.white : Colors.black,
               ),
             ),
           ],
@@ -539,49 +560,60 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: TextField(
         controller: _searchController,
+        style: TextStyle(
+          color: isDark ? Colors.white : Colors.black,
+          fontFamily: 'Poppins',
+        ),
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white,
-          prefixIcon: const Padding(
-            padding: EdgeInsets.only(left: 20, right: 12),
+          fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 20, right: 12),
             child: Icon(
               PhosphorIconsRegular.magnifyingGlass,
-              color: Colors.black,
+              color: isDark ? Colors.white70 : Colors.black,
               size: 24,
             ),
           ),
           prefixIconConstraints: const BoxConstraints(minWidth: 40),
           hintText: 'Search Notifications',
-          hintStyle: const TextStyle(
-            fontFamily: 'Roboto',
+          hintStyle: TextStyle(
+            fontFamily: 'Poppins',
             fontSize: 16,
-            color: Color(0xFF9CA3AF),
+            color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
             fontWeight: FontWeight.w600,
           ),
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(40),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            borderSide: BorderSide(
+              color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB),
+            ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(40),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            borderSide: BorderSide(
+              color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB),
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(40),
-            borderSide: const BorderSide(color: Color(0xFF1BA654), width: 1.5),
+            borderSide: BorderSide(
+              color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654), 
+              width: 1.5,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFilters() {
+  Widget _buildFilters(bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 16),
       child: Row(
@@ -594,27 +626,31 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 setState(() => _selectedFilterIndex = index);
               }
             },
-            child: _buildFilterChip(_filters[index], isActive: isActive),
+            child: _buildFilterChip(_filters[index], isDark, isActive: isActive),
           );
         }),
       ),
     );
   }
 
-  Widget _buildFilterChip(String label, {bool isActive = false}) {
+  Widget _buildFilterChip(String label, bool isDark, {bool isActive = false}) {
+    final activeBg = isDark ? const Color(0xFF14532D) : const Color(0xFF1BA654);
+    final activeText = isDark ? const Color(0xFF4ADE80) : Colors.white;
+    final inactiveText = isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF1BA654) : Colors.transparent,
+        color: isActive ? activeBg : Colors.transparent,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Roboto',
+          fontFamily: 'Poppins',
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: isActive ? Colors.white : const Color(0xFF9CA3AF),
+          color: isActive ? activeText : inactiveText,
         ),
       ),
     );
@@ -625,33 +661,45 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     required String subtitle,
     required String time,
     required bool isRead,
+    required bool isDark,
     bool isSelected = false,
     String? imageUrl,
     IconData? icon,
     Color? iconColor,
   }) {
+    final cardBorder = isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB);
+    
+    // Unread and Read Backgrounds
+    final readBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final unreadBg = isDark ? const Color(0xFF064E3B) : const Color(0xFFF4FDF7);
+    final selectedBg = isDark ? const Color(0xFF14532D) : const Color(0xFFE8F5E9);
+    final defaultBg = isRead ? readBg : unreadBg;
+
+    final titleColor = isDark ? Colors.white : Colors.black;
+    final subtitleColor = isDark ? const Color(0xFFA1A1AA) : const Color(0xFF4B5563);
+    final timeColor = isDark ? const Color(0xFFA1A1AA) : (isRead ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280));
+    final activeBorderColor = isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       margin: const EdgeInsets.only(bottom: 16, left: 24, right: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isSelected
-            ? const Color(0xFFE8F5E9)
-            : (isRead ? Colors.white : const Color(0xFFF4FDF7)),
+        color: isSelected ? selectedBg : defaultBg,
         borderRadius: BorderRadius.circular(32),
         border: Border.all(
           color: isSelected
-              ? const Color(0xFF1BA654)
+              ? activeBorderColor
               : (isRead
-                    ? const Color(0xFFE5E7EB)
-                    : const Color(0xFF1BA654).withValues(alpha: 0.3)),
+                    ? cardBorder
+                    : activeBorderColor.withValues(alpha: isDark ? 0.5 : 0.3)),
           width: isSelected ? 2.0 : 1.0,
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Samsung Style Selection Checkbox (Slides in gracefully via AnimatedSize/Row)
+          // Samsung Style Selection Checkbox
           if (_isSelectionMode)
             Padding(
               padding: const EdgeInsets.only(right: 12),
@@ -660,8 +708,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     ? PhosphorIconsFill.checkCircle
                     : PhosphorIconsRegular.circle,
                 color: isSelected
-                    ? const Color(0xFF1BA654)
-                    : const Color(0xFFD1D5DB),
+                    ? activeBorderColor
+                    : (isDark ? const Color(0xFF4B5563) : const Color(0xFFD1D5DB)),
                 size: 26,
               ),
             ),
@@ -676,18 +724,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       height: 56,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return _buildFallbackIcon();
+                        return _buildFallbackIcon(isDark);
                       },
                     )
-                  : _buildFallbackIcon(),
+                  : _buildFallbackIcon(isDark),
             )
           else if (icon != null)
             Container(
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: (iconColor ?? const Color(0xFF1BA654)).withValues(
-                  alpha: 0.1,
+                color: (iconColor ?? activeBorderColor).withValues(
+                  alpha: isDark ? 0.2 : 0.1,
                 ),
                 shape: BoxShape.circle,
               ),
@@ -708,12 +756,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       child: Text(
                         title,
                         style: TextStyle(
-                          fontFamily: 'Roboto',
+                          fontFamily: 'Poppins',
                           fontSize: 15,
                           fontWeight: isRead
                               ? FontWeight.w600
                               : FontWeight.w700,
-                          color: Colors.black,
+                          color: titleColor,
                           height: 1.3,
                         ),
                       ),
@@ -724,20 +772,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         margin: const EdgeInsets.only(right: 6, top: 2),
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1BA654),
+                        decoration: BoxDecoration(
+                          color: activeBorderColor,
                           shape: BoxShape.circle,
                         ),
                       ),
                     Text(
                       time,
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 12,
                         fontWeight: isRead ? FontWeight.w500 : FontWeight.w600,
-                        color: isRead
-                            ? const Color(0xFF9CA3AF)
-                            : const Color(0xFF6B7280),
+                        color: timeColor,
                       ),
                     ),
                   ],
@@ -746,11 +792,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      fontFamily: 'Roboto',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF4B5563),
+                      color: subtitleColor,
                     ),
                   ),
                 ],
@@ -762,20 +808,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  Widget _buildFallbackIcon() {
+  Widget _buildFallbackIcon(bool isDark) {
     return Container(
       width: 56,
       height: 56,
-      color: const Color(0xFFF3F4F6),
-      child: const Icon(
+      color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6),
+      child: Icon(
         PhosphorIconsRegular.image,
-        color: Color(0xFF9CA3AF),
+        color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
         size: 28,
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(top: 64, left: 24, right: 24),
       child: Column(
@@ -783,34 +829,34 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF3F9F5),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF14532D) : const Color(0xFFF3F9F5),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               PhosphorIconsRegular.bellSlash,
               size: 48,
-              color: Color(0xFF1BA654),
+              color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No notifications yet',
             style: TextStyle(
-              fontFamily: 'Roboto',
+              fontFamily: 'Poppins',
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: Colors.black,
+              color: isDark ? Colors.white : Colors.black,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'You have no new notifications matching this filter.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'Roboto',
+              fontFamily: 'Poppins',
               fontSize: 14,
-              color: Color(0xFF9CA3AF),
+              color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
               height: 1.4,
             ),
           ),
@@ -839,21 +885,21 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
   }
 
-  Color _getColorForType(String type) {
+  Color _getColorForType(String type, bool isDark) {
     switch (type) {
       case 'CHECKED_IN':
-        return const Color(0xFF1BA654);
+        return isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
       case 'REVIEW_RECEIVED':
-        return const Color(0xFFF59E0B);
+        return isDark ? const Color(0xFFFDE047) : const Color(0xFFF59E0B);
       case 'SYSTEM_ALERT':
-        return const Color(0xFFE53935);
+        return isDark ? const Color(0xFFFCA5A5) : const Color(0xFFE53935);
       default:
-        return const Color(0xFFF97316);
+        return isDark ? const Color(0xFFFDBA74) : const Color(0xFFF97316);
     }
   }
 }
 
-// --- NEW SKELETON LOADER WIDGET ---
+// --- SKELETON LOADER WIDGET ---
 
 class NotificationSkeletonList extends StatefulWidget {
   const NotificationSkeletonList({super.key});
@@ -890,6 +936,8 @@ class _NotificationSkeletonListState extends State<NotificationSkeletonList>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return FadeTransition(
       opacity: _animation,
       child: ListView.builder(
@@ -901,17 +949,19 @@ class _NotificationSkeletonListState extends State<NotificationSkeletonList>
             margin: const EdgeInsets.only(bottom: 16, left: 24, right: 24),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
               borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(
+                color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB),
+              ),
             ),
             child: Row(
               children: [
                 Container(
                   width: 56,
                   height: 56,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF3F4F6),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -924,7 +974,7 @@ class _NotificationSkeletonListState extends State<NotificationSkeletonList>
                         width: double.infinity,
                         height: 16,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
+                          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6),
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -933,7 +983,7 @@ class _NotificationSkeletonListState extends State<NotificationSkeletonList>
                         width: MediaQuery.of(context).size.width * 0.4,
                         height: 14,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
+                          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6),
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),

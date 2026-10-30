@@ -40,21 +40,15 @@ class _EvidenceItem {
   final EvidenceType type;
   final String path;
   final String name;
-  final Duration? duration;
-  UploadStatus uploadStatus;
+  UploadStatus uploadStatus = UploadStatus.pending;
   String? storageUrl;
 
-  _EvidenceItem({
-    required this.type,
-    required this.path,
-    required this.name,
-  });
+  _EvidenceItem({required this.type, required this.path, required this.name});
 }
 
 class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   LogStep _currentStep = LogStep.general;
   bool _isLoading = false;
-  bool _forceErrorOnce = true;
   final AudioRecorder _audioRecorder = AudioRecorder();
 
   // Form Controllers
@@ -177,9 +171,6 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     super.dispose();
   }
 
-  // Location capture is now handled by the shared locationProvider (Riverpod).
-  // All screens read from the same provider — no duplicated GPS logic.
-
   void _nextStep() {
     if (_currentStep == LogStep.general) {
       if (_titleController.text.trim().isEmpty ||
@@ -190,11 +181,11 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
             content: const Text(
               'Please fill out all fields before proceeding.',
               style: TextStyle(
-                fontFamily: 'Roboto',
+                fontFamily: 'Poppins',
                 fontWeight: FontWeight.w600,
               ),
             ),
-            backgroundColor: const Color(0xFFEF4444), // Red
+            backgroundColor: const Color(0xFFEF4444),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
@@ -350,9 +341,12 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   }
 
   Future<void> _captureMedia() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final picker = ImagePicker();
+    
     await showModalBottomSheet<void>(
       context: context,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -362,22 +356,26 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Capture Media',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
               const SizedBox(height: 8),
-              const Divider(),
+              Divider(color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)),
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   PhosphorIconsFill.camera,
-                  color: Color(0xFF1BA654),
+                  color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                 ),
-                title: const Text('Take Photo'),
+                title: Text(
+                  'Take Photo',
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                ),
                 onTap: () async {
                   Navigator.pop(context);
                   final picked = await picker.pickImage(
@@ -398,11 +396,14 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   PhosphorIconsFill.videoCamera,
-                  color: Color(0xFF1BA654),
+                  color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                 ),
-                title: const Text('Record Video (Not Supported)'),
+                title: Text(
+                  'Record Video (Not Supported)',
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -415,11 +416,14 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   PhosphorIconsFill.image,
-                  color: Color(0xFF1BA654),
+                  color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                 ),
-                title: const Text('Choose from Gallery'),
+                title: Text(
+                  'Choose from Gallery',
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                ),
                 onTap: () async {
                   Navigator.pop(context);
                   final picked = await picker.pickImage(
@@ -466,6 +470,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     StreamSubscription<Amplitude>? amplitudeSub;
     double currentAmplitude = 0.0;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -481,10 +487,10 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 top: 12,
                 bottom: 40,
               ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                boxShadow: [
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: const [
                   BoxShadow(
                     color: Colors.black26,
                     blurRadius: 20,
@@ -501,28 +507,28 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                       width: 40,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
+                        color: isDark ? const Color(0xFF4B5563) : Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const Text(
+                    Text(
                       'Voice Note',
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF111827),
+                        color: isDark ? Colors.white : const Color(0xFF111827),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Capture environmental sounds or field observations',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 14,
-                        color: Color(0xFF6B7280),
+                        color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF6B7280),
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -581,8 +587,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                                   ),
                                 );
                               }
-                              if (Navigator.canPop(sheetContext))
+                              if (Navigator.canPop(sheetContext)) {
                                 Navigator.pop(sheetContext);
+                              }
                             }
                           },
                           child: AnimatedContainer(
@@ -591,15 +598,14 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                             height: 120 + (currentAmplitude * 40),
                             decoration: BoxDecoration(
                               color: isRecording
-                                  ? const Color(0xFFFEE2E2)
-                                  : const Color(0xFFE6F5EC),
+                                  ? (isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2))
+                                  : (isDark ? const Color(0xFF14532D) : const Color(0xFFE6F5EC)),
                               shape: BoxShape.circle,
                               boxShadow: [
                                 if (isRecording)
                                   BoxShadow(
-                                    color: const Color(
-                                      0xFFEF4444,
-                                    ).withValues(alpha: 0.4),
+                                    color: (isDark ? const Color(0xFFFCA5A5) : const Color(0xFFEF4444))
+                                        .withValues(alpha: 0.4),
                                     blurRadius: 30 + (currentAmplitude * 20),
                                     spreadRadius: 10 + (currentAmplitude * 10),
                                   ),
@@ -612,15 +618,15 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                                 height: isRecording ? 60 : 80,
                                 decoration: BoxDecoration(
                                   color: isRecording
-                                      ? const Color(0xFFEF4444)
-                                      : const Color(0xFF1BA654),
+                                      ? (isDark ? const Color(0xFFFCA5A5) : const Color(0xFFEF4444))
+                                      : (isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654)),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
                                   isRecording
                                       ? PhosphorIconsFill.stop
                                       : PhosphorIconsFill.microphone,
-                                  color: Colors.white,
+                                  color: isDark && !isRecording ? const Color(0xFF121212) : Colors.white,
                                   size: 36,
                                 ),
                               ),
@@ -635,12 +641,12 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                           ? 'Recording in progress...'
                           : 'Tap to start recording',
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: isRecording
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF374151),
+                            ? (isDark ? const Color(0xFFFCA5A5) : const Color(0xFFEF4444))
+                            : (isDark ? Colors.white : const Color(0xFF374151)),
                       ),
                     ),
                     const SizedBox(height: 40),
@@ -649,30 +655,31 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: TextButton.icon(
-                        icon: const Icon(
+                        icon: Icon(
                           PhosphorIconsRegular.folder,
-                          color: Color(0xFF6B7280),
+                          color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF6B7280),
                         ),
-                        label: const Text(
+                        label: Text(
                           'Import from storage',
                           style: TextStyle(
-                            fontFamily: 'Roboto',
+                            fontFamily: 'Poppins',
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF4B5563),
+                            color: isDark ? Colors.white : const Color(0xFF4B5563),
                           ),
                         ),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: const Color(0xFFF3F4F6),
+                          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF3F4F6),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
                         onPressed: () async {
                           if (isRecording) await _audioRecorder.stop();
-                          if (Navigator.canPop(sheetContext))
+                          if (Navigator.canPop(sheetContext)) {
                             Navigator.pop(sheetContext);
+                          }
                           await _importAudioFile();
                         },
                       ),
@@ -683,16 +690,17 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                       child: TextButton(
                         onPressed: () async {
                           if (isRecording) await _audioRecorder.stop();
-                          if (Navigator.canPop(sheetContext))
+                          if (Navigator.canPop(sheetContext)) {
                             Navigator.pop(sheetContext);
+                          }
                         },
-                        child: const Text(
+                        child: Text(
                           'Cancel',
                           style: TextStyle(
-                            fontFamily: 'Roboto',
+                            fontFamily: 'Poppins',
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF9CA3AF),
+                            color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
                           ),
                         ),
                       ),
@@ -755,8 +763,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           description: _descController.text,
           methodology: _methodController.text,
         );
-        if (updateRes is Failure)
+        if (updateRes is Failure) {
           throw Exception((updateRes as Failure).message);
+        }
         activityId = widget.activityId!;
       } else if (_draftActivityId != null) {
         final updateRes = await activityService.updateActivity(
@@ -766,8 +775,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           description: _descController.text,
           methodology: _methodController.text,
         );
-        if (updateRes is Failure)
+        if (updateRes is Failure) {
           throw Exception((updateRes as Failure).message);
+        }
         activityId = _draftActivityId!;
       } else {
         // 1. Create Draft Activity
@@ -790,7 +800,6 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
       }
 
       // 2. Background uploads are already handling evidence!
-      // We just need to check if any are still pending/uploading, or failed.
       final isUploading = _evidenceItems.any(
         (e) => e.uploadStatus == UploadStatus.uploading,
       );
@@ -860,8 +869,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           description: _descController.text,
           methodology: _methodController.text,
         );
-        if (updateRes is Failure)
+        if (updateRes is Failure) {
           throw Exception((updateRes as Failure).message);
+        }
         activityId = widget.activityId!;
       } else if (_draftActivityId != null) {
         final updateRes = await activityService.updateActivity(
@@ -871,8 +881,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           description: _descController.text,
           methodology: _methodController.text,
         );
-        if (updateRes is Failure)
+        if (updateRes is Failure) {
           throw Exception((updateRes as Failure).message);
+        }
         activityId = _draftActivityId!;
       } else {
         final draftRes = await activityService.createDraftActivity(
@@ -909,9 +920,11 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Activity saved as draft.'),
-            backgroundColor: Color(0xFF1BA654),
+          SnackBar(
+            content: const Text('Activity saved as draft.'),
+            backgroundColor: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF14532D)
+                : const Color(0xFF1BA654),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -937,23 +950,27 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : theme.scaffoldBackgroundColor;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: scaffoldBg,
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopBar(),
+            _buildTopBar(theme, isDark),
             if (_currentStep == LogStep.general ||
                 _currentStep == LogStep.evidence ||
                 _currentStep == LogStep.review)
-              _buildStepper(),
+              _buildStepper(isDark),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 16,
                 ),
-                child: _buildCurrentContent(),
+                child: _buildCurrentContent(isDark),
               ),
             ),
           ],
@@ -962,23 +979,26 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     );
   }
 
-  Widget _buildCurrentContent() {
+  Widget _buildCurrentContent(bool isDark) {
     switch (_currentStep) {
       case LogStep.general:
-        return _buildStep1General();
+        return _buildStep1General(isDark);
       case LogStep.evidence:
-        return _buildStep2Evidence();
+        return _buildStep2Evidence(isDark);
       case LogStep.review:
-        return _buildStep3Review();
+        return _buildStep3Review(isDark);
       case LogStep.success:
-        return _buildStep4Success();
+        return _buildStep4Success(isDark);
       case LogStep.error:
-        return _buildStep5Error();
+        return _buildStep5Error(isDark);
     }
   }
 
   // --- TOP NAVIGATION ---
-  Widget _buildTopBar() {
+  Widget _buildTopBar(ThemeData theme, bool isDark) {
+    final pillBg = isDark ? const Color(0xFF14532D) : const Color(0xFFCBE5D2);
+    final pillTextColor = isDark ? const Color(0xFF4ADE80) : Colors.black;
+
     String title = '';
     switch (_currentStep) {
       case LogStep.general:
@@ -1019,13 +1039,13 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 borderRadius: BorderRadius.circular(30),
                 child: Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFCBE5D2),
+                  decoration: BoxDecoration(
+                    color: pillBg,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     PhosphorIconsRegular.caretLeft,
-                    color: Colors.black,
+                    color: pillTextColor,
                     size: 24,
                   ),
                 ),
@@ -1035,19 +1055,19 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             decoration: BoxDecoration(
               color: _currentStep == LogStep.error
-                  ? const Color(0xFFFEE2E2)
-                  : const Color(0xFFCBE5D2),
+                  ? (isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2))
+                  : pillBg,
               borderRadius: BorderRadius.circular(30),
             ),
             child: Text(
               title,
               style: TextStyle(
-                fontFamily: 'Roboto',
+                fontFamily: 'Poppins',
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: _currentStep == LogStep.error
-                    ? const Color(0xFFEF4444)
-                    : Colors.black,
+                    ? (isDark ? const Color(0xFFFCA5A5) : const Color(0xFFEF4444))
+                    : pillTextColor,
               ),
             ),
           ),
@@ -1056,7 +1076,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     );
   }
 
-  Widget _buildStepper() {
+  Widget _buildStepper(bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
       child: Row(
@@ -1064,47 +1084,60 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           _buildStepCircle(
             1,
             isActive: _currentStep.index >= LogStep.general.index,
+            isDark: isDark,
           ),
-          Expanded(child: Container(height: 1, color: const Color(0xFFE5E7EB))),
+          Expanded(child: Container(height: 1, color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB))),
           _buildStepCircle(
             2,
             isActive: _currentStep.index >= LogStep.evidence.index,
+            isDark: isDark,
           ),
-          Expanded(child: Container(height: 1, color: const Color(0xFFE5E7EB))),
+          Expanded(child: Container(height: 1, color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB))),
           _buildStepCircle(
             3,
             isActive: _currentStep.index >= LogStep.review.index,
+            isDark: isDark,
           ),
-          Expanded(child: Container(height: 1, color: const Color(0xFFE5E7EB))),
-          _buildStepCircle(4, isActive: _currentStep == LogStep.success),
+          Expanded(child: Container(height: 1, color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB))),
+          _buildStepCircle(
+            4, 
+            isActive: _currentStep == LogStep.success,
+            isDark: isDark,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStepCircle(int stepNumber, {required bool isActive}) {
+  Widget _buildStepCircle(int stepNumber, {required bool isActive, required bool isDark}) {
+    final activeBg = isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
+    final inactiveBg = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFCBE5D2);
+    final activeText = isDark ? const Color(0xFF121212) : Colors.white;
+    final inactiveText = isDark ? const Color(0xFFA1A1AA) : const Color(0xFF737373);
+
     return Container(
       width: 32,
       height: 32,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF1BA654) : const Color(0xFFCBE5D2),
+        color: isActive ? activeBg : inactiveBg,
         shape: BoxShape.circle,
+        border: !isActive && isDark ? Border.all(color: const Color(0xFF333333)) : null,
       ),
       child: Text(
         stepNumber.toString(),
         style: TextStyle(
-          fontFamily: 'Roboto',
+          fontFamily: 'Poppins',
           fontSize: 14,
           fontWeight: FontWeight.w700,
-          color: isActive ? Colors.white : const Color(0xFF737373),
+          color: isActive ? activeText : inactiveText,
         ),
       ),
     );
   }
 
   // --- STEP 1: GENERAL INFORMATION ---
-  Widget _buildStep1General() {
+  Widget _buildStep1General(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1113,6 +1146,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           hint: 'e.g., Mangrove Vegetation Survey',
           controller: _titleController,
           maxLines: 2,
+          isDark: isDark,
         ),
         const SizedBox(height: 24),
         _buildInputField(
@@ -1120,6 +1154,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           hint: 'e.g., Observed healthy growth of Rhicophors mucronate...',
           controller: _descController,
           maxLines: 6,
+          isDark: isDark,
         ),
         const SizedBox(height: 24),
         _buildInputField(
@@ -1127,49 +1162,50 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           hint: 'e.g., Transect and Quadrant Method',
           controller: _methodController,
           maxLines: 2,
+          isDark: isDark,
         ),
         const SizedBox(height: 24),
-        _buildLocationSection(),
+        _buildLocationSection(isDark),
         const SizedBox(height: 32),
-        _buildPrimaryButton(label: 'Next', onPressed: _nextStep),
+        _buildPrimaryButton(label: 'Next', onPressed: _nextStep, isDark: isDark),
       ],
     );
   }
 
   /// Location label + live FlutterMap preview (or skeleton while acquiring GPS).
-  Widget _buildLocationSection() {
+  Widget _buildLocationSection(bool isDark) {
     final locState = ref.watch(locationProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Location (Auto Captured)',
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF9CA3AF),
+            color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
           ),
         ),
         const SizedBox(height: 8),
         Text(
           locState.isLocating ? 'Locating...' : locState.locationName,
-          style: const TextStyle(
-            fontFamily: 'Roboto',
+          style: TextStyle(
+            fontFamily: 'Poppins',
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
         const SizedBox(height: 16),
-        locState.isLocating ? _buildMapSkeleton() : _buildLiveMap(locState),
+        locState.isLocating ? _buildMapSkeleton(isDark) : _buildLiveMap(locState, isDark),
       ],
     );
   }
 
   /// Real interactive map showing the user's GPS position.
-  Widget _buildLiveMap(LocationState locState) {
+  Widget _buildLiveMap(LocationState locState, bool isDark) {
     final userLatLng = LatLng(locState.latitude, locState.longitude);
 
     return GestureDetector(
@@ -1186,7 +1222,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   initialCenter: userLatLng,
                   initialZoom: 15.0,
                   interactionOptions: const InteractionOptions(
-                    flags: InteractiveFlag.none, // static preview
+                    flags: InteractiveFlag.none,
                   ),
                 ),
                 children: [
@@ -1217,7 +1253,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1BA654),
+                    color: isDark ? const Color(0xFF14532D) : const Color(0xFF1BA654),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
@@ -1230,19 +1266,19 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.gps_fixed,
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFF4ADE80) : Colors.white,
                         size: 14,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         '${locState.latitude.toStringAsFixed(4)}, ${locState.longitude.toStringAsFixed(4)}',
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: isDark ? const Color(0xFF4ADE80) : Colors.white,
                         ),
                       ),
                     ],
@@ -1289,24 +1325,26 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     );
   }
 
-  Widget _buildMapSkeleton() {
+  Widget _buildMapSkeleton(bool isDark) {
     return Container(
       height: 200,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
+        color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(24),
       ),
-      child: const Column(
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: Color(0xFF1BA654)),
-          SizedBox(height: 16),
+          CircularProgressIndicator(
+            color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654)
+          ),
+          const SizedBox(height: 16),
           Text(
             'Acquiring GPS Location...',
             style: TextStyle(
-              fontFamily: 'Roboto',
-              color: Color(0xFF9CA3AF),
+              fontFamily: 'Poppins',
+              color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1319,6 +1357,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     required String label,
     required String hint,
     required TextEditingController controller,
+    required bool isDark,
     int maxLines = 1,
   }) {
     return Column(
@@ -1326,11 +1365,11 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Roboto',
+          style: TextStyle(
+            fontFamily: 'Poppins',
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
         const SizedBox(height: 12),
@@ -1338,30 +1377,38 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           controller: controller,
           minLines: maxLines,
           maxLines: maxLines,
-          style: const TextStyle(
-            fontFamily: 'Roboto',
+          style: TextStyle(
+            fontFamily: 'Poppins',
             fontSize: 14,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
           ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+            hintStyle: TextStyle(
+              color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF)
+            ),
+            filled: true,
+            fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.transparent,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 20,
               vertical: 16,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              borderSide: BorderSide(
+                color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              borderSide: BorderSide(
+                color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(30),
-              borderSide: const BorderSide(
-                color: Color(0xFF1BA654),
+              borderSide: BorderSide(
+                color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                 width: 1.5,
               ),
             ),
@@ -1372,7 +1419,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   }
 
   // --- STEP 2: ADD EVIDENCE (FIGMA ACCURATE) ---
-  Widget _buildStep2Evidence() {
+  Widget _buildStep2Evidence(bool isDark) {
     final photos = _evidenceItems
         .where(
           (e) => e.type == EvidenceType.photo || e.type == EvidenceType.video,
@@ -1389,13 +1436,13 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // PHOTOS & VIDEOS SECTION
-        const Text(
+        Text(
           'Photos',
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
         const SizedBox(height: 16),
@@ -1411,14 +1458,16 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)
+                  ),
                 ),
-                child: const Center(
+                child: Center(
                   child: Icon(
                     PhosphorIconsRegular.camera,
-                    color: Color(0xFF9CA3AF),
+                    color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
                     size: 40,
                   ),
                 ),
@@ -1429,39 +1478,40 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         const SizedBox(height: 32),
 
         // DOCUMENTS SECTION
-        const Text(
+        Text(
           'Documents',
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
         const SizedBox(height: 16),
-        ...documents.map(_buildDocumentPill),
+        ...documents.map((item) => _buildDocumentPill(item, isDark)),
         if (documents.isEmpty)
           _buildAddEmptyButton(
             'Add Document',
             PhosphorIconsRegular.fileArrowUp,
             _uploadDocument,
+            isDark,
           ),
 
         const SizedBox(height: 32),
 
         // VOICE NOTES SECTION
-        const Text(
+        Text(
           'Voice Note',
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
         const SizedBox(height: 16),
         if (voices.isNotEmpty) ...[
-          ...voices.map(_buildVoicePill),
+          ...voices.map((item) => _buildVoicePill(item, isDark)),
           const SizedBox(height: 16),
         ],
         Row(
@@ -1471,6 +1521,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 text: 'Record Voice Note',
                 icon: PhosphorIconsRegular.microphone,
                 onTap: _recordVoiceNote,
+                isDark: isDark,
               ),
             ),
             const SizedBox(width: 16),
@@ -1479,18 +1530,19 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 text: 'Import Audio',
                 icon: PhosphorIconsRegular.folder,
                 onTap: _importAudioFile,
+                isDark: isDark,
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        _buildPrimaryButton(label: 'Next', onPressed: _nextStep),
+        _buildPrimaryButton(label: 'Next', onPressed: _nextStep, isDark: isDark),
       ],
     );
   }
 
   // Reusable button for empty sections
-  Widget _buildAddEmptyButton(String text, IconData icon, VoidCallback onTap) {
+  Widget _buildAddEmptyButton(String text, IconData icon, VoidCallback onTap, bool isDark) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(40),
@@ -1498,25 +1550,29 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F9F5),
+          color: isDark ? const Color(0xFF14532D) : const Color(0xFFF3F9F5),
           borderRadius: BorderRadius.circular(40),
           border: Border.all(
-            color: const Color(0xFFCBE5D2),
+            color: isDark ? const Color(0xFF333333) : const Color(0xFFCBE5D2),
             style: BorderStyle.solid,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: const Color(0xFF1BA654), size: 20),
+            Icon(
+              icon, 
+              color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654), 
+              size: 20
+            ),
             const SizedBox(width: 8),
             Text(
               text,
-              style: const TextStyle(
-                fontFamily: 'Roboto',
+              style: TextStyle(
+                fontFamily: 'Poppins',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1BA654),
+                color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
               ),
             ),
           ],
@@ -1529,6 +1585,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     required String text,
     required IconData icon,
     required VoidCallback onTap,
+    required bool isDark,
   }) {
     return InkWell(
       onTap: onTap,
@@ -1537,25 +1594,29 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F9F5),
+          color: isDark ? const Color(0xFF14532D) : const Color(0xFFF3F9F5),
           borderRadius: BorderRadius.circular(40),
           border: Border.all(
-            color: const Color(0xFFCBE5D2),
+            color: isDark ? const Color(0xFF333333) : const Color(0xFFCBE5D2),
             style: BorderStyle.solid,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: const Color(0xFF1BA654), size: 20),
+            Icon(
+              icon, 
+              color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654), 
+              size: 20
+            ),
             const SizedBox(width: 8),
             Text(
               text,
-              style: const TextStyle(
-                fontFamily: 'Roboto',
+              style: TextStyle(
+                fontFamily: 'Poppins',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1BA654),
+                color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
               ),
             ),
           ],
@@ -1628,26 +1689,28 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   }
 
   // Document Pill exactly from Figma
-  Widget _buildDocumentPill(_EvidenceItem item) {
+  Widget _buildDocumentPill(_EvidenceItem item, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)
+        ),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: Color(0xFFCBE5D2),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF14532D) : const Color(0xFFCBE5D2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               PhosphorIconsFill.fileText,
-              color: Color(0xFF1BA654),
+              color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
               size: 24,
             ),
           ),
@@ -1660,21 +1723,21 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   item.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Roboto',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: isDark ? Colors.white : Colors.black,
                   ),
                 ),
                 const SizedBox(height: 2),
-                const Text(
+                Text(
                   '1.2 MB',
                   style: TextStyle(
-                    fontFamily: 'Roboto',
+                    fontFamily: 'Poppins',
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF9CA3AF),
+                    color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
                   ),
                 ),
               ],
@@ -1682,9 +1745,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           ),
           _buildUploadStatusIndicator(item),
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               PhosphorIconsRegular.x,
-              color: Colors.black,
+              color: isDark ? Colors.white70 : Colors.black,
               size: 24,
             ),
             onPressed: () => _removeEvidenceItem(item),
@@ -1695,7 +1758,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   }
 
   // Voice Note Pill exactly from Figma + play toggle capabilities
-  Widget _buildVoicePill(_EvidenceItem item) {
+  Widget _buildVoicePill(_EvidenceItem item, bool isDark) {
     final isPlaying = _playingVoicePath == item.path;
     final duration = _voiceDuration.inMilliseconds > 0
         ? _voiceDuration
@@ -1709,9 +1772,11 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1720,13 +1785,13 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFCBE5D2),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF14532D) : const Color(0xFFCBE5D2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   PhosphorIconsFill.speakerHigh,
-                  color: Color(0xFF1BA654),
+                  color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                   size: 24,
                 ),
               ),
@@ -1739,21 +1804,21 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                       item.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Roboto',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: Colors.black,
+                        color: isDark ? Colors.white : Colors.black,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${_formatDuration(position)} / ${_formatDuration(duration)}',
-                      style: const TextStyle(
-                        fontFamily: 'Roboto',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF9CA3AF),
+                        color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
                       ),
                     ),
                   ],
@@ -1766,7 +1831,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   isPlaying
                       ? PhosphorIconsFill.pauseCircle
                       : PhosphorIconsRegular.playCircle,
-                  color: const Color(0xFF1BA654),
+                  color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                   size: 36,
                 ),
               ),
@@ -1779,9 +1844,9 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   }
                   _removeEvidenceItem(item);
                 },
-                child: const Icon(
+                child: Icon(
                   PhosphorIconsRegular.x,
-                  color: Color(0xFF9CA3AF),
+                  color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
                   size: 20,
                 ),
               ),
@@ -1794,7 +1859,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
               Container(
                 height: 24,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
+                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(24),
                 ),
               ),
@@ -1805,8 +1870,10 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                     : progress.clamp(0.0, 1.0) *
                           MediaQuery.of(context).size.width,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1BA654), Color(0xFF8BD9A1)],
+                  gradient: LinearGradient(
+                    colors: isDark 
+                      ? [const Color(0xFF4ADE80), const Color(0xFF86EFAC)]
+                      : [const Color(0xFF1BA654), const Color(0xFF8BD9A1)],
                   ),
                   borderRadius: BorderRadius.circular(24),
                 ),
@@ -1820,7 +1887,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   overlayShape: const RoundSliderOverlayShape(
                     overlayRadius: 16,
                   ),
-                  thumbColor: const Color(0xFF1BA654),
+                  thumbColor: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                   activeTrackColor: Colors.transparent,
                   inactiveTrackColor: Colors.transparent,
                 ),
@@ -1895,17 +1962,17 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   }
 
   // --- STEP 3: REVIEW & SUBMIT ---
-  Widget _buildStep3Review() {
+  Widget _buildStep3Review(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Summary',
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
         const SizedBox(height: 24),
@@ -1914,25 +1981,30 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           _titleController.text.isNotEmpty
               ? _titleController.text
               : 'No Title Provided',
+          isDark
         ),
-        _buildSummaryItem('Date & Time', '23 Jul 2026 • 02:52 PM'),
-        _buildSummaryItem('Location', ref.read(locationProvider).locationName),
+        _buildSummaryItem('Date & Time', '23 Jul 2026 • 02:52 PM', isDark),
+        _buildSummaryItem('Location', ref.read(locationProvider).locationName, isDark),
         _buildSummaryItem(
           'Description',
           _descController.text.isNotEmpty
               ? _descController.text
               : 'No description provided.',
+          isDark
         ),
-        _buildSummaryItem('Attachments', _buildAttachmentSummary()),
+        _buildSummaryItem('Attachments', _buildAttachmentSummary(), isDark),
         const SizedBox(height: 48),
 
         _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF1BA654)),
+            ? Center(
+                child: CircularProgressIndicator(
+                  color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654)
+                ),
               )
             : _buildPrimaryButton(
                 label: 'Submit Activity',
                 onPressed: _submitActivity,
+                isDark: isDark
               ),
 
         const SizedBox(height: 16),
@@ -1945,18 +2017,21 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(40),
-                border: Border.all(color: const Color(0xFF1BA654), width: 1.5),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654), 
+                  width: 1.5
+                ),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   'Save Draft',
                   style: TextStyle(
-                    fontFamily: 'Roboto',
+                    fontFamily: 'Poppins',
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1BA654),
+                    color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                   ),
                 ),
               ),
@@ -1997,7 +2072,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
     return entries.isNotEmpty ? entries.join(', ') : 'No attachments added.';
   }
 
-  Widget _buildSummaryItem(String label, String value) {
+  Widget _buildSummaryItem(String label, String value, bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -2005,21 +2080,21 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Roboto',
+            style: TextStyle(
+              fontFamily: 'Poppins',
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF9CA3AF),
+              color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
             ),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              fontFamily: 'Roboto',
+            style: TextStyle(
+              fontFamily: 'Poppins',
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.black,
+              color: isDark ? Colors.white : Colors.black,
               height: 1.4,
             ),
           ),
@@ -2029,7 +2104,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   }
 
   // --- STEP 4: SUCCESS ---
-  Widget _buildStep4Success() {
+  Widget _buildStep4Success(bool isDark) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -2039,24 +2114,24 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         SvgPicture.asset('lib/assets/Images/submit.svg', height: 180),
 
         const SizedBox(height: 32),
-        const Text(
+        Text(
           'Activity Submitted!',
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 24,
             fontWeight: FontWeight.w700,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Great Job! Your activity has been\nsubmitted successfully.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF9CA3AF),
+            color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
             height: 1.4,
           ),
         ),
@@ -2065,52 +2140,57 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             borderRadius: BorderRadius.circular(40),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(
+              color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB)
+            ),
           ),
           child: Column(
             children: [
-              const Text(
+              Text(
                 'Submission ID',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF9CA3AF),
+                  color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'FT-2026-07-23-00123',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Divider(color: Color(0xFFE5E7EB), height: 1),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Divider(
+                  color: isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB), 
+                  height: 1
+                ),
               ),
-              const Text(
+              Text(
                 'Submitted At',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF9CA3AF),
+                  color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 '23 Jul 2026 • 02:52 PM',
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                 ),
               ),
             ],
@@ -2120,13 +2200,14 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         _buildPrimaryButton(
           label: 'View Activities',
           onPressed: () => Navigator.pop(context),
+          isDark: isDark
         ),
       ],
     );
   }
 
   // --- STEP 5: ERROR ---
-  Widget _buildStep5Error() {
+  Widget _buildStep5Error(bool isDark) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -2143,14 +2224,14 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 child: Container(
                   width: 160,
                   height: 120,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFEE2E2),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     PhosphorIconsFill.warning,
                     size: 80,
-                    color: Color(0xFFFCA5A5),
+                    color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFFCA5A5),
                   ),
                 ),
               ),
@@ -2159,8 +2240,8 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                 right: -10,
                 child: Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFFEF4444) : const Color(0xFFEF4444),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -2174,31 +2255,33 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
           ),
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           'Submission Failed!',
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 24,
             fontWeight: FontWeight.w700,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Oops! Something went wrong while submitting.\nPlease check your connection and try again.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF9CA3AF),
+            color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
             height: 1.4,
           ),
         ),
         const SizedBox(height: 48),
         _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFFEF4444)),
+            ? Center(
+                child: CircularProgressIndicator(
+                  color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFEF4444)
+                ),
               )
             : InkWell(
                 onTap: _submitActivity,
@@ -2207,14 +2290,14 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444),
+                    color: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFEF4444),
                     borderRadius: BorderRadius.circular(40),
                   ),
                   child: const Center(
                     child: Text(
                       'Retry Submission',
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -2227,13 +2310,13 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         if (!_isLoading)
           TextButton(
             onPressed: _prevStep,
-            child: const Text(
+            child: Text(
               'Go Back',
               style: TextStyle(
-                fontFamily: 'Roboto',
+                fontFamily: 'Poppins',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF737373),
+                color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF737373),
               ),
             ),
           ),
@@ -2244,6 +2327,7 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
   Widget _buildPrimaryButton({
     required String label,
     required VoidCallback onPressed,
+    required bool isDark,
   }) {
     return InkWell(
       onTap: onPressed,
@@ -2252,17 +2336,17 @@ class _FieldSessionScreenState extends ConsumerState<FieldSessionScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1BA654),
+          color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
           borderRadius: BorderRadius.circular(40),
         ),
         child: Center(
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Roboto',
+            style: TextStyle(
+              fontFamily: 'Poppins',
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: Colors.white,
+              color: isDark ? const Color(0xFF121212) : Colors.white,
             ),
           ),
         ),

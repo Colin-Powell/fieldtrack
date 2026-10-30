@@ -126,7 +126,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     child: Text(
                       'Forgot Password',
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 32,
                         fontWeight: FontWeight.w700,
                         color: Colors.black,
@@ -141,7 +141,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       'Enter your email address and we\'ll\nsend instruction to reset\nyour password',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: Color(0xFF737373),
@@ -156,7 +156,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   const Text(
                     'Email',
                     style: TextStyle(
-                      fontFamily: 'Roboto',
+                      fontFamily: 'Poppins',
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: Colors.black,
@@ -180,7 +180,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       hintText: 'Enter your email',
                       hintStyle: const TextStyle(
                         color: Color(0xFF9CA3AF),
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 15,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
@@ -208,7 +208,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       ),
                       focusedErrorBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
-                        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                        borderSide: const BorderSide(
+                          color: Colors.red,
+                          width: 1.5,
+                        ),
                       ),
                       filled: true,
                       fillColor: Colors.white,
@@ -237,7 +240,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                             child: const Text(
                               'Send Reset Link',
                               style: TextStyle(
-                                fontFamily: 'Roboto',
+                                fontFamily: 'Poppins',
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,

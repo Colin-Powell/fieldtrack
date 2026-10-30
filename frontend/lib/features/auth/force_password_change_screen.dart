@@ -139,7 +139,7 @@ class _ForcePasswordChangeScreenState
                     child: Text(
                       'Create a new Password',
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 28,
                         fontWeight: FontWeight.w700,
                         color: Colors.black,
@@ -154,7 +154,7 @@ class _ForcePasswordChangeScreenState
                       'For your security, this is your first time signing\nin with a temporary password. Please create\na new password before accessing\nyour account',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                         color: Color(0xFF737373),
@@ -219,7 +219,7 @@ class _ForcePasswordChangeScreenState
                             child: const Text(
                               'Update Password & Continue',
                               style: TextStyle(
-                                fontFamily: 'Roboto',
+                                fontFamily: 'Poppins',
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
@@ -254,7 +254,7 @@ class _ForcePasswordChangeScreenState
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 15,
             fontWeight: FontWeight.w700,
             color: Colors.black,
@@ -268,7 +268,7 @@ class _ForcePasswordChangeScreenState
             hintText: hint,
             hintStyle: const TextStyle(
               color: Color(0xFF9CA3AF),
-              fontFamily: 'Roboto',
+              fontFamily: 'Poppins',
               fontSize: 15,
             ),
             contentPadding: const EdgeInsets.symmetric(

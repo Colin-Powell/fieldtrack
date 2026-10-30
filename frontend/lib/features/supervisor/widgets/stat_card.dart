@@ -44,7 +44,7 @@ class StatCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: const TextStyle(
-                    fontFamily: 'Roboto',
+                    fontFamily: 'Poppins',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF374151), // Gray-700
@@ -57,7 +57,7 @@ class StatCard extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
-              fontFamily: 'Roboto',
+              fontFamily: 'Poppins',
               fontSize: 32,
               fontWeight: FontWeight.w800,
               color: Colors.black,

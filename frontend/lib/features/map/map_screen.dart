@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/core/providers/auth_provider.dart';
-import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:fieldtrack/core/providers/location_provider.dart';
 import 'package:fieldtrack/core/utils/image_utils.dart';
 import 'package:fieldtrack/features/map/providers/student_map_provider.dart';
@@ -21,13 +19,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _mapController = MapController();
 
   // Fallback centre if GPS hasn't locked yet (Kilifi/Pwani University area)
-  static const LatLng _fallbackLocation = LatLng(-1.2921, 36.8219); // Default Nairobi fallback
+  static const LatLng _fallbackLocation = LatLng(
+    -1.2921,
+    36.8219,
+  ); // Default Nairobi fallback
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     final locState = ref.watch(locationProvider);
     final mapState = ref.watch(studentMapProvider);
-    
+
     final LatLng userLocation = (!locState.isLocating && locState.error == null)
         ? LatLng(locState.latitude, locState.longitude)
         : _fallbackLocation;
@@ -35,19 +39,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       extendBody: true,
+      backgroundColor: isDark ? const Color(0xFF121212) : theme.scaffoldBackgroundColor,
       body: Stack(
         children: [
           // 1. Full Screen Map (OpenStreetMap via flutter_map)
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: userLocation,
+              initialCenter: userLocation, 
               initialZoom: 14.5,
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.fieldtrack.app',
+                // Dark mode filter for the map tiles
+                tileBuilder: isDark 
+                    ? (context, tileWidget, tile) => ColorFiltered(
+                        colorFilter: const ColorFilter.matrix([
+                          -1,  0,  0, 0, 255,
+                           0, -1,  0, 0, 255,
+                           0,  0, -1, 0, 255,
+                           0,  0,  0, 1,   0,
+                        ]),
+                        child: tileWidget,
+                      )
+                    : null,
               ),
               // Route Layer
               if (mapState.visitedRoute.isNotEmpty)
@@ -56,7 +73,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     Polyline(
                       points: mapState.visitedRoute,
                       strokeWidth: 4.0,
-                      color: const Color(0xFF1BA654),
+                      color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                     ),
                   ],
                 ),
@@ -64,41 +81,56 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               MarkerLayer(
                 markers: [
                   // Visited locations (small dots)
-                  ...mapState.visitedRoute.map((point) => Marker(
-                    point: point,
-                    width: 12,
-                    height: 12,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1BA654).withOpacity(0.5),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                  ...mapState.visitedRoute.map(
+                    (point) => Marker(
+                      point: point,
+                      width: 12,
+                      height: 12,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: (isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654))
+                              .withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF1E1E1E) : Colors.white, 
+                            width: 2,
+                          ),
+                        ),
                       ),
                     ),
-                  )),
+                  ),
                   // Activity locations
                   ...mapState.activityLocations.map((markerData) {
                     final user = ref.read(authProvider).user;
                     final avatar = markerData.avatarUrl ?? user?.avatarUrl;
-                    
+
                     return Marker(
                       point: markerData.position,
                       width: 48,
                       height: 48,
                       child: Tooltip(
-                        message: '${markerData.title}\n${markerData.description}',
+                        message:
+                            '${markerData.title}\n${markerData.description}',
                         decoration: BoxDecoration(
-                          color: Colors.black87,
+                          color: isDark ? const Color(0xFF2C2C2E) : Colors.black87,
                           borderRadius: BorderRadius.circular(8),
+                          border: isDark ? Border.all(color: const Color(0xFF333333)) : null,
                         ),
-                        textStyle: const TextStyle(color: Colors.white, fontSize: 12),
+                        textStyle: TextStyle(
+                          color: isDark ? Colors.white : Colors.white,
+                          fontSize: 12,
+                          fontFamily: 'Poppins',
+                        ),
                         child: Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFFF97316), width: 2),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFFFDBA74) : const Color(0xFFF97316),
+                              width: 2,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
+                                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.2),
                                 blurRadius: 6,
                                 offset: const Offset(0, 3),
                               ),
@@ -106,12 +138,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           ),
                           child: CircleAvatar(
                             radius: 20,
-                            backgroundColor: Colors.white,
+                            backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                             backgroundImage: avatar != null && avatar.isNotEmpty
-                                ? NetworkImage(ImageUtils.getFullImageUrl(avatar)) 
+                                ? NetworkImage(
+                                    ImageUtils.getFullImageUrl(avatar),
+                                  )
                                 : null,
-                            child: avatar == null 
-                                ? const Icon(PhosphorIconsFill.userCircle, color: Color(0xFF9CA3AF), size: 24)
+                            child: avatar == null
+                                ? Icon(
+                                    PhosphorIconsFill.userCircle,
+                                    color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
+                                    size: 24,
+                                  )
                                 : null,
                           ),
                         ),
@@ -124,7 +162,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       point: mapState.supervisorLocation!,
                       width: 32,
                       height: 32,
-                      child: const Icon(Icons.location_on, color: Color(0xFF3B82F6), size: 32),
+                      child: Icon(
+                        Icons.location_on,
+                        color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6),
+                        size: 32,
+                      ),
                     ),
                   // Current User location marker
                   if (!locState.isLocating && locState.error == null)
@@ -132,7 +174,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       point: userLocation,
                       width: 40,
                       height: 40,
-                      child: _buildUserLocationDot(),
+                      child: _buildUserLocationDot(isDark),
                     ),
                 ],
               ),
@@ -146,25 +188,28 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1BA654),
+                  color: isDark ? const Color(0xFF14532D) : const Color(0xFF1BA654),
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
+                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                child: const Text(
+                child: Text(
                   'Map',
                   style: TextStyle(
-                    fontFamily: 'Roboto',
+                    fontFamily: 'Poppins',
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: isDark ? const Color(0xFF4ADE80) : Colors.white,
                   ),
                 ),
               ),
@@ -175,16 +220,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           Positioned(
             bottom: 112, // Positioned above the bottom nav bar
             left: 24,
-            child: _buildLegend(),
+            child: _buildLegend(isDark),
           ),
 
           // 4. Locate Me FAB (Bottom Right)
-          Positioned(
-            bottom: 112,
-            right: 24,
-            child: _buildLocateFab(locState),
-          ),
-
+          Positioned(bottom: 112, right: 24, child: _buildLocateFab(locState, isDark)),
         ],
       ),
     );
@@ -193,7 +233,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   // --- WIDGET COMPONENTS ---
 
   /// Animated blue dot with accuracy ripple for user's live position.
-  Widget _buildUserLocationDot() {
+  Widget _buildUserLocationDot(bool isDark) {
+    final dotColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6);
+    
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -203,7 +245,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: const Color(0xFF3B82F6).withOpacity(0.15),
+            color: dotColor.withValues(alpha: 0.15),
           ),
         ),
         // Inner solid dot
@@ -212,11 +254,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           height: 16,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: const Color(0xFF3B82F6),
-            border: Border.all(color: Colors.white, width: 2.5),
+            color: dotColor,
+            border: Border.all(
+              color: isDark ? const Color(0xFF121212) : Colors.white, 
+              width: 2.5
+            ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF3B82F6).withOpacity(0.35),
+                color: dotColor.withValues(alpha: 0.35),
                 blurRadius: 8,
                 spreadRadius: 2,
               ),
@@ -227,15 +272,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  Widget _buildLegend() {
+  Widget _buildLegend(bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: isDark ? Border.all(color: const Color(0xFF333333)) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
             blurRadius: 15,
             offset: const Offset(0, 4),
           ),
@@ -247,26 +293,30 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         children: [
           _buildLegendItem(
             icon: Icons.gps_fixed,
-            color: const Color(0xFF3B82F6), // Blue
+            color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6), // Blue
             label: 'My Location',
+            isDark: isDark,
           ),
           const SizedBox(height: 16),
           _buildLegendItem(
             icon: Icons.location_on,
-            color: const Color(0xFF1BA654), // Green
+            color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654), // Green
             label: 'Visited Locations',
+            isDark: isDark,
           ),
           const SizedBox(height: 16),
           _buildLegendItem(
             icon: Icons.location_on,
-            color: const Color(0xFFF97316), // Orange
+            color: isDark ? const Color(0xFFFDBA74) : const Color(0xFFF97316), // Orange
             label: 'Activity Locations',
+            isDark: isDark,
           ),
           const SizedBox(height: 16),
           _buildLegendItem(
             icon: Icons.location_on,
-            color: const Color(0xFF3B82F6), // Blue
+            color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6), // Blue
             label: 'Supervisors',
+            isDark: isDark,
           ),
         ],
       ),
@@ -277,6 +327,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     required IconData icon,
     required Color color,
     required String label,
+    required bool isDark,
   }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -285,18 +336,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         const SizedBox(width: 12),
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Roboto',
+          style: TextStyle(
+            fontFamily: 'Poppins',
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.black,
+            color: isDark ? Colors.white : Colors.black,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildLocateFab(LocationState locState) {
+  Widget _buildLocateFab(LocationState locState, bool isDark) {
     return InkWell(
       onTap: () {
         if (!locState.isLocating && locState.error == null) {
@@ -311,27 +362,28 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           shape: BoxShape.circle,
+          border: isDark ? Border.all(color: const Color(0xFF333333)) : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
               blurRadius: 15,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         child: locState.isLocating
-            ? const Padding(
-                padding: EdgeInsets.all(14),
+            ? Padding(
+                padding: const EdgeInsets.all(14),
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: Color(0xFF3B82F6),
+                  color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6),
                 ),
               )
-            : const Icon(
+            : Icon(
                 PhosphorIconsRegular.crosshair,
-                color: Colors.black,
+                color: isDark ? Colors.white : Colors.black,
                 size: 28,
               ),
       ),

@@ -34,13 +34,13 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _checkVersionAndNavigate() async {
     // Keep minimum splash time of 2.5 seconds
     final minSplashTime = Future.delayed(const Duration(milliseconds: 2500));
-    
+
     // Check version
     final versionService = VersionCheckService(ApiClient().dio);
     final versionResult = await versionService.checkVersion();
-    
+
     await minSplashTime;
-    
+
     if (!mounted) return;
 
     if (versionResult['updateRequired'] == true) {
@@ -55,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen>
     } else if (versionResult['updateAvailable'] == true) {
       await showDialog(
         context: context,
-        barrierDismissible: false, 
+        barrierDismissible: false,
         builder: (context) => UpdateDialog(
           isRequired: false,
           updateUrl: versionResult['updateUrl'],
@@ -113,7 +113,7 @@ class _SplashScreenState extends State<SplashScreen>
                 const Text(
                   'FieldTrack',
                   style: TextStyle(
-                    fontFamily: 'Roboto',
+                    fontFamily: 'Poppins',
                     fontSize: 44,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
@@ -124,7 +124,7 @@ class _SplashScreenState extends State<SplashScreen>
                   'Student Field Activity\nMonitoring System',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: 'Roboto',
+                    fontFamily: 'Poppins',
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                     height: 1.2, // Adjusts line spacing perfectly
@@ -148,7 +148,7 @@ class _SplashScreenState extends State<SplashScreen>
                 const Text(
                   'Loading...',
                   style: TextStyle(
-                    fontFamily: 'Roboto',
+                    fontFamily: 'Poppins',
                     fontSize: 18,
                     fontWeight: FontWeight.w400,
                     color: Colors.white,

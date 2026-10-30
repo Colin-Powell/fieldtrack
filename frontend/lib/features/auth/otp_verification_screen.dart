@@ -175,7 +175,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                   const Text(
                     'Verify Your Email',
                     style: TextStyle(
-                      fontFamily: 'Roboto',
+                      fontFamily: 'Poppins',
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
                       color: Colors.black,
@@ -188,7 +188,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                     textAlign: TextAlign.center,
                     text: TextSpan(
                       style: const TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                         height: 1.4,
@@ -225,7 +225,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                   RichText(
                     text: TextSpan(
                       style: const TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
@@ -255,7 +255,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                     child: Text(
                       'Resend Code',
                       style: TextStyle(
-                        fontFamily: 'Roboto',
+                        fontFamily: 'Poppins',
                         fontSize: 15,
                         color: _remainingSeconds == 0
                             ? greenColor
@@ -287,7 +287,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                             child: const Text(
                               'Verify',
                               style: TextStyle(
-                                fontFamily: 'Roboto',
+                                fontFamily: 'Poppins',
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
@@ -319,7 +319,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         keyboardType: TextInputType.number,
         maxLength: 1, // Limits to 1 digit per box
         style: const TextStyle(
-          fontFamily: 'Roboto',
+          fontFamily: 'Poppins',
           fontSize: 22,
           fontWeight: FontWeight.w700,
           color: Colors.black,

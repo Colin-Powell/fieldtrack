@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fieldtrack/features/activities/providers/student_activities_provider.dart';
 import 'package:fieldtrack/core/providers/activity_provider.dart';
 import 'package:fieldtrack/core/network/api_result.dart';
-import 'package:fieldtrack/core/constants/app_constants.dart';
 import 'package:intl/intl.dart';
 import 'package:fieldtrack/core/network/api_result_builder.dart';
 import 'package:fieldtrack/shared/widgets/empty_state_widget.dart';
@@ -53,19 +52,23 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     super.dispose();
   }
 
-  // Simulating a network delay to show the skeleton loader
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF121212) : theme.scaffoldBackgroundColor,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 100.0), // 16 (default) + 100 = 116px (24 + 72 + 20)
-        child: _buildFab(),
+        padding: const EdgeInsets.only(
+          bottom: 100.0,
+        ), // 16 (default) + 100 = 116px (24 + 72 + 20)
+        child: _buildFab(isDark),
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          color: const Color(0xFF1BA654),
+          color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           onRefresh: () async {
             final status = _getStatusString(_selectedFilterIndex);
             final params = (
@@ -83,10 +86,10 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
             padding: const EdgeInsets.only(bottom: 100),
             child: Column(
               children: [
-                _buildHeaderTitle(),
-                _buildSearchBar(),
-                _buildFilters(),
-                _buildContent(), // Displays Loading, Empty State, or List
+                _buildHeaderTitle(isDark),
+                _buildSearchBar(theme, isDark),
+                _buildFilters(isDark),
+                _buildContent(isDark), // Displays Loading, Empty State, or List
               ],
             ),
           ),
@@ -97,22 +100,22 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
 
   // --- WIDGET COMPONENTS ---
 
-  Widget _buildHeaderTitle() {
+  Widget _buildHeaderTitle(bool isDark) {
     return Center(
       child: Container(
         margin: const EdgeInsets.only(top: 24, bottom: 32),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFCBE5D2),
+          color: isDark ? const Color(0xFF14532D) : const Color(0xFFCBE5D2),
           borderRadius: BorderRadius.circular(30),
         ),
-        child: const Text(
+        child: Text(
           'My Activities',
           style: TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Colors.black,
+            color: isDark ? const Color(0xFF4ADE80) : Colors.black,
           ),
         ),
       ),
@@ -120,43 +123,53 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   }
 
   // Clean, single-input pill search bar using native TextField decoration
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(ThemeData theme, bool isDark) {
+    final borderColor = isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB);
+    final fillColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: TextField(
         controller: _searchController,
+        style: TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 16,
+          color: isDark ? Colors.white : Colors.black,
+        ),
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white,
-          prefixIcon: const Padding(
-            padding: EdgeInsets.only(left: 20, right: 12),
+          fillColor: fillColor,
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 20, right: 12),
             child: Icon(
               PhosphorIconsRegular.magnifyingGlass,
-              color: Colors.black,
+              color: isDark ? const Color(0xFFA1A1AA) : Colors.black,
               size: 24,
             ),
           ),
           prefixIconConstraints: const BoxConstraints(minWidth: 40),
           hintText: 'Search activities',
-          hintStyle: const TextStyle(
-            fontFamily: 'Roboto',
+          hintStyle: TextStyle(
+            fontFamily: 'Poppins',
             fontSize: 16,
-            color: Color(0xFF9CA3AF),
+            color: isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF),
             fontWeight: FontWeight.w600,
           ),
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
-          // Clean Pill Borders
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(40),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            borderSide: BorderSide(color: borderColor),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(40),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            borderSide: BorderSide(color: borderColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(40),
-            borderSide: const BorderSide(color: Color(0xFF1BA654), width: 1.5),
+            borderSide: BorderSide(
+              color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654), 
+              width: 1.5,
+            ),
           ),
         ),
       ),
@@ -164,7 +177,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   }
 
   // Interactive Switch Tabs
-  Widget _buildFilters() {
+  Widget _buildFilters(bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 16),
       child: SingleChildScrollView(
@@ -181,7 +194,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                     setState(() => _selectedFilterIndex = index);
                   }
                 },
-                child: _buildFilterChip(_filters[index], isActive: isActive),
+                child: _buildFilterChip(_filters[index], isDark, isActive: isActive),
               ),
             );
           }),
@@ -190,20 +203,24 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label, {bool isActive = false}) {
+  Widget _buildFilterChip(String label, bool isDark, {bool isActive = false}) {
+    final activeBgColor = isDark ? const Color(0xFF14532D) : const Color(0xFF1BA654);
+    final activeTextColor = isDark ? const Color(0xFF4ADE80) : Colors.white;
+    final inactiveTextColor = isDark ? const Color(0xFFA1A1AA) : const Color(0xFF9CA3AF);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF1BA654) : Colors.transparent,
+        color: isActive ? activeBgColor : Colors.transparent,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Roboto',
+          fontFamily: 'Poppins',
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: isActive ? Colors.white : const Color(0xFF9CA3AF),
+          color: isActive ? activeTextColor : inactiveTextColor,
         ),
       ),
     );
@@ -218,16 +235,16 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     return '';
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(bool isDark) {
     return Column(
       children: [
-        for (int i = 0; i <= _currentPage; i++) 
-           _buildPage(i, isLastPage: i == _currentPage),
+        for (int i = 0; i <= _currentPage; i++)
+          _buildPage(i, isLastPage: i == _currentPage, isDark: isDark),
       ],
     );
   }
 
-  Widget _buildPage(int pageIndex, {required bool isLastPage}) {
+  Widget _buildPage(int pageIndex, {required bool isLastPage, required bool isDark}) {
     final status = _getStatusString(_selectedFilterIndex);
     final params = (
       page: pageIndex + 1,
@@ -264,25 +281,26 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
               final title = activity['title'] ?? 'Untitled Activity';
               final status = activity['status'] ?? 'DRAFT';
 
-              Color statusColor = const Color(0xFF1BA654);
-              Color statusBgColor = const Color(0xFFC3DFCC);
+              // Default green mapping (Submitted / Approved)
+              Color statusColor = isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
+              Color statusBgColor = isDark ? const Color(0xFF14532D) : const Color(0xFFC3DFCC);
               String statusText = status;
 
               if (status == 'DRAFT') {
-                statusColor = const Color(0xFF3B82F6);
-                statusBgColor = const Color(0xFFDBEAFE);
+                statusColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6);
+                statusBgColor = isDark ? const Color(0xFF1E3A8A) : const Color(0xFFDBEAFE);
                 statusText = 'Draft';
               } else if (status == 'UNDER_REVIEW') {
-                statusColor = const Color(0xFFEAB308);
-                statusBgColor = const Color(0xFFFEF08A);
+                statusColor = isDark ? const Color(0xFFFDE047) : const Color(0xFFEAB308);
+                statusBgColor = isDark ? const Color(0xFF713F12) : const Color(0xFFFEF08A);
                 statusText = 'Under Review';
               } else if (status == 'REJECTED') {
-                statusColor = const Color(0xFFEF4444);
-                statusBgColor = const Color(0xFFFEE2E2);
+                statusColor = isDark ? const Color(0xFFFCA5A5) : const Color(0xFFEF4444);
+                statusBgColor = isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2);
                 statusText = 'Rejected';
               } else if (status == 'REVISION_REQUESTED') {
-                statusColor = const Color(0xFFF97316);
-                statusBgColor = const Color(0xFFFFEDD5);
+                statusColor = isDark ? const Color(0xFFFDBA74) : const Color(0xFFF97316);
+                statusBgColor = isDark ? const Color(0xFF7C2D12) : const Color(0xFFFFEDD5);
                 statusText = 'Needs Revision';
               } else if (status == 'APPROVED' ||
                   status == 'SUBMITTED' ||
@@ -323,31 +341,38 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                 statusText: statusText,
                 statusColor: statusColor,
                 statusBgColor: statusBgColor,
-                gpsVerifiedColor: const Color(0xFF1BA654),
+                gpsVerifiedColor: isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654),
                 imageUrl: imageUrl,
+                isDark: isDark,
               );
-            }).toList(),
-              // Pagination controls
-              if (isLastPage && hasMore)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 24,
-                  ),
-                  child: ElevatedButton(
-                    onPressed: () => setState(() => _currentPage++),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1BA654),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(48),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+            }),
+            // Pagination controls
+            if (isLastPage && hasMore)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
+                child: ElevatedButton(
+                  onPressed: () => setState(() => _currentPage++),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? const Color(0xFF14532D) : const Color(0xFF1BA654),
+                    foregroundColor: isDark ? const Color(0xFF4ADE80) : Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(48),
                     ),
-                    child: const Text('Load More', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 14,
+                    ),
+                  ),
+                  child: const Text(
+                    'Load More',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                   ),
                 ),
+              ),
           ],
         );
       },
@@ -355,32 +380,46 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   }
 
   Future<void> _deleteActivity(String id) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text(
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        title: Text(
           'Delete Activity',
-          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontFamily: 'Poppins', 
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black,
+          ),
         ),
-        content: const Text(
+        content: Text(
           'Are you sure you want to permanently delete this activity? This cannot be undone.',
-          style: TextStyle(fontFamily: 'Roboto'),
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              'Cancel', 
+              style: TextStyle(color: isDark ? const Color(0xFFA1A1AA) : Colors.grey)
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: isDark ? const Color(0xFF450A0A) : Colors.red,
+              foregroundColor: isDark ? const Color(0xFFFCA5A5) : Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -403,7 +442,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
 
   // Clean Empty State
   Widget _buildEmptyState() {
-    return EmptyStateWidget(
+    return const EmptyStateWidget(
       title: 'No Activities',
       message:
           'You have not added any activities yet. Click the + button to create a new draft activity for your field session.',
@@ -421,16 +460,24 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     required Color statusBgColor,
     required Color gpsVerifiedColor,
     required String? imageUrl,
+    required bool isDark,
   }) {
+    final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB);
+    final placeholderColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF3F4F6);
+    final textColor = isDark ? Colors.white : Colors.black;
+    final subTextColor = isDark ? const Color(0xFFA1A1AA) : const Color(0xFF737373);
+    final caretColor = isDark ? Colors.white70 : Colors.black;
+
     return GestureDetector(
       onTap: () => context.push('/activity-detail/$id'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16, left: 24, right: 24),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: cardBorder),
         ),
         child: Row(
           children: [
@@ -446,10 +493,10 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                         return Container(
                           width: 64,
                           height: 64,
-                          color: const Color(0xFFF3F4F6),
-                          child: const Icon(
+                          color: placeholderColor,
+                          child: Icon(
                             PhosphorIconsRegular.image,
-                            color: Color(0xFF9CA3AF),
+                            color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                             size: 32,
                           ),
                         );
@@ -458,10 +505,10 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                   : Container(
                       width: 64,
                       height: 64,
-                      color: const Color(0xFFF3F4F6),
-                      child: const Icon(
+                      color: placeholderColor,
+                      child: Icon(
                         PhosphorIconsRegular.image,
-                        color: Color(0xFF9CA3AF),
+                        color: isDark ? const Color(0xFF6B7280) : const Color(0xFF9CA3AF),
                         size: 32,
                       ),
                     ),
@@ -477,11 +524,11 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black,
+                            color: textColor,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -500,7 +547,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                         child: Text(
                           statusText,
                           style: TextStyle(
-                            fontFamily: 'Roboto',
+                            fontFamily: 'Poppins',
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: statusColor,
@@ -515,11 +562,11 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                       Expanded(
                         child: Text(
                           location,
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
-                            color: Color(0xFF737373),
+                            color: subTextColor,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -529,7 +576,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                       Text(
                         'GPS Verified',
                         style: TextStyle(
-                          fontFamily: 'Roboto',
+                          fontFamily: 'Poppins',
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: gpsVerifiedColor,
@@ -540,11 +587,11 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
                   const SizedBox(height: 2),
                   Text(
                     time,
-                    style: const TextStyle(
-                      fontFamily: 'Roboto',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xFF737373),
+                      color: subTextColor,
                     ),
                   ),
                 ],
@@ -552,12 +599,15 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(PhosphorIconsRegular.trash, color: Colors.red),
+              icon: Icon(
+                PhosphorIconsRegular.trash, 
+                color: isDark ? const Color(0xFFFCA5A5) : Colors.red
+              ),
               onPressed: () => _deleteActivity(id),
             ),
-            const Icon(
+            Icon(
               PhosphorIconsRegular.caretRight,
-              color: Colors.black,
+              color: caretColor,
               size: 24,
             ),
           ],
@@ -566,12 +616,17 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     );
   }
 
-  Widget _buildFab() {
+  Widget _buildFab(bool isDark) {
     final checkInState = ref.read(checkInProvider);
+    final bgColor = isDark ? const Color(0xFF14532D) : const Color(0xFF1BA654);
+    final fgColor = isDark ? const Color(0xFF4ADE80) : Colors.white;
+
     return GestureDetector(
       onTap: () {
         if (!checkInState.isCheckedIn) {
-          ToastService.showError('You must check in first before logging an activity.');
+          ToastService.showError(
+            'You must check in first before logging an activity.',
+          );
           return;
         }
         context.push('/field-session');
@@ -579,11 +634,11 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
       child: Container(
         padding: const EdgeInsets.only(left: 20, right: 8, top: 8, bottom: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF1BA654),
+          color: bgColor,
           borderRadius: BorderRadius.circular(40),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -592,115 +647,30 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'New Activity',
               style: TextStyle(
-                fontFamily: 'Roboto',
+                fontFamily: 'Poppins',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: fgColor,
               ),
             ),
             const SizedBox(width: 12),
             Container(
               padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: fgColor,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 PhosphorIconsRegular.plus,
-                color: Color(0xFF1BA654),
+                color: isDark ? const Color(0xFF121212) : const Color(0xFF1BA654),
                 size: 20,
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// Reusable Skeleton Layout matching the Activity Card
-class _SkeletonCard extends StatelessWidget {
-  const _SkeletonCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16, left: 24, right: 24),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Row(
-        children: [
-          // Skeleton Image
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(32),
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Skeleton Text Rows
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      width: 120,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    Container(
-                      width: 60,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: 90,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  width: 110,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(
-            PhosphorIconsRegular.caretRight,
-            color: Color(0xFFF3F4F6),
-            size: 24,
-          ),
-        ],
       ),
     );
   }

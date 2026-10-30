@@ -17,9 +17,10 @@ class CheckInScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final locState = ref.watch(locationProvider);
     final checkInState = ref.watch(checkInProvider);
-    const String fontFamily = 'Roboto';
+    const String fontFamily = 'Poppins';
 
-    final LatLng currentPosition = (locState.latitude != 0.0 && locState.longitude != 0.0)
+    final LatLng currentPosition =
+        (locState.latitude != 0.0 && locState.longitude != 0.0)
         ? LatLng(locState.latitude, locState.longitude)
         : const LatLng(-3.6305, 39.8499);
 
@@ -27,8 +28,21 @@ class CheckInScreen extends ConsumerWidget {
     final dateStr = DateFormat('dd MMM yyyy').format(now);
     final timeStr = DateFormat('hh:mm a').format(now);
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    // Dynamic Theme Colors
+    final scaffoldBg = isDark ? const Color(0xFF121212) : theme.scaffoldBackgroundColor;
+    final cardBg = isDark ? const Color(0xFF1E1E1E) : theme.cardColor;
+    final pillBg = isDark ? const Color(0xFF14532D) : const Color(0xFFC3DFCC).withValues(alpha: 0.6);
+    final pillTextColor = isDark ? const Color(0xFF4ADE80) : Colors.black;
+    final primaryGreen = isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
+    final textColor = isDark ? Colors.white : Colors.black;
+    final subtextColor = isDark ? const Color(0xFFA1A1AA) : const Color(0xFF6B7280);
+    final dividerColor = isDark ? const Color(0xFF333333) : const Color(0xFFE5E7EB);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: scaffoldBg,
       body: SafeArea(
         child: Column(
           children: [
@@ -42,26 +56,33 @@ class CheckInScreen extends ConsumerWidget {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFC3DFCC).withValues(alpha: 0.6),
+                        color: pillBg,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(PhosphorIconsRegular.caretLeft, color: Colors.black, size: 24),
+                      child: Icon(
+                        PhosphorIconsRegular.caretLeft,
+                        color: pillTextColor,
+                        size: 24,
+                      ),
                     ),
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFC3DFCC).withValues(alpha: 0.6),
+                      color: pillBg,
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Check In',
                       style: TextStyle(
                         fontFamily: fontFamily,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: pillTextColor,
                       ),
                     ),
                   ),
@@ -75,13 +96,19 @@ class CheckInScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(32),
+                  border: Border.all(color: dividerColor),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.3 : 0.06,
+                      ),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
@@ -93,23 +120,25 @@ class CheckInScreen extends ConsumerWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Current Location',
                           style: TextStyle(
                             fontFamily: fontFamily,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF1BA654),
+                            color: primaryGreen,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          locState.isLocating ? 'Locating...' : locState.locationName,
-                          style: const TextStyle(
+                          locState.isLocating
+                              ? 'Locating...'
+                              : locState.locationName,
+                          style: TextStyle(
                             fontFamily: fontFamily,
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF374151),
+                            color: textColor,
                           ),
                         ),
                       ],
@@ -117,23 +146,25 @@ class CheckInScreen extends ConsumerWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Text(
+                        Text(
                           'GPS Accuracy',
                           style: TextStyle(
                             fontFamily: fontFamily,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF1BA654),
+                            color: primaryGreen,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          locState.isLocating ? '—' : '±${locState.accuracy.toStringAsFixed(0)} m',
-                          style: const TextStyle(
+                          locState.isLocating
+                              ? '—'
+                              : '±${locState.accuracy.toStringAsFixed(0)} m',
+                          style: TextStyle(
                             fontFamily: fontFamily,
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF374151),
+                            color: textColor,
                           ),
                         ),
                       ],
@@ -162,8 +193,21 @@ class CheckInScreen extends ConsumerWidget {
                         ),
                         children: [
                           TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            urlTemplate:
+                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                             userAgentPackageName: 'com.example.fieldtrack',
+                            // Optional dark mode filter for the map tiles
+                            tileBuilder: isDark 
+                                ? (context, tileWidget, tile) => ColorFiltered(
+                                    colorFilter: const ColorFilter.matrix([
+                                      -1,  0,  0, 0, 255,
+                                       0, -1,  0, 0, 255,
+                                       0,  0, -1, 0, 255,
+                                       0,  0,  0, 1,   0,
+                                    ]),
+                                    child: tileWidget,
+                                  )
+                                : null,
                           ),
                           MarkerLayer(
                             markers: [
@@ -183,9 +227,15 @@ class CheckInScreen extends ConsumerWidget {
                                       decoration: BoxDecoration(
                                         color: Colors.blue,
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white, width: 2),
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 2,
+                                        ),
                                         boxShadow: const [
-                                          BoxShadow(color: Colors.black26, blurRadius: 4),
+                                          BoxShadow(
+                                            color: Colors.black26,
+                                            blurRadius: 4,
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -203,9 +253,10 @@ class CheckInScreen extends ConsumerWidget {
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 0),
                         padding: const EdgeInsets.all(24),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.only(
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          border: Border.all(color: dividerColor),
+                          borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(40),
                             topRight: Radius.circular(40),
                             bottomLeft: Radius.circular(32),
@@ -217,32 +268,65 @@ class CheckInScreen extends ConsumerWidget {
                           children: [
                             Row(
                               children: [
-                                const Icon(PhosphorIconsRegular.mapPin, color: Color(0xFF6B7280), size: 20),
+                                Icon(
+                                  PhosphorIconsRegular.mapPin,
+                                  color: subtextColor,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      const Text('Location', style: TextStyle(fontFamily: fontFamily, fontSize: 13, color: Color(0xFF6B7280))),
+                                      Text(
+                                        'Location',
+                                        style: TextStyle(
+                                          fontFamily: fontFamily,
+                                          fontSize: 13,
+                                          color: subtextColor,
+                                        ),
+                                      ),
                                       const SizedBox(height: 4),
                                       Text(
                                         locState.locationName,
-                                        style: const TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                          fontFamily: fontFamily,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: textColor,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
                               ],
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: Divider(color: Color(0xFFE5E7EB)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Divider(color: dividerColor),
                             ),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(dateStr, style: const TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.bold)),
-                                Text(timeStr, style: const TextStyle(fontFamily: fontFamily, fontSize: 16, fontWeight: FontWeight.bold)),
+                                Text(
+                                  dateStr,
+                                  style: TextStyle(
+                                    fontFamily: fontFamily,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
+                                Text(
+                                  timeStr,
+                                  style: TextStyle(
+                                    fontFamily: fontFamily,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -264,34 +348,46 @@ class CheckInScreen extends ConsumerWidget {
                   onPressed: checkInState.isLoading || locState.isLocating
                       ? null
                       : () async {
-                          final success = await ref.read(checkInProvider.notifier).checkIn();
+                          final success = await ref
+                              .read(checkInProvider.notifier)
+                              .checkIn();
                           if (success && context.mounted) {
-                            ToastService.showSuccess('Checked in successfully! Location captured.');
+                            ToastService.showSuccess(
+                              'Checked in successfully! Location captured.',
+                            );
                             context.pop();
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1BA654),
-                    disabledBackgroundColor: const Color(0xFF9DC9B0),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                    backgroundColor: isDark ? const Color(0xFF14532D) : const Color(0xFF1BA654),
+                    foregroundColor: isDark ? const Color(0xFF4ADE80) : Colors.white,
+                    disabledBackgroundColor: isDark 
+                        ? const Color(0xFF14532D).withValues(alpha: 0.5) 
+                        : const Color(0xFF9DC9B0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
                     elevation: 0,
                   ),
                   child: checkInState.isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              isDark ? const Color(0xFF4ADE80) : Colors.white,
+                            ),
                           ),
                         )
                       : Text(
-                          locState.isLocating ? 'Waiting for GPS...' : 'Check In',
+                          locState.isLocating
+                              ? 'Waiting for GPS...'
+                              : 'Check In',
                           style: const TextStyle(
                             fontFamily: fontFamily,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
                           ),
                         ),
                 ),

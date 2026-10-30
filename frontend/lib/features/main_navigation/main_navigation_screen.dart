@@ -30,15 +30,26 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const greenColor = Color(0xFF1BA654);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     final selectedIndex = ref.watch(navigationIndexProvider);
     final isSelectionMode = ref.watch(notificationSelectionModeProvider);
     final notifsAsync = ref.watch(notificationsProvider);
     final unreadCount =
         notifsAsync.valueOrNull?.where((n) => !n.isRead).length ?? 0;
 
+    // Dynamic Colors for Nav Bar
+    final navBarBgColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xFF1BA654);
+    final navBarShadowColor = isDark 
+        ? Colors.black.withValues(alpha: 0.5) 
+        : const Color(0xFF1BA654).withValues(alpha: 0.3);
+    final navBarBorder = isDark 
+        ? Border.all(color: const Color(0xFF333333), width: 1.5) 
+        : null;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF121212) : theme.scaffoldBackgroundColor,
       // extendBody ensures the body content scrolls underneath the floating nav bar
       extendBody: true,
       body: Stack(
@@ -59,11 +70,12 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                 height: 72,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  color: greenColor,
+                  color: navBarBgColor,
                   borderRadius: BorderRadius.circular(36), // Pill shape
+                  border: navBarBorder,
                   boxShadow: [
                     BoxShadow(
-                      color: greenColor.withValues(alpha: 0.3),
+                      color: navBarShadowColor,
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -78,28 +90,28 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       'Home',
                       0,
                       selectedIndex,
-                      greenColor,
+                      isDark,
                     ),
                     _buildNavItem(
                       Icons.article,
                       'Activities',
                       1,
                       selectedIndex,
-                      greenColor,
+                      isDark,
                     ),
                     _buildNavItem(
                       Icons.location_on,
                       'Map',
                       2,
                       selectedIndex,
-                      greenColor,
+                      isDark,
                     ),
                     _buildNavItem(
                       Icons.notifications,
                       'Alerts',
                       3,
                       selectedIndex,
-                      greenColor,
+                      isDark,
                       badgeCount: unreadCount,
                     ),
                     _buildNavItem(
@@ -107,7 +119,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       'Profile',
                       4,
                       selectedIndex,
-                      greenColor,
+                      isDark,
                     ),
                   ],
                 ),
@@ -127,11 +139,15 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     String label,
     int index,
     int selectedIndex,
-    Color activeColor, {
+    bool isDark, {
     int badgeCount = 0,
   }) {
     final isSelected = selectedIndex == index;
-    const activeBgColor = Color(0xFFC3DFCC); // Light Green
+    
+    // Dynamic Colors for the Items
+    final activeBgColor = isDark ? const Color(0xFF14532D) : const Color(0xFFC3DFCC);
+    final activeColor = isDark ? const Color(0xFF4ADE80) : const Color(0xFF1BA654);
+    final inactiveColor = isDark ? const Color(0xFFA1A1AA) : Colors.white;
 
     return GestureDetector(
       onTap: () => _onItemTapped(index),
@@ -153,7 +169,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
               children: [
                 Icon(
                   icon,
-                  color: isSelected ? activeColor : Colors.white,
+                  color: isSelected ? activeColor : inactiveColor,
                   size: 24,
                 ),
                 // Notification Badge Logic
@@ -164,7 +180,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: Color(0xFFEF4444), // Red badge
+                        color: Color(0xFFEF4444), // Red badge always visible
                         shape: BoxShape.circle,
                       ),
                       child: Text(
@@ -173,7 +189,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          fontFamily: 'Roboto',
+                          fontFamily: 'Poppins',
                         ),
                       ),
                     ),
@@ -185,7 +201,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  fontFamily: 'Roboto',
+                  fontFamily: 'Poppins',
                   color: activeColor,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,

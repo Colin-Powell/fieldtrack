@@ -20,7 +20,7 @@ class SectionHeader extends StatelessWidget {
         Text(
           title,
           style: const TextStyle(
-            fontFamily: 'Roboto',
+            fontFamily: 'Poppins',
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: Colors.black,
@@ -37,7 +37,7 @@ class SectionHeader extends StatelessWidget {
             child: Text(
               actionText!,
               style: const TextStyle(
-                fontFamily: 'Roboto',
+                fontFamily: 'Poppins',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: Color(0xFF1BA654),

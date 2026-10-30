@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fieldtrack/core/network/api_client.dart';
-import 'package:fieldtrack/core/network/api_result.dart';
 
 class NotificationModel {
   final String id;
